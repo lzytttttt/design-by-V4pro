@@ -1,0 +1,2 @@
+prompt：制作10套AI native设计哲学的Agent主页，不要简单的换皮，可以探索新形态新观感的design
+harness：opencode
