@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>神经织网 · Neural Web</title>
+<style>
+  :root {
+    --bg-deep: #0a0a12;
+    --bg-deeper: #050509;
+    --synapse: #3b82f6;
+    --neuron-memory: #a855f7;
+    --neuron-task: #22d3ee;
+    --neuron-knowledge: #fbbf24;
+    --neuron-dialogue: #10b981;
+    --neuron-core: #ffffff;
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.6);
+    --text-muted: rgba(255, 255, 255, 0.35);
+    --glass-bg: rgba(15, 15, 25, 0.7);
+    --glass-border: rgba(59, 130, 246, 0.25);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  #networkCanvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+  }
+
+  /* 背景星点 */
+  .bg-stars {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background:
+      radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,0.3), transparent),
+      radial-gradient(1px 1px at 60% 70%, rgba(255,255,255,0.2), transparent),
+      radial-gradient(1px 1px at 80% 20%, rgba(255,255,255,0.25), transparent),
+      radial-gradient(2px 2px at 40% 80%, rgba(255,255,255,0.2), transparent),
+      radial-gradient(1px 1px at 90% 50%, rgba(255,255,255,0.15), transparent),
+      radial-gradient(1px 1px at 15% 65%, rgba(255,255,255,0.2), transparent),
+      radial-gradient(1px 1px at 70% 90%, rgba(255,255,255,0.15), transparent);
+    background-size: 100% 100%;
+  }
+
+  /* 顶部悬浮栏 */
+  .top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    background: linear-gradient(to bottom, rgba(10, 10, 18, 0.9), transparent);
+  }
+
+  .agent-identity {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .agent-core-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 20%, var(--synapse) 60%, transparent 80%);
+    box-shadow: 0 0 20px var(--synapse), 0 0 40px rgba(59, 130, 246, 0.4);
+    animation: core-pulse 2s ease-in-out infinite;
+    position: relative;
+  }
+
+  .agent-core-icon::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border: 1px solid var(--synapse);
+    border-radius: 50%;
+    opacity: 0.3;
+    animation: core-ring 2s ease-in-out infinite;
+  }
+
+  @keyframes core-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+
+  @keyframes core-ring {
+    0% { transform: scale(1); opacity: 0.5; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+
+  .agent-name {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .agent-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .agent-stats {
+    display: flex;
+    gap: 28px;
+  }
+
+  .stat-item {
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--synapse);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .inject-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, var(--synapse), #6366f1);
+    border: none;
+    border-radius: 24px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+    transition: all 0.3s;
+  }
+
+  .inject-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 30px rgba(59, 130, 246, 0.6);
+  }
+
+  /* 脑区标签 */
+  .region-labels {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  .region-label {
+    position: absolute;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 600;
+    opacity: 0.7;
+  }
+
+  .region-label .rl-count {
+    font-size: 9px;
+    opacity: 0.6;
+    margin-top: 2px;
+    letter-spacing: 1px;
+  }
+
+  .region-memory {
+    top: 45%;
+    left: 4%;
+    color: var(--neuron-memory);
+    text-align: center;
+  }
+
+  .region-task {
+    top: 8%;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--neuron-task);
+    text-align: center;
+  }
+
+  .region-knowledge {
+    top: 45%;
+    right: 4%;
+    color: var(--neuron-knowledge);
+    text-align: center;
+  }
+
+  .region-dialogue {
+    bottom: 14%;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--neuron-dialogue);
+    text-align: center;
+  }
+
+  /* 详情面板 */
+  .detail-panel {
+    position: fixed;
+    top: 90px;
+    right: -380px;
+    width: 360px;
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 24px;
+    z-index: 8;
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(59, 130, 246, 0.1);
+    transition: right 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .detail-panel.active { right: 24px; }
+
+  .detail-panel::-webkit-scrollbar { width: 4px; }
+  .detail-panel::-webkit-scrollbar-thumb { background: var(--synapse); border-radius: 2px; }
+
+  .detail-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.15);
+  }
+
+  .detail-type-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    box-shadow: 0 0 10px currentColor;
+  }
+
+  .detail-type {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .detail-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    line-height: 1.3;
+  }
+
+  .detail-desc {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+  }
+
+  .detail-section {
+    margin-bottom: 18px;
+  }
+
+  .detail-section-title {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  .progress-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--synapse), var(--neuron-task));
+    border-radius: 3px;
+    box-shadow: 0 0 10px var(--neuron-task);
+    transition: width 0.5s;
+  }
+
+  .progress-text {
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .connection-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .connection-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .connection-item:hover {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--text-primary);
+  }
+
+  .connection-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .detail-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .detail-close:hover { border-color: var(--synapse); color: var(--synapse); }
+
+  /* 底部输入 */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    padding: 20px 32px 24px;
+    background: linear-gradient(to top, rgba(10, 10, 18, 0.95), transparent);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  .brainwave {
+    width: 200px;
+    flex-shrink: 0;
+  }
+
+  .brainwave-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .brainwave-label .bw-freq {
+    color: var(--neuron-dialogue);
+  }
+
+  #brainwaveCanvas {
+    width: 100%;
+    height: 50px;
+    background: rgba(5, 5, 9, 0.6);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 8px;
+  }
+
+  .input-area {
+    flex: 1;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 30px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(59, 130, 246, 0.1);
+    transition: all 0.3s;
+  }
+
+  .input-wrapper:focus-within {
+    border-color: var(--synapse);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 30px rgba(59, 130, 246, 0.3);
+  }
+
+  .input-icon {
+    color: var(--synapse);
+    font-size: 16px;
+    animation: core-pulse 2s ease-in-out infinite;
+  }
+
+  .input-field {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+  }
+
+  .input-field::placeholder { color: var(--text-muted); }
+
+  .send-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, var(--synapse), #6366f1);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+    transition: all 0.3s;
+  }
+
+  .send-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.6);
+  }
+
+  .status-area {
+    width: 200px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  .status-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .status-value {
+    font-size: 13px;
+    color: var(--neuron-dialogue);
+    font-weight: 600;
+  }
+
+  .status-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* 提示 */
+  .hint {
+    position: fixed;
+    bottom: 110px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    z-index: 5;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  /* 回答气泡 */
+  .answer-bubble {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    max-width: 500px;
+    padding: 24px 28px;
+    background: var(--glass-bg);
+    border: 1px solid var(--synapse);
+    border-radius: 16px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 0 60px rgba(59, 130, 246, 0.4);
+    z-index: 20;
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .answer-bubble.active {
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  .answer-tag {
+    font-size: 10px;
+    color: var(--synapse);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .answer-text {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-primary);
+  }
+
+  .answer-close {
+    margin-top: 16px;
+    padding: 8px 20px;
+    background: var(--synapse);
+    border: none;
+    border-radius: 20px;
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  /* 响应式 */
+  @media (max-width: 900px) {
+    .brainwave, .status-area { display: none; }
+    .bottom-bar { justify-content: center; }
+    .agent-stats { gap: 16px; }
+    .stat-value { font-size: 18px; }
+    .detail-panel { width: calc(100% - 32px); right: -100%; }
+    .detail-panel.active { right: 16px; }
+  }
+
+  @media (max-width: 600px) {
+    .top-bar { padding: 14px 16px; flex-wrap: wrap; gap: 10px; }
+    .agent-stats { gap: 12px; }
+    .stat-value { font-size: 16px; }
+    .inject-btn { padding: 8px 14px; font-size: 12px; }
+    .bottom-bar { padding: 16px; }
+    .region-label { font-size: 9px; letter-spacing: 2px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-stars"></div>
+<canvas id="networkCanvas"></canvas>
+
+<!-- 脑区标签 -->
+<div class="region-labels">
+  <div class="region-label region-memory">
+    <div>记忆 · MEMORY</div>
+    <div class="rl-count">7 节点</div>
+  </div>
+  <div class="region-label region-task">
+    <div>任务 · TASK</div>
+    <div class="rl-count">8 节点</div>
+  </div>
+  <div class="region-label region-knowledge">
+    <div>知识 · KNOWLEDGE</div>
+    <div class="rl-count">7 节点</div>
+  </div>
+  <div class="region-label region-dialogue">
+    <div>对话 · DIALOGUE</div>
+    <div class="rl-count">6 节点</div>
+  </div>
+</div>
+
+<!-- 顶部栏 -->
+<div class="top-bar">
+  <div class="agent-identity">
+    <div class="agent-core-icon"></div>
+    <div>
+      <div class="agent-name">Cortex</div>
+      <div class="agent-sub">NEURAL AGENT</div>
+    </div>
+  </div>
+
+  <div class="agent-stats">
+    <div class="stat-item">
+      <div class="stat-value" id="neuronCount">28</div>
+      <div class="stat-label">神经元</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value" id="activationCount">1,247</div>
+      <div class="stat-label">今日激活</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value" id="synapseCount">52</div>
+      <div class="stat-label">突触连接</div>
+    </div>
+  </div>
+
+  <button class="inject-btn" onclick="injectKnowledge()">
+    <span>+</span> 注入新知识
+  </button>
+</div>
+
+<!-- 详情面板 -->
+<div class="detail-panel" id="detailPanel">
+  <button class="detail-close" onclick="closeDetail()">✕</button>
+  <div class="detail-header">
+    <div class="detail-type-dot" id="detailDot"></div>
+    <div class="detail-type" id="detailType"></div>
+  </div>
+  <div class="detail-title" id="detailTitle"></div>
+  <div class="detail-desc" id="detailDesc"></div>
+
+  <div class="detail-section" id="progressSection">
+    <div class="detail-section-title">任务进度</div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+    </div>
+    <div class="progress-text">
+      <span id="progressLabel">进行中</span>
+      <span id="progressPercent">0%</span>
+    </div>
+  </div>
+
+  <div class="detail-section">
+    <div class="detail-section-title">关联节点</div>
+    <div class="connection-list" id="connectionList"></div>
+  </div>
+</div>
+
+<!-- 底部栏 -->
+<div class="bottom-bar">
+  <div class="brainwave">
+    <div class="brainwave-label">
+      <span>脑电波 · EEG</span>
+      <span class="bw-freq" id="bwFreq">12.4 Hz</span>
+    </div>
+    <canvas id="brainwaveCanvas"></canvas>
+  </div>
+
+  <div class="input-area">
+    <div class="input-wrapper">
+      <span class="input-icon">◉</span>
+      <input type="text" class="input-field" id="inputField" placeholder="向大脑提问...">
+      <button class="send-btn" onclick="askBrain()">↑</button>
+    </div>
+  </div>
+
+  <div class="status-area">
+    <div class="status-label">大脑状态</div>
+    <div class="status-value" id="brainStatus">活跃思考中</div>
+    <div class="status-sub" id="brainSub">α 波 · 放松专注</div>
+  </div>
+</div>
+
+<div class="hint">点击神经元查看详情 · 移动鼠标探索网络</div>
+
+<!-- 回答气泡 -->
+<div class="answer-bubble" id="answerBubble">
+  <div class="answer-tag">▸ Cortex 回应</div>
+  <div class="answer-text" id="answerText"></div>
+  <button class="answer-close" onclick="closeAnswer()">明白</button>
+</div>
+
+<script>
+  // === 神经网络数据 ===
+  const REGIONS = {
+    memory: { color: '#a855f7', glow: 'rgba(168, 85, 247, 0.5)', label: '记忆' },
+    task: { color: '#22d3ee', glow: 'rgba(34, 211, 238, 0.5)', label: '任务' },
+    knowledge: { color: '#fbbf24', glow: 'rgba(251, 191, 36, 0.5)', label: '知识' },
+    dialogue: { color: '#10b981', glow: 'rgba(16, 185, 129, 0.5)', label: '对话' }
+  };
+
+  // 预生成节点 (按脑区分布)
+  const nodes = [];
+  const W = () => window.innerWidth;
+  const H = () => window.innerHeight;
+
+  function generateNodes() {
+    nodes.length = 0;
+    const cx = W() / 2, cy = H() / 2;
+
+    // 记忆区 (左侧)
+    const memoryData = [
+      { t: '上周会议纪要', d: '产品评审会讨论了 Agent 可靠性提升方案，确定下季度将推理延迟降低至 200ms 以内。' },
+      { t: '客户反馈记录', d: '24 家企业客户反馈，89% 关注数据私有化，76% 需要 Agent 工作流定制。' },
+      { t: 'Q2 财报数据', d: '上季度总营收 3.8 亿，云服务占比 55%，企业客户新增 280 家。' },
+      { t: '技术债清单', d: '识别 18 项技术债，其中 5 项高优先级，涉及认证模块和消息队列。' },
+      { t: '竞品分析报告', d: '对比 8 家竞品，在 Agent 规划能力、多模态理解、长上下文三个维度领先。' },
+      { t: '团队架构图', d: '当前 86 人，研发 52 人，产品 12 人，设计 8 人，运营 14 人。' },
+      { t: '历史决策日志', d: '过去 6 个月 42 项关键决策，73% 采纳 AI 辅助建议。' }
+    ];
+    memoryData.forEach((data, i) => {
+      const angle = (i / memoryData.length) * Math.PI * 1.4 - Math.PI * 0.7;
+      const r = 220 + Math.random() * 80;
+      nodes.push({
+        id: nodes.length, region: 'memory', x: cx - r * Math.cos(angle) - 80,
+        y: cy + r * Math.sin(angle) * 0.7, r: 6 + Math.random() * 4,
+        ...data, progress: null
+      });
+    });
+
+    // 任务区 (上方)
+    const taskData = [
+      { t: '撰写季度报告', d: '正在生成 Q3 业务总结报告，整合营收、客户、产品多维度数据。', progress: 78 },
+      { t: '代码重构', d: '重构认证服务模块，提升并发处理能力，预计减少 30% 延迟。', progress: 45 },
+      { t: '用户调研', d: '策划下季度用户深度调研，覆盖 30 家企业客户和 200 名个人用户。', progress: 20 },
+      { t: '产品发布', d: '准备 v4.2 版本发布，包含 Agent 工作流编辑器和知识库 2.0。', progress: 60 },
+      { t: 'API 文档更新', d: '更新公开 API 文档，新增 12 个接口说明和示例代码。', progress: 90 },
+      { t: '安全审计', d: '执行季度安全审计，覆盖代码、基础设施和数据流程三个层面。', progress: 35 },
+      { t: '市场分析', d: '分析 AI Agent 市场趋势，输出 2026 行业报告框架。', progress: 50 },
+      { t: '团队培训', d: '组织 Agent 架构内部培训，提升全员对系统能力的理解。', progress: 15 }
+    ];
+    taskData.forEach((data, i) => {
+      const angle = (i / taskData.length) * Math.PI - Math.PI;
+      const r = 180 + Math.random() * 70;
+      nodes.push({
+        id: nodes.length, region: 'task', x: cx + r * Math.cos(angle) * 1.1,
+        y: cy - r * Math.sin(angle) * 0.8 - 40, r: 7 + Math.random() * 4,
+        ...data
+      });
+    });
+
+    // 知识区 (右侧)
+    const knowledgeData = [
+      { t: 'Transformer 架构', d: '深度掌握 Transformer 及变体，理解注意力机制和位置编码原理。' },
+      { t: 'RAG 检索增强', d: '熟悉检索增强生成范式，掌握向量数据库选型和混合检索策略。' },
+      { t: 'Agent 设计模式', d: '掌握 ReAct、Plan-and-Execute、Reflection 等 Agent 架构模式。' },
+      { t: 'Prompt 工程', d: '精通提示词工程，包括 CoT、Few-shot、Self-consistency 等技术。' },
+      { t: '分布式系统', d: '理解分布式共识、一致性、容错机制，熟悉微服务架构设计。' },
+      { t: '向量计算', d: '掌握向量相似度计算、ANN 算法和嵌入模型优化方法。' },
+      { t: '安全工程', d: '熟悉 OWASP Top 10、数据加密、访问控制和审计日志设计。' }
+    ];
+    knowledgeData.forEach((data, i) => {
+      const angle = (i / knowledgeData.length) * Math.PI * 1.4 - Math.PI * 0.7;
+      const r = 220 + Math.random() * 80;
+      nodes.push({
+        id: nodes.length, region: 'knowledge', x: cx + r * Math.cos(angle) + 80,
+        y: cy + r * Math.sin(angle) * 0.7, r: 6 + Math.random() * 4,
+        ...data, progress: null
+      });
+    });
+
+    // 对话区 (下方)
+    const dialogueData = [
+      { t: '部署方案咨询', d: '用户询问企业版私有化部署的硬件要求和网络配置方案。' },
+      { t: 'API 集成求助', d: '开发者询问如何将 Agent 能力集成到现有系统中。' },
+      { t: '功能建议', d: '用户建议增加多 Agent 协作和任务委派能力。' },
+      { t: '故障排查', d: '协助用户排查 Agent 响应超时问题，定位到网络配置。' },
+      { t: '定价咨询', d: '企业用户咨询大规模部署的定价方案和折扣策略。' },
+      { t: '使用最佳实践', d: '分享 Agent 使用最佳实践，包括任务拆解和上下文管理。' }
+    ];
+    dialogueData.forEach((data, i) => {
+      const angle = (i / dialogueData.length) * Math.PI;
+      const r = 180 + Math.random() * 70;
+      nodes.push({
+        id: nodes.length, region: 'dialogue', x: cx + r * Math.cos(angle) * 1.1,
+        y: cy + r * Math.sin(angle) * 0.8 + 60, r: 6 + Math.random() * 4,
+        ...data, progress: null
+      });
+    });
+
+    // 核心节点
+    nodes.push({
+      id: nodes.length, region: 'core', x: cx, y: cy, r: 16,
+      t: 'Cortex 核心', d: 'Agent 意识核心，整合所有脑区信息，负责决策与推理。',
+      progress: null, isCore: true
+    });
+  }
+
+  // 生成突触连接
+  let edges = [];
+  function generateEdges() {
+    edges = [];
+    const coreId = nodes.length - 1;
+
+    // 核心连接各区域最近节点
+    nodes.forEach((n, i) => {
+      if (n.isCore) return;
+      if (Math.random() < 0.3) {
+        edges.push({ a: coreId, b: i });
+      }
+    });
+
+    // 同区域内部连接
+    const byRegion = {};
+    nodes.forEach((n, i) => {
+      if (n.isCore) return;
+      if (!byRegion[n.region]) byRegion[n.region] = [];
+      byRegion[n.region].push(i);
+    });
+
+    Object.values(byRegion).forEach(ids => {
+      for (let i = 0; i < ids.length; i++) {
+        // 连接 1-2 个同区域节点
+        const count = 1 + Math.floor(Math.random() * 2);
+        for (let c = 0; c < count; c++) {
+          const j = (i + 1 + Math.floor(Math.random() * (ids.length - 1))) % ids.length;
+          if (i !== j && !edges.some(e => (e.a === ids[i] && e.b === ids[j]) || (e.a === ids[j] && e.b === ids[i]))) {
+            edges.push({ a: ids[i], b: ids[j] });
+          }
+        }
+      }
+    });
+
+    // 少量跨区域连接
+    for (let k = 0; k < 8; k++) {
+      const i = Math.floor(Math.random() * (nodes.length - 1));
+      const j = Math.floor(Math.random() * (nodes.length - 1));
+      if (i !== j && nodes[i].region !== nodes[j].region) {
+        edges.push({ a: i, b: j });
+      }
+    }
+  }
+
+  generateNodes();
+  generateEdges();
+
+  // === Canvas 绘制 ===
+  const canvas = document.getElementById('networkCanvas');
+  const ctx = canvas.getContext('2d');
+  let mouseX = -1000, mouseY = -1000;
+  let hoveredNode = null;
+  let pulses = []; // 突触上的信号脉冲
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = W() * dpr;
+    canvas.height = H() * dpr;
+    canvas.style.width = W() + 'px';
+    canvas.style.height = H() + 'px';
+    ctx.scale(dpr, dpr);
+  }
+  resizeCanvas();
+
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+    generateNodes();
+    generateEdges();
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+
+    // 检测悬停节点
+    hoveredNode = null;
+    for (const n of nodes) {
+      const dx = n.x - mouseX, dy = n.y - mouseY;
+      if (dx * dx + dy * dy < (n.r + 8) ** 2) {
+        hoveredNode = n;
+        canvas.style.cursor = 'pointer';
+        return;
+      }
+    }
+    canvas.style.cursor = 'default';
+  });
+
+  canvas.addEventListener('click', (e) => {
+    if (hoveredNode) {
+      showDetail(hoveredNode);
+    }
+  });
+
+  // 随机触发信号脉冲
+  function spawnPulse() {
+    if (edges.length === 0) return;
+    const edge = edges[Math.floor(Math.random() * edges.length)];
+    const reverse = Math.random() < 0.5;
+    pulses.push({
+      edge: edge,
+      progress: 0,
+      speed: 0.008 + Math.random() * 0.012,
+      reverse: reverse,
+      color: nodes[reverse ? edge.b : edge.a].region === 'core' ? '#fff' :
+             REGIONS[nodes[reverse ? edge.b : edge.a].region].color
+    });
+  }
+
+  // 节点放电状态
+  const firingNodes = new Map(); // id -> {intensity, decay}
+
+  function fireNode(id) {
+    firingNodes.set(id, { intensity: 1, decay: 0.02 });
+  }
+
+  // 定期触发
+  setInterval(() => {
+    // 随机放电 1-2 个节点
+    const count = 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < count; i++) {
+      const n = nodes[Math.floor(Math.random() * nodes.length)];
+      fireNode(n.id);
+    }
+    // 生成脉冲
+    if (Math.random() < 0.7) spawnPulse();
+  }, 600);
+
+  let time = 0;
+  function draw() {
+    time += 0.016;
+    ctx.clearRect(0, 0, W(), H());
+
+    // 绘制突触连接
+    edges.forEach(e => {
+      const a = nodes[e.a], b = nodes[e.b];
+      const isHighlighted = hoveredNode && (e.a === hoveredNode.id || e.b === hoveredNode.id);
+
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      const mx = (a.x + b.x) / 2 + (b.y - a.y) * 0.15;
+      const my = (a.y + b.y) / 2 - (b.x - a.x) * 0.15;
+      ctx.quadraticCurveTo(mx, my, b.x, b.y);
+
+      const colorA = a.isCore ? '#ffffff' : REGIONS[a.region].color;
+      const colorB = b.isCore ? '#ffffff' : REGIONS[b.region].color;
+
+      const gradient = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+      gradient.addColorStop(0, isHighlighted ? colorA : 'rgba(59, 130, 246, 0.15)');
+      gradient.addColorStop(1, isHighlighted ? colorB : 'rgba(59, 130, 246, 0.15)');
+
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = isHighlighted ? 1.8 : 0.8;
+      ctx.stroke();
+    });
+
+    // 绘制脉冲
+    pulses = pulses.filter(p => p.progress < 1);
+    pulses.forEach(p => {
+      p.progress += p.speed;
+      const a = nodes[p.edge.a], b = nodes[p.edge.b];
+      const start = p.reverse ? b : a;
+      const end = p.reverse ? a : b;
+
+      const mx = (start.x + end.x) / 2 + (end.y - start.y) * 0.15;
+      const my = (start.y + end.y) / 2 - (end.x - start.x) * 0.15;
+
+      // 贝塞尔曲线上的点
+      const t = p.progress;
+      const x = (1 - t) * (1 - t) * start.x + 2 * (1 - t) * t * mx + t * t * end.x;
+      const y = (1 - t) * (1 - t) * start.y + 2 * (1 - t) * t * my + t * t * end.y;
+
+      // 光点
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, 8);
+      glow.addColorStop(0, p.color);
+      glow.addColorStop(0.5, p.color.replace(')', ', 0.4)').replace('rgb', 'rgba'));
+      glow.addColorStop(1, 'transparent');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // 绘制节点
+    nodes.forEach(n => {
+      const isHovered = hoveredNode === n;
+      const isConnectedToHovered = hoveredNode && edges.some(e =>
+        (e.a === n.id && e.b === hoveredNode.id) || (e.b === n.id && e.a === hoveredNode.id)
+      );
+
+      const firing = firingNodes.get(n.id);
+      let intensity = 0.5;
+      if (firing) {
+        intensity = firing.intensity;
+        firing.intensity -= firing.decay;
+        if (firing.intensity <= 0.5) firingNodes.delete(n.id);
+      }
+      if (isHovered || isConnectedToHovered) intensity = Math.max(intensity, 0.9);
+
+      const baseColor = n.isCore ? '#ffffff' : REGIONS[n.region].color;
+      const glowColor = n.isCore ? 'rgba(255, 255, 255, 0.6)' : REGIONS[n.region].glow;
+
+      // 外发光
+      const pulseR = n.isCore ? n.r + 8 + Math.sin(time * 3) * 4 : n.r + 4;
+      const glowR = pulseR + (isHovered ? 12 : 6) + intensity * 8;
+      const glow = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, glowR);
+      glow.addColorStop(0, glowColor);
+      glow.addColorStop(1, 'transparent');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, glowR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 节点本体
+      const r = n.r * (isHovered ? 1.4 : 1) * (1 + (intensity - 0.5) * 0.3);
+      ctx.fillStyle = baseColor;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 核心节点额外环
+      if (n.isCore) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r + 6 + Math.sin(time * 2) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r + 12 + Math.sin(time * 2 + 1) * 4, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // 悬停标签
+      if (isHovered) {
+        ctx.fillStyle = 'rgba(15, 15, 25, 0.9)';
+        ctx.strokeStyle = baseColor;
+        ctx.lineWidth = 1;
+        const text = n.t;
+        ctx.font = '12px PingFang SC, sans-serif';
+        const tw = ctx.measureText(text).width + 16;
+        const tx = n.x - tw / 2;
+        const ty = n.y - r - 32;
+
+        ctx.beginPath();
+        ctx.roundRect(tx, ty, tw, 24, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, n.x, ty + 12);
+      }
+    });
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  // === 详情面板 ===
+  function showDetail(node) {
+    const panel = document.getElementById('detailPanel');
+    const region = node.isCore ? { color: '#fff', label: '核心 · CORE' } : REGIONS[node.region];
+
+    document.getElementById('detailDot').style.background = region.color;
+    document.getElementById('detailDot').style.boxShadow = `0 0 10px ${region.color}`;
+    document.getElementById('detailType').textContent = region.label + (node.isCore ? '' : ' · ' + region.label.split('·')[0]);
+    document.getElementById('detailTitle').textContent = node.t;
+    document.getElementById('detailDesc').textContent = node.d;
+
+    // 进度
+    const ps = document.getElementById('progressSection');
+    if (node.progress !== null && node.progress !== undefined) {
+      ps.style.display = 'block';
+      document.getElementById('progressFill').style.width = node.progress + '%';
+      document.getElementById('progressPercent').textContent = node.progress + '%';
+      document.getElementById('progressLabel').textContent =
+        node.progress >= 80 ? '即将完成' : node.progress >= 50 ? '进行中' : '刚启动';
+    } else {
+      ps.style.display = 'none';
+    }
+
+    // 关联节点
+    const connList = document.getElementById('connectionList');
+    connList.innerHTML = '';
+    const connections = edges.filter(e => e.a === node.id || e.b === node.id).slice(0, 5);
+    connections.forEach(e => {
+      const otherId = e.a === node.id ? e.b : e.a;
+      const other = nodes[otherId];
+      const otherRegion = other.isCore ? { color: '#fff', label: '核心' } : REGIONS[other.region];
+      const item = document.createElement('div');
+      item.className = 'connection-item';
+      item.innerHTML = `
+        <div class="connection-dot" style="background:${otherRegion.color}; box-shadow: 0 0 6px ${otherRegion.color}"></div>
+        <span>${other.t}</span>
+      `;
+      item.onclick = () => showDetail(other);
+      connList.appendChild(item);
+    });
+
+    panel.classList.add('active');
+
+    // 放电该节点
+    fireNode(node.id);
+  }
+
+  function closeDetail() {
+    document.getElementById('detailPanel').classList.remove('active');
+  }
+
+  // === 提问 ===
+  function askBrain() {
+    const input = document.getElementById('inputField');
+    const question = input.value.trim();
+    if (!question) return;
+
+    input.value = '';
+    document.getElementById('brainStatus').textContent = '深度思考中';
+    document.getElementById('brainSub').textContent = 'γ 波 · 高度活跃';
+
+    // 从核心向外发散激活信号
+    const coreNode = nodes[nodes.length - 1];
+    fireNode(coreNode.id);
+
+    // 向各区域扩散
+    setTimeout(() => {
+      nodes.forEach(n => {
+        if (!n.isCore && Math.random() < 0.4) {
+          setTimeout(() => fireNode(n.id), Math.random() * 800);
+        }
+      });
+    }, 300);
+
+    // 生成从核心向外的脉冲
+    edges.filter(e => e.a === coreNode.id || e.b === coreNode.id).forEach((edge, i) => {
+      setTimeout(() => {
+        pulses.push({
+          edge: edge,
+          progress: 0,
+          speed: 0.015,
+          reverse: edge.a !== coreNode.id,
+          color: '#ffffff'
+        });
+      }, i * 80);
+    });
+
+    // 显示回答
+    setTimeout(() => {
+      const answers = [
+        '根据记忆区与知识区的协同分析，我已从 5 个相关神经元中提取信息。关于「' + question + '」，核心结论是：当前 Agent 系统采用混合架构，结合规则引擎与深度学习，在可靠性上达到 99.2%。建议参考知识区的「Agent 设计模式」节点深入了解。',
+        '我激活了 7 个相关神经元进行推理。针对「' + question + '」，记忆区显示过去类似场景的处理经验，知识区提供理论支撑。综合判断：推荐采用 ReAct 模式结合 RAG 检索，可同时保证灵活性与准确性。',
+        '神经网络已完成信号传播。关于「' + question + '」，任务区有一个相关进行中任务，记忆区有 3 条历史经验。建议优先查看关联节点「撰写季度报告」和「竞品分析报告」，它们与此问题强相关。'
+      ];
+      document.getElementById('answerText').textContent = answers[Math.floor(Math.random() * answers.length)];
+      document.getElementById('answerBubble').classList.add('active');
+      document.getElementById('brainStatus').textContent = '活跃思考中';
+      document.getElementById('brainSub').textContent = 'α 波 · 放松专注';
+    }, 1800);
+  }
+
+  function closeAnswer() {
+    document.getElementById('answerBubble').classList.remove('active');
+  }
+
+  // 注入知识
+  function injectKnowledge() {
+    const coreNode = nodes[nodes.length - 1];
+    fireNode(coreNode.id);
+    // 向知识区扩散
+    nodes.filter(n => n.region === 'knowledge').forEach(n => {
+      setTimeout(() => fireNode(n.id), Math.random() * 600);
+    });
+    document.getElementById('brainStatus').textContent = '知识注入中';
+    setTimeout(() => {
+      document.getElementById('brainStatus').textContent = '活跃思考中';
+    }, 2000);
+  }
+
+  // === 脑电波 ===
+  const bwCanvas = document.getElementById('brainwaveCanvas');
+  const bwCtx = bwCanvas.getContext('2d');
+  function resizeBw() {
+    const dpr = window.devicePixelRatio || 1;
+    bwCanvas.width = bwCanvas.offsetWidth * dpr;
+    bwCanvas.height = bwCanvas.offsetHeight * dpr;
+    bwCtx.scale(dpr, dpr);
+  }
+  resizeBw();
+
+  let bwData = new Array(100).fill(0);
+  let bwTime = 0;
+  function drawBrainwave() {
+    bwTime += 0.05;
+    const w = bwCanvas.offsetWidth, h = bwCanvas.offsetHeight;
+
+    bwData.shift();
+    const val = Math.sin(bwTime * 2) * 0.3 + Math.sin(bwTime * 5) * 0.2 + Math.sin(bwTime * 0.8) * 0.4 + (Math.random() - 0.5) * 0.2;
+    bwData.push(val);
+
+    bwCtx.clearRect(0, 0, w, h);
+
+    // 网格
+    bwCtx.strokeStyle = 'rgba(16, 185, 129, 0.1)';
+    bwCtx.lineWidth = 0.5;
+    for (let i = 0; i < 5; i++) {
+      bwCtx.beginPath();
+      bwCtx.moveTo(0, (h / 4) * i);
+      bwCtx.lineTo(w, (h / 4) * i);
+      bwCtx.stroke();
+    }
+
+    // 波形
+    bwCtx.strokeStyle = '#10b981';
+    bwCtx.lineWidth = 1.5;
+    bwCtx.shadowBlur = 8;
+    bwCtx.shadowColor = '#10b981';
+    bwCtx.beginPath();
+    bwData.forEach((v, i) => {
+      const x = (i / bwData.length) * w;
+      const y = h / 2 + v * h * 0.35;
+      if (i === 0) bwCtx.moveTo(x, y);
+      else bwCtx.lineTo(x, y);
+    });
+    bwCtx.stroke();
+    bwCtx.shadowBlur = 0;
+
+    requestAnimationFrame(drawBrainwave);
+  }
+  drawBrainwave();
+
+  // 频率更新
+  setInterval(() => {
+    const freq = (10 + Math.random() * 6).toFixed(1);
+    document.getElementById('bwFreq').textContent = freq + ' Hz';
+  }, 2000);
+
+  // 激活计数增长
+  setInterval(() => {
+    const el = document.getElementById('activationCount');
+    const cur = parseInt(el.textContent.replace(',', ''));
+    el.textContent = (cur + Math.floor(Math.random() * 3 + 1)).toLocaleString();
+  }, 3000);
+
+  // 键盘
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && document.activeElement.id === 'inputField') askBrain();
+    if (e.key === 'Escape') { closeDetail(); closeAnswer(); }
+  });
+</script>
+
+</body>
+</html>

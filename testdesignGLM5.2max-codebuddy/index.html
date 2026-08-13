@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Native Agent 主页设计 · 10套探索</title>
+<style>
+  :root{
+    --bg:#07070d;
+    --bg2:#0e0e1a;
+    --card:rgba(255,255,255,.04);
+    --card-hover:rgba(255,255,255,.07);
+    --border:rgba(255,255,255,.09);
+    --text:#e8e8f0;
+    --muted:#8a8aa0;
+    --accent:#7c5cff;
+    --accent2:#22d3ee;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* 动态背景光斑 */
+  .bg-blobs{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+  .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.35;animation:float 22s ease-in-out infinite}
+  .blob.b1{width:560px;height:560px;background:#7c5cff;top:-120px;left:-80px}
+  .blob.b2{width:480px;height:480px;background:#22d3ee;bottom:-100px;right:-60px;animation-delay:-7s}
+  .blob.b3{width:420px;height:420px;background:#f472b6;top:40%;left:55%;animation-delay:-13s;opacity:.22}
+  @keyframes float{
+    0%,100%{transform:translate(0,0) scale(1)}
+    33%{transform:translate(60px,-40px) scale(1.1)}
+    66%{transform:translate(-40px,50px) scale(.95)}
+  }
+  .wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:0 28px}
+
+  /* 头部 */
+  header{padding:90px 0 50px;text-align:center}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:13px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--accent2);background:rgba(34,211,238,.08);
+    border:1px solid rgba(34,211,238,.2);padding:7px 16px;border-radius:100px;
+    margin-bottom:26px;
+  }
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 12px var(--accent2);animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  h1{
+    font-size:clamp(36px,6vw,68px);font-weight:800;line-height:1.08;
+    letter-spacing:-.02em;margin-bottom:22px;
+    background:linear-gradient(120deg,#fff 20%,#b9a8ff 55%,#7c5cff 100%);
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  }
+  .lead{
+    font-size:clamp(15px,2vw,19px);color:var(--muted);max-width:680px;margin:0 auto;line-height:1.7;
+  }
+  .stats{display:flex;justify-content:center;gap:48px;margin-top:42px;flex-wrap:wrap}
+  .stat{text-align:center}
+  .stat .n{font-size:30px;font-weight:700;color:#fff}
+  .stat .l{font-size:12px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:4px}
+
+  /* 设计网格 */
+  .grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
+    gap:22px;padding:30px 0 90px;
+  }
+  .card{
+    position:relative;border:1px solid var(--border);border-radius:20px;overflow:hidden;
+    background:var(--card);backdrop-filter:blur(12px);
+    transition:transform .35s cubic-bezier(.2,.8,.2,1),border-color .35s,background .35s;
+    text-decoration:none;color:inherit;display:block;
+  }
+  .card:hover{transform:translateY(-6px);border-color:rgba(124,92,255,.45);background:var(--card-hover)}
+  .card .preview{height:200px;position:relative;overflow:hidden;border-bottom:1px solid var(--border)}
+  .card .preview .pv-inner{position:absolute;inset:0;transition:transform .5s ease}
+  .card:hover .preview .pv-inner{transform:scale(1.04)}
+  .card .body{padding:22px 22px 24px}
+  .card .idx{
+    position:absolute;top:14px;left:16px;font-size:11px;font-weight:600;letter-spacing:.1em;
+    color:var(--muted);background:rgba(0,0,0,.4);padding:4px 9px;border-radius:6px;
+    border:1px solid var(--border);z-index:2;backdrop-filter:blur(6px);
+  }
+  .card .tag{
+    position:absolute;top:14px;right:16px;font-size:11px;z-index:2;
+    background:rgba(124,92,255,.15);color:#b9a8ff;border:1px solid rgba(124,92,255,.3);
+    padding:4px 10px;border-radius:6px;backdrop-filter:blur(6px);
+  }
+  .card h3{font-size:19px;font-weight:700;margin-bottom:6px;letter-spacing:-.01em}
+  .card .en{font-size:12px;color:var(--accent2);letter-spacing:.05em;margin-bottom:10px;font-weight:500}
+  .card p{font-size:13.5px;color:var(--muted);line-height:1.6}
+  .card .go{
+    margin-top:16px;display:inline-flex;align-items:center;gap:6px;
+    font-size:13px;font-weight:600;color:#fff;
+  }
+  .card .go .arrow{transition:transform .3s}
+  .card:hover .go .arrow{transform:translateX(4px)}
+
+  /* 各卡片预览缩略背景 */
+  .pv-1{background:linear-gradient(135deg,#0f0c29,#302b63 60%,#24243e)}
+  .pv-1 .bubble{position:absolute;background:rgba(255,255,255,.12);border-radius:14px}
+  .pv-2{background:#0a0a0f;background-image:radial-gradient(circle,rgba(255,255,255,.08) 1px,transparent 1px);background-size:22px 22px}
+  .pv-3{background:radial-gradient(circle at 50% 50%,#1a0a2e 0%,#000 70%)}
+  .pv-4{background:#0c0c0c;background-image:repeating-linear-gradient(0deg,rgba(80,250,123,.04) 0,rgba(80,250,123,.04) 1px,transparent 1px,transparent 3px)}
+  .pv-5{background:linear-gradient(135deg,#faf8f5,#f0ece6)}
+  .pv-6{background:radial-gradient(circle at 40% 40%,#1a1a3e,#0a0e27 70%)}
+  .pv-7{background:linear-gradient(135deg,#2d1b4e,#7c3aed 40%,#ec4899 80%);filter:blur(0)}
+  .pv-8{background:#f5f5f7}
+  .pv-9{background:radial-gradient(circle at 50% 60%,#0a1a2e,#050816 80%)}
+  .pv-10{background:#0a0a12}
+
+  /* 预览装饰元素 */
+  .pv-orb{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:90px;height:90px;border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,#fff,#22d3ee 30%,#7c5cff 70%,transparent);
+    box-shadow:0 0 60px #22d3ee,inset 0 0 30px rgba(255,255,255,.4);animation:breathe 3s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.12)}}
+  .pv-stars span{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;box-shadow:0 0 6px #fff}
+  .pv-term{position:absolute;left:14px;right:14px;top:14px;font-family:monospace;font-size:10px;color:#50fa7b;line-height:1.6}
+  .pv-term .c{color:#8be9fd}.pv-term .p{color:#ff79c6}
+  .pv-cardflow{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-4deg);width:120px;height:80px;background:#fff;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.15)}
+  .pv-cardflow:before{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(6deg);width:120px;height:80px;background:#fff;border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.1);z-index:-1}
+  .pv-glass{position:absolute;border-radius:14px;background:rgba(255,255,255,.18);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.3)}
+  .pv-bento div{position:absolute;background:#fff;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+  .pv-holo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:100px;height:70px;border:1.5px solid #22d3ee;border-radius:8px;box-shadow:0 0 20px rgba(34,211,238,.5),inset 0 0 15px rgba(34,211,238,.2)}
+  .pv-neural{position:absolute;inset:0}
+  .pv-neural canvas{width:100%;height:100%}
+
+  footer{text-align:center;padding:40px 0 70px;color:var(--muted);font-size:13px;border-top:1px solid var(--border)}
+  footer span{color:var(--accent2)}
+
+  @media(max-width:640px){
+    .stats{gap:28px}
+    header{padding:60px 0 30px}
+  }
+</style>
+</head>
+<body>
+<div class="bg-blobs"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow"><span class="dot"></span>AI Native Design Exploration</div>
+    <h1>10 套 AI Native<br>Agent 主页设计探索</h1>
+    <p class="lead">不是换皮，而是探索全新的形态与观感。每一套都基于不同的设计哲学，重新定义人与 AI Agent 的交互范式。</p>
+    <div class="stats">
+      <div class="stat"><div class="n">10</div><div class="l">套设计哲学</div></div>
+      <div class="stat"><div class="n">10</div><div class="l">种交互形态</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">简单换皮</div></div>
+    </div>
+  </header>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>点击任意卡片体验完整设计 · <span>AI Native Design Lab</span></footer>
+</div>
+
+<script>
+const designs=[
+  {n:"01",file:"01-liquid-conversation.html",cn:"液态对话",en:"Liquid Conversation",tag:"对话即界面",desc:"对话流即界面，所有内容以动态内联组件在对话流中生长展开，无传统导航。",pv:"pv-1",custom:1},
+  {n:"02",file:"02-living-canvas.html",cn:"活态画布",en:"Living Canvas",tag:"空间化思维",desc:"可平移缩放的无限画布，AI 主动生长节点并用连线关联，自由组织。",pv:"pv-2",custom:2},
+  {n:"03",file:"03-plasma-core.html",cn:"等离子核心",en:"Plasma Core",tag:"极简冥想",desc:"中心一个会呼吸的等离子光球代表 Agent 意识，命令以轨道粒子环绕。",pv:"pv-3",custom:3},
+  {n:"04",file:"04-terminal-deck.html",cn:"终端甲板",en:"Terminal Deck",tag:"命令行原生",desc:"现代富 TTY 终端美学，AI 作为强大的命令行伙伴，高密度彩色输出。",pv:"pv-4",custom:4},
+  {n:"05",file:"05-card-flow.html",cn:"卡片流",en:"Card Flow",tag:"单焦点专注",desc:"每次只呈现一张全屏卡片，滑动接受或跳过，消除信息过载。",pv:"pv-5",custom:5},
+  {n:"06",file:"06-constellation.html",cn:"星图",en:"Constellation",tag:"宇宙探索",desc:"Agent 能力以星图呈现，点击星辰召唤功能，AI 主动点亮新星。",pv:"pv-6",custom:6},
+  {n:"07",file:"07-liquid-glass.html",cn:"液态玻璃",en:"Liquid Glass",tag:"通透层叠",desc:"毛玻璃面板悬浮在流动的 AI 思考背景之上，强调质感与深度。",pv:"pv-7",custom:7},
+  {n:"08",file:"08-adaptive-bento.html",cn:"自适应便当",en:"Adaptive Bento",tag:"模块自适应",desc:"便当格网格，AI 根据上下文自动重排模块大小与位置，主动编排。",pv:"pv-8",custom:8},
+  {n:"09",file:"09-holographic-depth.html",cn:"全息纵深",en:"Holographic Depth",tag:"三维分层",desc:"多层深度空间，视差与景深营造全息感，基于深度深入导航。",pv:"pv-9",custom:9},
+  {n:"10",file:"10-neural-web.html",cn:"神经织网",en:"Neural Web",tag:"大脑可视化",desc:"Agent 大脑以活态神经网络呈现，信号沿突触流动，有机生命感。",pv:"pv-10",custom:10},
+];
+
+function previewHTML(c){
+  switch(c){
+    case 1:return '<div class="pv-inner"><div class="bubble" style="left:18px;top:30px;width:60%;height:18px"></div><div class="bubble" style="left:18px;top:56px;width:80%;height:34px;background:rgba(0,245,212,.15);border:1px solid rgba(0,245,212,.3)"></div><div class="bubble" style="right:18px;top:104px;width:50%;height:16px"></div><div class="bubble" style="left:18px;top:128px;width:70%;height:26px"></div></div>';
+    case 2:return '<div class="pv-inner"><div style="position:absolute;left:42%;top:38%;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle,#22d3ee,#7c5cff);box-shadow:0 0 24px #22d3ee"></div><div style="position:absolute;left:18%;top:20%;width:50px;height:36px;background:rgba(255,255,255,.08);border:1px solid rgba(34,211,238,.4);border-radius:8px"></div><div style="position:absolute;right:14%;top:24%;width:50px;height:36px;background:rgba(255,255,255,.08);border:1px solid rgba(244,114,182,.4);border-radius:8px"></div><div style="position:absolute;left:20%;bottom:16%;width:60px;height:40px;background:rgba(255,255,255,.08);border:1px solid rgba(168,85,247,.4);border-radius:8px"></div><svg style="position:absolute;inset:0;width:100%;height:100%"><path d="M30%32% L44%42%" stroke="#22d3ee" stroke-width="1" opacity=".5" fill="none"/><path d="M82%30% L56%44%" stroke="#f472b6" stroke-width="1" opacity=".5" fill="none"/><path d="M28%70% L46%58%" stroke="#a855f7" stroke-width="1" opacity=".5" fill="none"/></svg></div>';
+    case 3:return '<div class="pv-inner"><div class="pv-orb"></div></div>';
+    case 4:return '<div class="pv-inner"><div class="pv-term"><span class="c">user@neural</span>:~$ <span class="p">agent</span> init<br>&gt; loading modules... <span style="color:#f1fa8c">[OK]</span><br>&gt; neural core ready<br><span class="c">user@neural</span>:~$ <span style="animation:blink 1s infinite">▋</span></div></div>';
+    case 5:return '<div class="pv-inner"><div class="pv-cardflow"></div></div>';
+    case 6:return '<div class="pv-inner"><div class="pv-stars"><span style="left:20%;top:25%"></span><span style="left:70%;top:20%;width:4px;height:4px"></span><span style="left:45%;top:45%;width:5px;height:5px;background:#fbbf24;box-shadow:0 0 10px #fbbf24"></span><span style="left:30%;top:70%"></span><span style="left:78%;top:65%"></span><span style="left:60%;top:80%;width:4px;height:4px"></span><span style="left:15%;top:55%"></span></div><svg style="position:absolute;inset:0;width:100%;height:100%;opacity:.3"><path d="M20%25 L45%45 L70%20 M45%45 L30%70 L60%80 L78%65 M15%55 L45%45" stroke="#3b82f6" stroke-width="1" fill="none"/></svg></div>';
+    case 7:return '<div class="pv-inner"><div class="pv-glass" style="left:12%;top:16%;width:44%;height:30%"></div><div class="pv-glass" style="right:12%;top:14%;width:34%;height:24%"></div><div class="pv-glass" style="left:16%;bottom:14%;width:64%;height:34%"></div></div>';
+    case 8:return '<div class="pv-inner"><div class="pv-bento"><div style="left:10%;top:14%;width:50%;height:46%"></div><div style="right:10%;top:14%;width:28%;height:28%"></div><div style="right:10%;top:50%;width:28%;height:34%"></div><div style="left:10%;bottom:12%;width:30%;height:24%"></div><div style="left:44%;bottom:12%;width:22%;height:24%"></div></div></div>';
+    case 9:return '<div class="pv-inner"><div class="pv-holo"></div><div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) translateZ(-40px);width:140px;height:90px;border:1px solid rgba(34,211,238,.3);border-radius:8px"></div></div>';
+    case 10:return '<div class="pv-inner"><div class="pv-neural"><canvas id="pvnc"></canvas></div></div>';
+  }
+  return '';
+}
+
+const grid=document.getElementById('grid');
+designs.forEach((d,i)=>{
+  const a=document.createElement('a');
+  a.className='card';a.href=d.file;
+  a.innerHTML=`
+    <div class="preview ${d.pv}">${previewHTML(d.custom)}
+      <div class="idx">${d.n}</div>
+      <div class="tag">${d.tag}</div>
+    </div>
+    <div class="body">
+      <h3>${d.cn}</h3>
+      <div class="en">${d.en}</div>
+      <p>${d.desc}</p>
+      <span class="go">查看设计 <span class="arrow">→</span></span>
+    </div>`;
+  grid.appendChild(a);
+});
+
+// 终端光标闪烁
+const st=document.createElement('style');st.textContent='@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}';document.head.appendChild(st);
+
+// 缩略图神经网络动画
+const nc=document.getElementById('pvnc');
+if(nc){
+  const ctx=nc.getContext('2d');
+  function rs(){nc.width=nc.offsetWidth;nc.height=nc.offsetHeight}
+  rs();addEventListener('resize',rs);
+  const nodes=[];for(let i=0;i<14;i++)nodes.push({x:Math.random(),y:Math.random(),r:2+Math.random()*2});
+  function draw(){
+    ctx.clearRect(0,0,nc.width,nc.height);
+    for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){
+      const dx=nodes[i].x-nodes[j].x,dy=nodes[i].y-nodes[j].y,d=Math.hypot(dx,dy);
+      if(d<.4){ctx.strokeStyle='rgba(59,130,246,'+(.5-d*1.2)+')';ctx.lineWidth=.6;
+        ctx.beginPath();ctx.moveTo(nodes[i].x*nc.width,nodes[i].y*nc.height);ctx.lineTo(nodes[j].x*nc.width,nodes[j].y*nc.height);ctx.stroke()}
+    }
+    nodes.forEach(n=>{ctx.fillStyle='#22d3ee';ctx.shadowColor='#22d3ee';ctx.shadowBlur=6;
+      ctx.beginPath();ctx.arc(n.x*nc.width,n.y*nc.height,n.r,0,7);ctx.fill();ctx.shadowBlur=0});
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+</script>
+</body>
+</html>

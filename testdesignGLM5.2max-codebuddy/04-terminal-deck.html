@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terminal Deck · 终端甲板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* ========== 变量与基础 ========== */
+  :root {
+    --bg: #0c0c0c;
+    --bg-panel: #1a1b26;
+    --bg-input: #16171f;
+    --fg: #c8cad3;
+    --fg-dim: #6b6f7e;
+    --fg-bright: #e9eaf0;
+    --green: #50fa7b;
+    --cyan: #8be9fd;
+    --purple: #ff79c6;
+    --yellow: #f1fa8c;
+    --red: #ff5555;
+    --orange: #ffb86c;
+    --gray: #6b6f7e;
+    --border: #2a2b38;
+    --border-active: #3a3b4d;
+  }
+
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
+    font-size: 13px;
+    color: var(--fg);
+    line-height: 1.6;
+  }
+
+  /* ========== 整体布局 ========== */
+  .app {
+    display: grid;
+    grid-template-rows: 36px 1fr auto;
+    grid-template-columns: 1fr 260px;
+    grid-template-areas:
+      "topbar topbar"
+      "output deck"
+      "inputbar deck";
+    height: 100vh;
+    width: 100%;
+  }
+
+  /* ========== 顶部状态栏 ========== */
+  .topbar {
+    grid-area: topbar;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    font-size: 12px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .prompt-user { color: var(--green); font-weight: 500; }
+  .prompt-at { color: var(--fg-dim); }
+  .prompt-host { color: var(--purple); }
+  .prompt-colon { color: var(--fg-dim); }
+  .prompt-path { color: var(--cyan); }
+  .prompt-dollar { color: var(--fg-dim); }
+  .session-name { color: var(--fg); margin-left: 8px; }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-size: 11px;
+    color: var(--fg-dim);
+  }
+
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .stat-label { color: var(--fg-dim); }
+  .stat-value { color: var(--fg-bright); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.cyan { color: var(--cyan); }
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-value.purple { color: var(--purple); }
+
+  .conn-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: connPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes connPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ========== 终端输出区 ========== */
+  .output {
+    grid-area: output;
+    background: var(--bg);
+    overflow-y: auto;
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.65;
+    scroll-behavior: smooth;
+  }
+
+  .output::-webkit-scrollbar { width: 8px; }
+  .output::-webkit-scrollbar-track { background: var(--bg); }
+  .output::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .output::-webkit-scrollbar-thumb:hover { background: var(--border-active); }
+
+  /* 行类型 */
+  .line { white-space: pre-wrap; word-break: break-word; margin-bottom: 1px; }
+  .line-cmd { color: var(--fg-bright); }
+  .line-cmd .prompt-user { color: var(--green); }
+  .line-cmd .prompt-host { color: var(--purple); }
+  .line-cmd .prompt-path { color: var(--cyan); }
+  .line-cmd .prompt-dollar { color: var(--fg-dim); margin-right: 6px; }
+  .line-cmd .cmd-text { color: var(--fg-bright); }
+
+  .line-boot { color: var(--fg-dim); }
+  .line-boot .ok { color: var(--green); }
+  .line-boot .warn { color: var(--yellow); }
+  .line-boot .info { color: var(--cyan); }
+  .line-boot .label { color: var(--purple); }
+
+  .line-ai {
+    border-left: 2px solid var(--cyan);
+    padding: 6px 0 6px 14px;
+    margin: 6px 0;
+    color: var(--fg);
+    background: rgba(139, 233, 253, 0.03);
+  }
+
+  .line-ai .ai-tag {
+    color: var(--cyan);
+    font-weight: 500;
+    margin-right: 8px;
+  }
+
+  /* 状态标签 */
+  .tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-right: 6px;
+  }
+  .tag-ok { background: rgba(80, 250, 123, 0.15); color: var(--green); border: 1px solid rgba(80, 250, 123, 0.3); }
+  .tag-warn { background: rgba(241, 250, 140, 0.15); color: var(--yellow); border: 1px solid rgba(241, 250, 140, 0.3); }
+  .tag-info { background: rgba(139, 233, 253, 0.15); color: var(--cyan); border: 1px solid rgba(139, 233, 253, 0.3); }
+  .tag-err { background: rgba(255, 85, 85, 0.15); color: var(--red); border: 1px solid rgba(255, 85, 85, 0.3); }
+
+  /* 表格 */
+  .term-table {
+    border: 1px solid var(--border);
+    margin: 8px 0;
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12px;
+  }
+  .term-table th {
+    background: var(--bg-panel);
+    color: var(--purple);
+    padding: 5px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+  .term-table td {
+    padding: 4px 10px;
+    border-bottom: 1px solid rgba(42, 43, 56, 0.5);
+    color: var(--fg);
+  }
+  .term-table td.cyan { color: var(--cyan); }
+  .term-table td.green { color: var(--green); }
+  .term-table td.yellow { color: var(--yellow); }
+  .term-table td.purple { color: var(--purple); }
+  .term-table tr:last-child td { border-bottom: none; }
+  .term-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+  /* 代码块 */
+  .code-block {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin: 8px 0;
+    overflow: hidden;
+  }
+  .code-block-header {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 12px;
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--fg-dim);
+  }
+  .code-block-header .lang { color: var(--purple); }
+  .code-block-body {
+    display: flex;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .code-lines {
+    padding: 8px 10px;
+    text-align: right;
+    color: var(--fg-dim);
+    user-select: none;
+    border-right: 1px solid var(--border);
+    background: rgba(0,0,0,0.2);
+    min-width: 36px;
+  }
+  .code-content {
+    padding: 8px 12px;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .code-content .kw { color: var(--purple); }
+  .code-content .str { color: var(--yellow); }
+  .code-content .num { color: var(--orange); }
+  .code-content .com { color: var(--gray); font-style: italic; }
+  .code-content .fn { color: var(--green); }
+  .code-content .var { color: var(--cyan); }
+
+  /* 进度条 */
+  .progress {
+    margin: 6px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .progress-label { color: var(--fg-dim); font-size: 12px; min-width: 100px; }
+  .progress-bar {
+    flex: 1;
+    height: 12px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--cyan));
+    border-radius: 1px;
+    transition: width 0.3s ease;
+    position: relative;
+  }
+  .progress-fill::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: progShine 1.5s linear infinite;
+  }
+  @keyframes progShine {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
+  }
+  .progress-pct { color: var(--green); font-size: 12px; min-width: 40px; text-align: right; }
+
+  /* 树形结构 */
+  .tree {
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--fg);
+    margin: 6px 0;
+  }
+  .tree .branch { color: var(--fg-dim); }
+  .tree .dir { color: var(--cyan); }
+  .tree .file { color: var(--fg); }
+  .tree .exe { color: var(--green); }
+  .tree .count { color: var(--fg-dim); font-size: 11px; }
+
+  /* ========== 底部输入栏 ========== */
+  .inputbar {
+    grid-area: inputbar;
+    background: var(--bg-input);
+    border-top: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+  }
+
+  .inputbar .prompt {
+    color: var(--green);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .inputbar .prompt .host { color: var(--purple); }
+  .inputbar .prompt .path { color: var(--cyan); }
+  .inputbar .prompt .dollar { color: var(--fg-dim); }
+
+  .inputbar input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--fg-bright);
+    font-family: inherit;
+    font-size: 13px;
+    caret-color: var(--green);
+  }
+
+  .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background: var(--green);
+    animation: blink 1s step-end infinite;
+    vertical-align: middle;
+    margin-left: 2px;
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  /* 命令补全提示 */
+  .autocomplete {
+    position: absolute;
+    bottom: 100%;
+    left: 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-active);
+    border-radius: 4px;
+    padding: 4px 0;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+    z-index: 10;
+    min-width: 240px;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.4);
+  }
+
+  .autocomplete.show { display: block; }
+
+  .ac-item {
+    padding: 5px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+  }
+
+  .ac-item:hover, .ac-item.active {
+    background: rgba(139, 233, 253, 0.1);
+  }
+
+  .ac-cmd { color: var(--purple); min-width: 90px; }
+  .ac-desc { color: var(--fg-dim); }
+
+  /* ========== 右侧 Deck 区 ========== */
+  .deck {
+    grid-area: deck;
+    background: var(--bg-panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .deck-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--fg-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .deck-header .title { color: var(--cyan); }
+
+  .deck-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+  }
+
+  .deck-body::-webkit-scrollbar { width: 6px; }
+  .deck-body::-webkit-scrollbar-track { background: transparent; }
+  .deck-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .cmd-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .cmd-btn {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 8px 6px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .cmd-btn:hover {
+    background: rgba(139, 233, 253, 0.08);
+    border-color: var(--cyan);
+    color: var(--fg-bright);
+  }
+
+  .cmd-btn .slash { color: var(--purple); }
+  .cmd-btn .name { color: var(--cyan); }
+
+  /* 系统信息面板 */
+  .sys-panel {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    margin-top: 8px;
+  }
+
+  .sys-panel-title {
+    font-size: 11px;
+    color: var(--fg-dim);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .sys-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    padding: 3px 0;
+    color: var(--fg-dim);
+  }
+  .sys-row .val { color: var(--fg); }
+  .sys-row .val.green { color: var(--green); }
+  .sys-row .val.yellow { color: var(--yellow); }
+  .sys-row .val.cyan { color: var(--cyan); }
+
+  /* mini 进度条 */
+  .mini-bar {
+    height: 4px;
+    background: var(--bg);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 2px;
+  }
+  .mini-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+  }
+
+  /* ========== 响应式 ========== */
+  @media (max-width: 768px) {
+    .app {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "topbar"
+        "output"
+        "inputbar";
+    }
+    .deck {
+      display: none;
+    }
+    .topbar-right {
+      gap: 10px;
+    }
+    .stat-item:not(:first-child):not(:last-child) {
+      display: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .topbar-right .stat-item:nth-child(2) { display: none; }
+    body { font-size: 12px; }
+    .output { padding: 8px 10px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- 顶部状态栏 -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="prompt-user">agent@neural</span><span class="prompt-at">:</span><span class="prompt-path">~</span><span class="prompt-dollar">$</span>
+      <span class="session-name">会话 · 项目规划-0813</span>
+    </div>
+    <div class="topbar-right">
+      <div class="stat-item">
+        <span class="stat-label">模型</span>
+        <span class="stat-value purple">GLM-4.6</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Token</span>
+        <span class="stat-value cyan" id="tokenCount">8,432</span>
+        <span class="stat-label">/ 128k</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">延迟</span>
+        <span class="stat-value green">42ms</span>
+      </div>
+      <div class="stat-item">
+        <span class="conn-dot"></span>
+        <span class="stat-value green">已连接</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 终端输出 -->
+  <div class="output" id="output">
+    <!-- 内容由JS填充 -->
+  </div>
+
+  <!-- 底部输入栏 -->
+  <div class="inputbar">
+    <span class="prompt"><span class="host">agent@neural</span>:<span class="path">~</span><span class="dollar">$</span></span>
+    <input type="text" id="cmdInput" autocomplete="off" spellcheck="false" placeholder="输入命令或直接提问…">
+    <div class="autocomplete" id="autocomplete"></div>
+  </div>
+
+  <!-- 右侧 Deck -->
+  <div class="deck">
+    <div class="deck-header">
+      <span class="title">命令面板</span>
+      <span>DECK</span>
+    </div>
+    <div class="deck-body">
+      <div class="cmd-grid" id="cmdGrid">
+        <!-- 由JS填充 -->
+      </div>
+
+      <div class="sys-panel">
+        <div class="sys-panel-title">系统状态</div>
+        <div class="sys-row"><span>运行时长</span><span class="val cyan" id="uptime">00:42:18</span></div>
+        <div class="sys-row"><span>已处理请求</span><span class="val">127</span></div>
+        <div class="sys-row"><span>缓存命中率</span><span class="val green">94.2%</span></div>
+        <div class="sys-row"><span>上下文窗口</span></div>
+        <div class="mini-bar"><div class="mini-bar-fill" id="ctxBar" style="width:6.6%;background:linear-gradient(90deg,var(--green),var(--cyan));"></div></div>
+
+        <div style="margin-top:12px;"></div>
+        <div class="sys-panel-title">能力模块</div>
+        <div class="sys-row"><span>代码解释器</span><span class="val green">● 在线</span></div>
+        <div class="sys-row"><span>网页搜索</span><span class="val green">● 在线</span></div>
+        <div class="sys-row"><span>文件操作</span><span class="val green">● 在线</span></div>
+        <div class="sys-row"><span>数据分析</span><span class="val yellow">● 预热中</span></div>
+        <div class="sys-row"><span>图像生成</span><span class="val" style="color:var(--fg-dim);">○ 待激活</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const output = document.getElementById('output');
+  const cmdInput = document.getElementById('cmdInput');
+  const autocomplete = document.getElementById('autocomplete');
+  const tokenCount = document.getElementById('tokenCount');
+  const ctxBar = document.getElementById('ctxBar');
+  const uptime = document.getElementById('uptime');
+  const cmdGrid = document.getElementById('cmdGrid');
+
+  let tokenUsed = 8432;
+  let history = [];
+  let historyIdx = -1;
+
+  // ========== 命令定义 ==========
+  const commands = {
+    help: {
+      desc: '列出所有可用命令',
+      run: () => {
+        appendLine({
+          type: 'ai',
+          tag: 'AI',
+          html: `<strong style="color:var(--cyan)">可用命令清单</strong>\n\n` +
+            commandsList().map(c => `  <span style="color:var(--purple)">${c.cmd.padEnd(14)}</span> <span style="color:var(--fg-dim)">${c.desc}</span>`).join('\n') +
+            `\n\n<span style="color:var(--fg-dim)">提示：也可直接输入自然语言，我会理解你的意图。</span>`
+        });
+      }
+    },
+    analyze: {
+      desc: '分析指定内容或数据',
+      run: (arg) => {
+        if (!arg) {
+          appendBoot([{t:'warn',tag:'[WARN]'} , {t:'normal',text:' 用法: analyze <文件/URL/文本>'}]);
+          return;
+        }
+        appendCmd('analyze ' + arg);
+        appendProgress('正在解析输入', 30, 800, () => {
+          appendProgress('特征提取', 65, 1000, () => {
+            appendProgress('生成洞察', 100, 600, () => {
+              appendAI(`
+<strong style="color:var(--cyan)">分析报告 · ${arg}</strong>
+
+<span class="tag tag-ok">OK</span> 数据完整，共识别 <strong style="color:var(--yellow)">1,247</strong> 条记录
+<span class="tag tag-info">INFO</span> 关键模式：周三流量峰值 +37%，疑似周期性活动
+
+`, true);
+              appendTable(
+                ['维度', '数值', '趋势', '状态'],
+                [
+                  ['总量', '1,247', '+12%', 'green'],
+                  ['异常', '23', '-5%', 'green'],
+                  ['完整率', '98.6%', '+0.3%', 'green'],
+                  ['置信度', '0.91', '稳定', 'cyan']
+                ]
+              );
+              appendLine({type:'normal', text:''});
+            });
+          });
+        });
+      }
+    },
+    deploy: {
+      desc: '部署项目到指定环境',
+      run: (arg) => {
+        const env = arg || 'staging';
+        appendCmd('deploy ' + arg);
+        appendBoot([
+          {t:'info', tag:'[INFO]', text:` 开始部署到 ${env} 环境`},
+        ]);
+        appendProgress('构建镜像', 40, 900, () => {
+          appendProgress('推送至仓库', 70, 800, () => {
+            appendProgress('滚动更新', 100, 1000, () => {
+              appendAI(`
+<strong style="color:var(--green)">部署完成</strong>
+
+<span class="tag tag-ok">OK</span> 服务已上线 · ${env}.yourapp.io
+<span class="tag tag-info">INFO</span> 版本 v2.4.1 · 耗时 2.7s · 0 错误
+
+访问地址：<span style="color:var(--cyan)">https://${env}.yourapp.io</span>
+`, true);
+              appendTree([
+                {type:'dir', name:'deployment/', children:[
+                  {type:'file', name:'Dockerfile', count:'412B'},
+                  {type:'file', name:'deploy.yaml', count:'1.2KB'},
+                  {type:'exe', name:'healthcheck.sh', count:'892B'}
+                ]}
+              ]);
+              appendLine({type:'normal', text:''});
+            });
+          });
+        });
+      }
+    },
+    debug: {
+      desc: '调试模式 / 错误诊断',
+      run: (arg) => {
+        appendCmd('debug ' + (arg || ''));
+        appendBoot([
+          {t:'warn', tag:'[WARN]', text:' 进入调试模式，启用详细日志输出'}
+        ]);
+        appendAI(`
+<strong style="color:var(--yellow)">调试会话已启动</strong>
+
+最近一次错误追踪：
+`, true);
+        appendTable(
+          ['时间', '级别', '模块', '信息'],
+          [
+            ['14:22:01', 'ERROR', 'auth', 'Token验证失败 · exp=3600s', 'yellow'],
+            ['14:22:03', 'WARN',  'cache', '键值未命中，回退查询', ''],
+            ['14:22:05', 'INFO',  'retry', '第2次重试 · 间隔 1.2s', ''],
+            ['14:22:08', 'OK',    'auth', 'Token刷新成功', 'green']
+          ]
+        );
+        appendLine({type:'normal', text:''});
+        appendCodeBlock('python', [
+          {ln:1, html:'<span class="com"># 建议修复：延长token有效期</span>'},
+          {ln:2, html:'<span class="kw">def</span> <span class="fn">refresh_token</span>(<span class="var">user</span>):'},
+          {ln:3, html:'    <span class="var">token</span> = <span class="fn">generate</span>(<span class="var">user</span>, <span class="str">exp=7200</span>)  <span class="com"># 2小时</span>'},
+          {ln:4, html:'    <span class="kw">return</span> <span class="var">token</span>'}
+        ]);
+        appendLine({type:'normal', text:''});
+      }
+    },
+    summarize: {
+      desc: '总结当前会话或指定文本',
+      run: () => {
+        appendCmd('summarize');
+        appendProgress('读取上下文', 50, 700, () => {
+          appendProgress('提炼要点', 100, 900, () => {
+            appendAI(`
+<strong style="color:var(--cyan)">本次会话总结</strong>
+
+<strong>1.</strong> 讨论了 Q3 项目规划的三个方向，确认优先推进"用户增长"主线
+<strong>2.</strong> 技术栈确定为 React + Node，数据层用 PostgreSQL
+<strong>3.</strong> 排期：8月底完成原型，9月中旬内测
+
+<span style="color:var(--fg-dim)">— 共 3 个决策点，2 个待跟进事项</span>
+`, true);
+          });
+        });
+      }
+    },
+    tree: {
+      desc: '展示当前项目结构',
+      run: () => {
+        appendCmd('tree');
+        appendTree([
+          {type:'dir', name:'project-root/', children:[
+            {type:'dir', name:'src/', children:[
+              {type:'file', name:'index.tsx', count:'2.1KB'},
+              {type:'file', name:'App.tsx', count:'4.8KB'},
+              {type:'dir', name:'components/', children:[
+                {type:'file', name:'Header.tsx', count:'1.2KB'},
+                {type:'file', name:'Footer.tsx', count:'890B'}
+              ]}
+            ]},
+            {type:'dir', name:'api/', children:[
+              {type:'exe', name:'server.js', count:'3.4KB'},
+              {type:'file', name:'routes.ts', count:'2.7KB'}
+            ]},
+            {type:'file', name:'package.json', count:'612B'},
+            {type:'file', name:'README.md', count:'1.8KB'},
+            {type:'exe', name:'deploy.sh', count:'412B'}
+          ]}
+        ]);
+        appendLine({type:'normal', text:'\n6 directories, 7 files'});
+      }
+    },
+    status: {
+      desc: '查看 Agent 与系统状态',
+      run: () => {
+        appendCmd('status');
+        appendTable(
+          ['指标', '数值', '状态'],
+          [
+            ['模型版本', 'GLM-4.6', 'cyan'],
+            ['Token用量', '8,432 / 131,072', 'green'],
+            ['上下文占用', '6.4%', 'green'],
+            ['平均延迟', '42ms', 'green'],
+            ['连接状态', '已建立', 'green'],
+            ['运行时长', '42分18秒', 'cyan']
+          ]
+        );
+        appendLine({type:'normal', text:''});
+      }
+    },
+    clear: {
+      desc: '清空终端输出',
+      run: () => {
+        output.innerHTML = '';
+        appendBoot(bootSequence(false));
+      }
+    },
+    echo: {
+      desc: '回显输入内容',
+      run: (arg) => {
+        appendCmd('echo ' + arg);
+        appendLine({type:'normal', text: arg || ''});
+      }
+    }
+  };
+
+  // ========== Deck 命令按钮 ==========
+  const deckCmds = [
+    {cmd:'analyze', desc:'分析'},
+    {cmd:'summarize', desc:'总结'},
+    {cmd:'deploy', desc:'部署'},
+    {cmd:'debug', desc:'调试'},
+    {cmd:'tree', desc:'结构'},
+    {cmd:'status', desc:'状态'}
+  ];
+
+  deckCmds.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'cmd-btn';
+    btn.innerHTML = `<span class="slash">/</span><span class="name">${c.cmd}</span><span style="color:var(--fg-dim);margin-left:auto;font-size:11px;">${c.desc}</span>`;
+    btn.onclick = () => {
+      cmdInput.value = c.cmd;
+      cmdInput.focus();
+      runCommand(c.cmd);
+    };
+    cmdGrid.appendChild(btn);
+  });
+
+  function commandsList() {
+    return Object.keys(commands).map(k => ({cmd: k, desc: commands[k].desc}));
+  }
+
+  // ========== 渲染辅助 ==========
+  function appendLine(opts) {
+    const div = document.createElement('div');
+    div.className = 'line line-' + (opts.type || 'normal');
+    if (opts.html !== undefined) {
+      div.innerHTML = opts.html;
+    } else {
+      div.textContent = opts.text || '';
+    }
+    output.appendChild(div);
+    scrollToBottom();
+    return div;
+  }
+
+  function appendCmd(cmdStr) {
+    history.push(cmdStr);
+    historyIdx = history.length;
+    appendLine({
+      type: 'cmd',
+      html: `<span class="prompt-user">agent@neural</span><span class="prompt-at">:</span><span class="prompt-path">~</span><span class="prompt-dollar">$</span> <span class="cmd-text">${escapeHtml(cmdStr)}</span>`
+    });
+    addTokens(Math.floor(cmdStr.length * 1.5) + 20);
+  }
+
+  function appendAI(html, raw) {
+    const div = document.createElement('div');
+    div.className = 'line line-ai';
+    if (raw) {
+      div.innerHTML = `<span class="ai-tag">AI»</span>` + html;
+    } else {
+      div.textContent = 'AI» ' + (html || '');
+    }
+    output.appendChild(div);
+    scrollToBottom();
+    addTokens(Math.floor((html || '').length * 0.8) + 50);
+    return div;
+  }
+
+  function appendBoot(items) {
+    items.forEach(item => {
+      let html = '';
+      if (item.tag) {
+        const tagClass = item.t === 'ok' ? 'tag-ok' : item.t === 'warn' ? 'tag-warn' : item.t === 'info' ? 'tag-info' : 'tag-err';
+        html += `<span class="tag ${tagClass}">${item.tag}</span>`;
+      }
+      if (item.label) html += `<span class="label">${item.label}</span> `;
+      html += escapeHtml(item.text || '');
+      appendLine({type:'boot', html});
+    });
+  }
+
+  function appendTable(headers, rows) {
+    const tbl = document.createElement('table');
+    tbl.className = 'term-table';
+    const thead = document.createElement('thead');
+    const tr = document.createElement('tr');
+    headers.forEach(h => {
+      const th = document.createElement('th');
+      th.textContent = h;
+      tr.appendChild(th);
+    });
+    thead.appendChild(tr);
+    tbl.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    rows.forEach(row => {
+      const r = document.createElement('tr');
+      row.forEach((cell, i) => {
+        const td = document.createElement('td');
+        if (i === row.length - 1 && typeof cell === 'string' && ['green','yellow','cyan','purple'].includes(cell)) {
+          // 趋势列着色
+        } else if (i === row.length - 1) {
+          td.textContent = cell;
+        } else {
+          td.textContent = cell;
+        }
+        if (i === row.length - 1 && typeof cell === 'string' && ['green','yellow','cyan','purple'].includes(cell)) {
+          // 这是颜色标记，应用到前一格
+        } else {
+          const colorIdx = row.length - 1;
+          const color = row[colorIdx];
+          if (typeof color === 'string' && ['green','yellow','cyan','purple'].includes(color)) {
+            td.classList.add(color);
+          }
+        }
+        r.appendChild(td);
+      });
+      tbody.appendChild(r);
+    });
+    tbl.appendChild(tbody);
+    output.appendChild(tbl);
+    scrollToBottom();
+  }
+
+  function appendCodeBlock(lang, lines) {
+    const block = document.createElement('div');
+    block.className = 'code-block';
+    const header = document.createElement('div');
+    header.className = 'code-block-header';
+    header.innerHTML = `<span class="lang">${lang}</span><span>${lines.length} 行</span>`;
+    block.appendChild(header);
+    const body = document.createElement('div');
+    body.className = 'code-block-body';
+    const lineNums = document.createElement('div');
+    lineNums.className = 'code-lines';
+    const content = document.createElement('div');
+    content.className = 'code-content';
+    lines.forEach(l => {
+      lineNums.appendChild(document.createTextNode(l.ln + '\n'));
+      const lineDiv = document.createElement('div');
+      lineDiv.innerHTML = l.html;
+      content.appendChild(lineDiv);
+    });
+    body.appendChild(lineNums);
+    body.appendChild(content);
+    block.appendChild(body);
+    output.appendChild(block);
+    scrollToBottom();
+  }
+
+  function appendProgress(label, target, delay, cb) {
+    const div = document.createElement('div');
+    div.className = 'progress';
+    div.innerHTML = `
+      <span class="progress-label">${label}</span>
+      <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+      <span class="progress-pct">0%</span>
+    `;
+    output.appendChild(div);
+    scrollToBottom();
+    const fill = div.querySelector('.progress-fill');
+    const pct = div.querySelector('.progress-pct');
+    let cur = 0;
+    const step = Math.max(1, Math.floor(target / 10));
+    const timer = setInterval(() => {
+      cur += step;
+      if (cur >= target) {
+        cur = target;
+        clearInterval(timer);
+        fill.style.width = target + '%';
+        pct.textContent = target + '%';
+        if (cb) setTimeout(cb, 200);
+      } else {
+        fill.style.width = cur + '%';
+        pct.textContent = cur + '%';
+      }
+    }, Math.floor(delay / 12));
+  }
+
+  function appendTree(nodes, indent = '') {
+    nodes.forEach((node, i) => {
+      const isLast = i === nodes.length - 1;
+      const prefix = indent + (isLast ? '└── ' : '├── ');
+      const childIndent = indent + (isLast ? '    ' : '│   ');
+      let html = prefix;
+      if (node.type === 'dir') {
+        html += `<span class="dir">${node.name}</span>`;
+      } else if (node.type === 'exe') {
+        html += `<span class="exe">${node.name}</span>`;
+      } else {
+        html += `<span class="file">${node.name}</span>`;
+      }
+      if (node.count) {
+        html += `  <span class="count">${node.count}</span>`;
+      }
+      appendLine({type:'normal', html});
+      if (node.children) {
+        appendTree(node.children, childIndent);
+      }
+    });
+  }
+
+  function scrollToBottom() {
+    output.scrollTop = output.scrollHeight;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function addTokens(n) {
+    tokenUsed += n;
+    const display = tokenUsed > 1000 ? (tokenUsed / 1000).toFixed(1) + 'k' : tokenUsed;
+    tokenCount.textContent = typeof display === 'string' ? display : tokenUsed.toLocaleString();
+    const pct = (tokenUsed / 131072) * 100;
+    ctxBar.style.width = pct + '%';
+    if (pct > 80) {
+      ctxBar.style.background = 'linear-gradient(90deg,var(--yellow),var(--red))';
+    }
+  }
+
+  // ========== 命令执行 ==========
+  function runCommand(input) {
+    const parts = input.trim().split(/\s+/);
+    const cmd = parts[0];
+    const arg = parts.slice(1).join(' ');
+
+    if (commands[cmd]) {
+      commands[cmd].run(arg);
+    } else {
+      // 自然语言：作为对话
+      appendCmd(input);
+      appendProgress('理解意图', 40, 600, () => {
+        appendProgress('检索知识', 80, 700, () => {
+          appendProgress('生成回复', 100, 500, () => {
+            appendAI(`我收到了你的消息：<strong style="color:var(--yellow)">"${escapeHtml(input)}"</strong>
+
+这看起来不像内置命令。你可以：
+  • 输入 <span style="color:var(--purple)">help</span> 查看命令清单
+  • 或直接描述你的需求，我会用自然语言回应
+
+例如试试：<span style="color:var(--cyan)">帮我分析上周的用户数据</span>
+`, true);
+          });
+        });
+      });
+    }
+  }
+
+  // ========== 输入处理 ==========
+  cmdInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const val = cmdInput.value.trim();
+      if (!val) return;
+      autocomplete.classList.remove('show');
+      cmdInput.value = '';
+      runCommand(val);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (historyIdx > 0) {
+        historyIdx--;
+        cmdInput.value = history[historyIdx] || '';
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (historyIdx < history.length - 1) {
+        historyIdx++;
+        cmdInput.value = history[historyIdx] || '';
+      } else {
+        historyIdx = history.length;
+        cmdInput.value = '';
+      }
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      const items = autocomplete.querySelectorAll('.ac-item.active');
+      if (items.length) {
+        cmdInput.value = items[0].querySelector('.ac-cmd').textContent;
+        autocomplete.classList.remove('show');
+      }
+    } else if (e.key === 'Escape') {
+      autocomplete.classList.remove('show');
+    }
+  });
+
+  // 实时补全
+  cmdInput.addEventListener('input', () => {
+    const val = cmdInput.value.trim();
+    if (!val) {
+      autocomplete.classList.remove('show');
+      return;
+    }
+    const matches = commandsList().filter(c => c.cmd.startsWith(val.toLowerCase()));
+    if (matches.length === 0) {
+      autocomplete.classList.remove('show');
+      return;
+    }
+    autocomplete.innerHTML = '';
+    matches.forEach((m, i) => {
+      const item = document.createElement('div');
+      item.className = 'ac-item' + (i === 0 ? ' active' : '');
+      item.innerHTML = `<span class="ac-cmd">${m.cmd}</span><span class="ac-desc">${m.desc}</span>`;
+      item.onclick = () => {
+        cmdInput.value = m.cmd;
+        autocomplete.classList.remove('show');
+        cmdInput.focus();
+      };
+      autocomplete.appendChild(item);
+    });
+    autocomplete.classList.add('show');
+  });
+
+  // 失焦隐藏
+  cmdInput.addEventListener('blur', () => {
+    setTimeout(() => autocomplete.classList.remove('show'), 150);
+  });
+
+  // ========== Boot 日志 ==========
+  function bootSequence(initial = true) {
+    const lines = [];
+    if (initial) {
+      lines.push({t:'info', tag:'[BOOT]', text:' Neural Agent Core v4.6.0 启动中...'});
+      lines.push({t:'info', tag:'[INFO]', text:' 加载知识库索引 · 1.2M 条目'});
+      lines.push({t:'ok',   tag:'[OK]  ', text:' 知识库就绪 · 耗时 312ms'});
+      lines.push({t:'info', tag:'[INFO]', text:' 初始化语言模型 · GLM-4.6'});
+      lines.push({t:'ok',   tag:'[OK]  ', text:' 模型加载完成 · 上下文窗口 128k'});
+      lines.push({t:'info', tag:'[INFO]', text:' 连接工具服务...'});
+      lines.push({t:'ok',   tag:'[OK]  ', text:' 代码解释器 · 已挂载'});
+      lines.push({t:'ok',   tag:'[OK]  ', text:' 网页搜索 · 已挂载'});
+      lines.push({t:'ok',   tag:'[OK]  ', text:' 文件系统 · 已挂载'});
+      lines.push({t:'warn', tag:'[WARN]', text:' 图像生成模块 · 等待激活'});
+      lines.push({t:'info', tag:'[INFO]', text:' 恢复上次会话上下文 · 8,432 tokens'});
+      lines.push({t:'ok',   tag:'[OK]  ', text:' 系统就绪。输入 help 查看命令，或直接开始对话。'});
+      lines.push({t:'normal', text:''});
+    }
+    return lines;
+  }
+
+  // ========== 初始化 ==========
+  function init() {
+    const lines = bootSequence(true);
+    let i = 0;
+    function next() {
+      if (i < lines.length) {
+        appendBoot([lines[i]]);
+        i++;
+        setTimeout(next, 180 + Math.random() * 120);
+      } else {
+        // 自动展示一段示例对话
+        setTimeout(() => {
+          appendAI(`<strong style="color:var(--cyan)">欢迎回来</strong>
+
+上次我们讨论了 Q3 项目规划的三个方向。要继续吗？
+
+  • 输入 <span style="color:var(--purple)">summarize</span> 查看会话总结
+  • 输入 <span style="color:var(--purple)">tree</span> 查看项目结构
+  • 输入 <span style="color:var(--purple)">help</span> 查看所有命令
+`, true);
+          cmdInput.focus();
+        }, 300);
+      }
+    }
+    next();
+  }
+
+  // 运行时长更新
+  let uptimeSec = 42 * 60 + 18;
+  setInterval(() => {
+    uptimeSec++;
+    const h = Math.floor(uptimeSec / 3600);
+    const m = Math.floor((uptimeSec % 3600) / 60);
+    const s = uptimeSec % 60;
+    uptime.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }, 1000);
+
+  init();
+})();
+</script>
+</body>
+</html>

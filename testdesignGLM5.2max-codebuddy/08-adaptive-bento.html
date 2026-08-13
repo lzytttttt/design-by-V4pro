@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bento · 自适应 AI 工作台</title>
+<style>
+  /* ============ 基础重置 ============ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f5f5f7;
+    color: #1d1d1f;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  input, textarea { font-family: inherit; }
+
+  :root {
+    --accent: #007aff;
+    --accent-soft: #e3f0ff;
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --sub: #86868b;
+    --line: #e5e5ea;
+    --radius: 20px;
+    --shadow: 0 4px 20px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+    --shadow-hover: 0 12px 36px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06);
+  }
+  body.dark {
+    --bg: #0a0a0c;
+    --card: #1c1c1e;
+    --text: #f5f5f7;
+    --sub: #98989d;
+    --line: #2c2c2e;
+    --accent-soft: rgba(0,122,255,0.15);
+    --shadow: 0 4px 20px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.2);
+    --shadow-hover: 0 12px 36px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  /* ============ 顶栏 ============ */
+  header {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(245,245,247,0.8);
+    backdrop-filter: blur(20px) saturate(1.5);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 28px;
+    display: flex; align-items: center; gap: 20px;
+  }
+  body.dark header { background: rgba(10,10,12,0.8); }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; flex-shrink: 0; }
+  .brand .logo {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: linear-gradient(135deg, #007aff, #5e5ce6);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 16px; font-weight: 800;
+    box-shadow: 0 2px 8px rgba(0,122,255,0.4);
+  }
+  .brand .status { font-size: 11px; font-weight: 500; color: #34c759; display: flex; align-items: center; gap: 4px; }
+  .brand .status::before { content:""; width:6px;height:6px;border-radius:50%;background:#34c759;box-shadow:0 0 6px #34c759; }
+  .tabs { display: flex; gap: 6px; flex: 1; justify-content: center; }
+  .tab {
+    padding: 7px 16px; border-radius: 100px;
+    font-size: 13px; font-weight: 500; color: var(--sub);
+    transition: all 0.25s;
+  }
+  .tab.active { background: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(0,122,255,0.35); }
+  .tab:not(.active):hover { background: rgba(0,122,255,0.08); color: var(--accent); }
+  .top-actions { display: flex; gap: 10px; flex-shrink: 0; align-items: center; }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--card); border: 1px solid var(--line);
+    transition: all 0.25s; color: var(--text);
+  }
+  .icon-btn:hover { transform: scale(1.08); }
+  .icon-btn svg { width: 16px; height: 16px; }
+  .ai-arrange {
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 16px; border-radius: 100px;
+    background: linear-gradient(135deg, #007aff, #5e5ce6);
+    color: #fff; font-size: 13px; font-weight: 600;
+    box-shadow: 0 4px 14px rgba(0,122,255,0.35);
+    transition: all 0.25s;
+  }
+  .ai-arrange:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,122,255,0.45); }
+  .ai-arrange svg { width: 14px; height: 14px; }
+  .ai-arrange .spin { animation: spin 1s linear infinite; display: none; }
+  .ai-arrange.loading .spin { display: inline-block; }
+  .ai-arrange.loading .label { opacity: 0.8; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ============ 主网格 ============ */
+  main { padding: 24px 28px 40px; }
+  .bento {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 140px;
+    gap: 16px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .module {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.3s, transform 0.3s;
+    display: flex; flex-direction: column;
+    cursor: pointer;
+    will-change: transform;
+  }
+  .module:hover { box-shadow: var(--shadow-hover); transform: translateY(-3px); }
+  .module .tag {
+    position: absolute; top: 12px; right: 12px;
+    font-size: 10px; padding: 3px 9px; border-radius: 100px;
+    font-weight: 600; z-index: 2;
+  }
+  .tag.recommend { background: var(--accent-soft); color: var(--accent); }
+  .tag.often { background: #fff4e6; color: #ff9500; }
+  body.dark .tag.often { background: rgba(255,149,0,0.15); }
+  .module .m-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .module .m-icon {
+    width: 26px; height: 26px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0;
+  }
+  .module .m-title { font-size: 14px; font-weight: 700; }
+  .module .m-sub { font-size: 11px; color: var(--sub); margin-top: 1px; }
+
+  /* 大模块: 今日重点 */
+  .m-focus { grid-column: span 2; grid-row: span 2; }
+  .focus-items { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .focus-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px; border-radius: 12px;
+    background: var(--bg); border: 1px solid var(--line);
+    transition: all 0.2s;
+  }
+  .focus-item:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .focus-check {
+    width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line);
+    flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; cursor: pointer;
+  }
+  .focus-check.done { background: #34c759; border-color: #34c759; }
+  .focus-check.done::after { content:"✓"; color:#fff; font-size:11px; font-weight:700; }
+  .focus-content { flex: 1; }
+  .focus-name { font-size: 13px; font-weight: 600; }
+  .focus-meta { font-size: 11px; color: var(--sub); margin-top: 2px; display: flex; gap: 8px; align-items: center; }
+  .prio { padding: 1px 7px; border-radius: 100px; font-size: 10px; font-weight: 600; }
+  .prio.high { background: #ffeaea; color: #ff3b30; }
+  .prio.mid { background: #fff4e6; color: #ff9500; }
+  .prio.low { background: #e8f5e9; color: #34c759; }
+  body.dark .prio.high { background: rgba(255,59,48,0.15); }
+  body.dark .prio.mid { background: rgba(255,149,0,0.15); }
+  body.dark .prio.low { background: rgba(52,199,89,0.15); }
+  .focus-done .focus-name { text-decoration: line-through; opacity: 0.5; }
+
+  /* 中模块: AI对话 */
+  .m-chat { grid-column: span 2; grid-row: span 1; }
+  .chat-input {
+    margin-top: 6px;
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 100px; padding: 5px 5px 5px 14px;
+    transition: all 0.25s;
+  }
+  .chat-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,122,255,0.12); }
+  .chat-input input { flex: 1; border: none; outline: none; background: none; color: var(--text); font-size: 12px; }
+  .chat-input input::placeholder { color: var(--sub); }
+  .chat-send { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .chat-send svg { width: 13px; height: 13px; }
+  .chat-recent { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chat-chip { font-size: 11px; padding: 3px 10px; border-radius: 100px; background: var(--bg); border: 1px solid var(--line); color: var(--sub); transition: all 0.2s; cursor: pointer; }
+  .chat-chip:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* 中模块: 数据洞察 */
+  .m-insight { grid-column: span 1; grid-row: span 2; }
+  .insight-num { font-size: 28px; font-weight: 800; margin-top: 4px; }
+  .insight-trend { font-size: 11px; color: #34c759; font-weight: 600; }
+  .insight-chart { flex: 1; margin-top: 8px; position: relative; min-height: 70px; }
+  .insight-chart canvas { width: 100%; height: 100%; }
+  .insight-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--sub); margin-top: 4px; }
+
+  /* 小模块: 灵感速记 */
+  .m-note { grid-column: span 1; grid-row: span 1; }
+  .note-area {
+    flex: 1; margin-top: 6px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 8px 10px; font-size: 12px; color: var(--text); resize: none; outline: none;
+    min-height: 50px;
+  }
+  .note-area:focus { border-color: var(--accent); }
+  .note-btn { align-self: flex-start; margin-top: 6px; font-size: 11px; color: var(--accent); font-weight: 600; }
+
+  /* 小模块: 待办 */
+  .m-todo { grid-column: span 1; grid-row: span 2; }
+  .todo-list { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; flex: 1; overflow-y: auto; }
+  .todo-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .todo-box { width: 15px; height: 15px; border-radius: 5px; border: 1.5px solid var(--line); flex-shrink: 0; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+  .todo-box.done { background: var(--accent); border-color: var(--accent); }
+  .todo-box.done::after { content:"✓"; color:#fff; font-size:10px; }
+  .todo-item.done .todo-text { text-decoration: line-through; color: var(--sub); }
+
+  /* 小模块: 天气/日程 */
+  .m-info { grid-column: span 1; grid-row: span 1; }
+  .weather { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+  .weather .temp { font-size: 26px; font-weight: 700; }
+  .weather .meta { font-size: 11px; color: var(--sub); }
+  .schedule-next { margin-top: 8px; padding: 8px 10px; background: var(--accent-soft); border-radius: 10px; font-size: 11px; }
+  .schedule-next .t { font-weight: 700; color: var(--accent); }
+
+  /* 长条模块: AI建议 */
+  .m-suggest { grid-column: span 4; grid-row: span 1; }
+  .suggest-scroll { display: flex; gap: 12px; overflow-x: auto; margin-top: 8px; padding-bottom: 4px; }
+  .suggest-scroll::-webkit-scrollbar { height: 4px; }
+  .suggest-scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+  .suggest-card {
+    flex-shrink: 0; width: 200px; padding: 12px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
+    transition: all 0.25s; cursor: pointer;
+  }
+  .suggest-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .suggest-card .sc-cat { font-size: 10px; color: var(--accent); font-weight: 600; text-transform: uppercase; }
+  .suggest-card .sc-title { font-size: 12px; font-weight: 600; margin-top: 4px; line-height: 1.4; }
+  .suggest-card .sc-desc { font-size: 11px; color: var(--sub); margin-top: 4px; line-height: 1.4; }
+
+  /* ============ 模态 ============ */
+  .modal-mask {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.4); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-mask.show { display: flex; animation: fadeIn 0.25s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: var(--card); border-radius: 24px; padding: 28px;
+    max-width: 600px; width: 100%; max-height: 80vh; overflow-y: auto;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+    animation: slideUp 0.3s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-close { float: right; width: 32px; height: 32px; border-radius: 50%; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+
+  /* ============ Toast ============ */
+  #toast {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px);
+    z-index: 200;
+    background: #1d1d1f; color: #fff;
+    padding: 12px 22px; border-radius: 100px;
+    font-size: 13px; font-weight: 500;
+    opacity: 0; transition: all 0.4s; pointer-events: none;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+    display: flex; align-items: center; gap: 8px;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast .ico { color: #34c759; }
+
+  /* ============ 响应式 ============ */
+  @media (max-width: 1024px) {
+    .bento { grid-template-columns: repeat(2, 1fr); }
+    .m-focus { grid-column: span 2; }
+    .m-chat { grid-column: span 2; }
+    .m-suggest { grid-column: span 2; }
+    .m-insight, .m-note, .m-todo, .m-info { grid-column: span 1; }
+  }
+  @media (max-width: 640px) {
+    header { padding: 12px 14px; flex-wrap: wrap; gap: 10px; }
+    .tabs { order: 3; width: 100%; justify-content: flex-start; overflow-x: auto; }
+    main { padding: 16px 14px 80px; }
+    .bento { grid-template-columns: 1fr; grid-auto-rows: auto; }
+    .m-focus, .m-chat, .m-suggest, .m-insight, .m-note, .m-todo, .m-info { grid-column: span 1; grid-row: auto; }
+    .module { min-height: 160px; }
+    .brand .status { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">B</div>
+    <div>Bento
+      <div class="status">在线 · 已学习你的节奏</div>
+    </div>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-filter="all">全部</button>
+    <button class="tab" data-filter="work">工作</button>
+    <button class="tab" data-filter="life">生活</button>
+    <button class="tab" data-filter="study">学习</button>
+  </div>
+  <div class="top-actions">
+    <button class="icon-btn" id="themeBtn" title="切换主题" aria-label="切换主题">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+    </button>
+    <button class="ai-arrange" id="arrangeBtn">
+      <svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/><path d="m9 3-3 3 3 3M15 21l3-3-3-3" stroke-linecap="round"/></svg>
+      <span class="label">让 AI 整理</span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="bento" id="bento">
+
+    <!-- 今日重点 -->
+    <div class="module m-focus" data-cat="work" data-key="focus">
+      <span class="tag recommend">AI 推荐</span>
+      <div class="m-head">
+        <div class="m-icon" style="background:var(--accent-soft);color:var(--accent)">🎯</div>
+        <div><div class="m-title">今日重点</div><div class="m-sub">AI 根据你的目标与节奏生成</div></div>
+      </div>
+      <div class="focus-items">
+        <div class="focus-item">
+          <div class="focus-check"></div>
+          <div class="focus-content">
+            <div class="focus-name">完成 Q3 产品路线图评审文档</div>
+            <div class="focus-meta"><span class="prio high">高优先</span><span>14:00 截止</span><span>预计 90 分钟</span></div>
+          </div>
+        </div>
+        <div class="focus-item focus-done">
+          <div class="focus-check done"></div>
+          <div class="focus-content">
+            <div class="focus-name">回复客户王经理的技术问题</div>
+            <div class="focus-meta"><span class="prio mid">中</span><span>已完成 10:32</span></div>
+          </div>
+        </div>
+        <div class="focus-item">
+          <div class="focus-check"></div>
+          <div class="focus-content">
+            <div class="focus-name">准备明天演示用的数据看板</div>
+            <div class="focus-meta"><span class="prio low">低</span><span>明天 9:00 前</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI对话 -->
+    <div class="module m-chat" data-cat="work" data-key="chat">
+      <span class="tag often">常用</span>
+      <div class="m-head">
+        <div class="m-icon" style="background:#f0eaff;color:#5e5ce6">💬</div>
+        <div><div class="m-title">AI 对话</div><div class="m-sub">快捷提问 · 最近 3 条</div></div>
+      </div>
+      <div class="chat-input">
+        <input type="text" id="chatInput" placeholder="问 Bento 任何事…">
+        <button class="chat-send" id="chatSend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
+      <div class="chat-recent">
+        <span class="chat-chip">总结今天的会议要点</span>
+        <span class="chat-chip">帮我润色这封邮件</span>
+        <span class="chat-chip">对比三个方案的优劣</span>
+      </div>
+    </div>
+
+    <!-- 数据洞察 -->
+    <div class="module m-insight" data-cat="work" data-key="insight">
+      <span class="tag recommend">AI 推荐</span>
+      <div class="m-head">
+        <div class="m-icon" style="background:#e8f5e9;color:#34c759">📈</div>
+        <div><div class="m-title">效率趋势</div><div class="m-sub">近 7 日专注度</div></div>
+      </div>
+      <div class="insight-num">92<span style="font-size:14px;color:var(--sub);font-weight:500">%</span></div>
+      <div class="insight-trend">↑ 较上周 +8%</div>
+      <div class="insight-chart"><canvas id="chart"></canvas></div>
+      <div class="insight-labels"><span>周一</span><span>周三</span><span>周五</span><span>今日</span></div>
+    </div>
+
+    <!-- 灵感速记 -->
+    <div class="module m-note" data-cat="study" data-key="note">
+      <div class="m-head">
+        <div class="m-icon" style="background:#fff4e6;color:#ff9500">💡</div>
+        <div><div class="m-title">灵感速记</div><div class="m-sub">一键记录闪念</div></div>
+      </div>
+      <textarea class="note-area" id="noteArea" placeholder="把脑中的想法丢进来…"></textarea>
+      <button class="note-btn" id="noteBtn">保存灵感 →</button>
+    </div>
+
+    <!-- 待办 -->
+    <div class="module m-todo" data-cat="work" data-key="todo">
+      <div class="m-head">
+        <div class="m-icon" style="background:#ffeaea;color:#ff3b30">✓</div>
+        <div><div class="m-title">待办清单</div><div class="m-sub">5 项 · 2 项已完成</div></div>
+      </div>
+      <div class="todo-list">
+        <div class="todo-item done"><div class="todo-box done"></div><span class="todo-text">确认会议室预订</span></div>
+        <div class="todo-item done"><div class="todo-box done"></div><span class="todo-text">提交差旅报销</span></div>
+        <div class="todo-item"><div class="todo-box"></div><span class="todo-text">整理用户访谈记录</span></div>
+        <div class="todo-item"><div class="todo-box"></div><span class="todo-text">更新项目 Wiki</span></div>
+        <div class="todo-item"><div class="todo-box"></div><span class="todo-text">联系供应商确认报价</span></div>
+      </div>
+    </div>
+
+    <!-- 天气/日程 -->
+    <div class="module m-info" data-cat="life" data-key="info">
+      <div class="m-head">
+        <div class="m-icon" style="background:#e3f0ff;color:#007aff">☀</div>
+        <div><div class="m-title">今日</div><div class="m-sub">上海 · 多云转晴</div></div>
+      </div>
+      <div class="weather">
+        <div class="temp">26°</div>
+        <div class="meta">湿度 58%<br>风速 3 级</div>
+      </div>
+      <div class="schedule-next">
+        <div class="t">下一项 · 15:30</div>
+        <div style="margin-top:2px">产品周会 · 会议室 A</div>
+      </div>
+    </div>
+
+    <!-- AI建议 长条 -->
+    <div class="module m-suggest" data-cat="study" data-key="suggest">
+      <div class="m-head">
+        <div class="m-icon" style="background:linear-gradient(135deg,#007aff,#5e5ce6);color:#fff">✨</div>
+        <div><div class="m-title">AI 建议</div><div class="m-sub">根据你的节奏主动推荐 · 横向滑动查看更多</div></div>
+      </div>
+      <div class="suggest-scroll">
+        <div class="suggest-card"><div class="sc-cat">效率</div><div class="sc-title">把"整理访谈记录"拆成 3 个子任务</div><div class="sc-desc">任务过大易拖延，拆分后预计节省 40 分钟。</div></div>
+        <div class="suggest-card"><div class="sc-cat">学习</div><div class="sc-title">订阅《设计系统周刊》</div><div class="sc-desc">与你近期关注的组件化主题高度相关。</div></div>
+        <div class="suggest-card"><div class="sc-cat">休息</div><div class="sc-title">15:00 起身活动 5 分钟</div><div class="sc-desc">已连续专注 2 小时，短暂休息能提升后续效率。</div></div>
+        <div class="suggest-card"><div class="sc-cat">复盘</div><div class="sc-title">周五 17:00 安排周复盘</div><div class="sc-desc">本周完成率高，适合做一次轻量复盘沉淀。</div></div>
+        <div class="suggest-card"><div class="sc-cat">协作</div><div class="sc-title">把路线图草稿同步给小李</div><div class="sc-desc">他下周需要基于此做技术评估。</div></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- 模态 -->
+<div class="modal-mask" id="modalMask">
+  <div class="modal" id="modalBody">
+    <button class="modal-close" id="modalClose">×</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<div id="toast"><span class="ico">✓</span><span id="toastText"></span></div>
+
+<script>
+/* ============ 主题切换 ============ */
+const themeBtn = document.getElementById('themeBtn');
+themeBtn.addEventListener('click', () => {
+  document.body.classList.toggle('dark');
+  drawChart();
+  showToast(document.body.classList.contains('dark') ? '已切换深色模式' : '已切换浅色模式');
+});
+
+/* ============ 筛选 ============ */
+const tabs = document.querySelectorAll('.tab');
+tabs.forEach(t => t.addEventListener('click', () => {
+  tabs.forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  const f = t.dataset.filter;
+  const modules = document.querySelectorAll('.module');
+  modules.forEach(m => {
+    const match = (f === 'all' || m.dataset.cat === f);
+    // FLIP first
+    firstPositions.set(m, m.getBoundingClientRect());
+    m.style.display = match ? '' : 'none';
+  });
+  // reflow
+  modules.forEach(m => { if(m.style.display !== 'none') applyFlip(m); });
+  if (f !== 'all') showToast(`已筛选「${t.textContent}」模块`);
+  else showToast('显示全部模块');
+}));
+
+/* ============ FLIP 重排动画 ============ */
+const firstPositions = new Map();
+function recordFirst(){
+  document.querySelectorAll('.module').forEach(m => firstPositions.set(m, m.getBoundingClientRect()));
+}
+function applyFlip(m){
+  const first = firstPositions.get(m);
+  if(!first) return;
+  const last = m.getBoundingClientRect();
+  const dx = first.left - last.left;
+  const dy = first.top - last.top;
+  const dw = first.width / last.width;
+  const dh = first.height / last.height;
+  if(dx === 0 && dy === 0 && dw === 1 && dh === 1) return;
+  m.style.transition = 'none';
+  m.style.transform = `translate(${dx}px, ${dy}px) scale(${dw}, ${dh})`;
+  requestAnimationFrame(() => {
+    m.style.transition = 'transform 0.5s cubic-bezier(.4,0,.2,1), box-shadow 0.3s';
+    m.style.transform = '';
+  });
+}
+
+/* ============ 让 AI 整理 (重排布局) ============ */
+const arrangeBtn = document.getElementById('arrangeBtn');
+let arrangeState = 0; // 0=默认, 1=工作优先, 2=精简聚焦
+
+// 三套布局 class 配置
+const layouts = [
+  // 默认
+  { focus:'m-focus', chat:'m-chat', insight:'m-insight', note:'m-note', todo:'m-todo', info:'m-info', suggest:'m-suggest' },
+  // 工作优先: focus放大, insight放大, chat变小
+  { focus:'m-focus-big', chat:'m-chat', insight:'m-insight-big', note:'m-note', todo:'m-todo', info:'m-info', suggest:'m-suggest' },
+  // 精简聚焦: 只突出focus和chat
+  { focus:'m-focus-huge', chat:'m-chat-big', insight:'m-insight', note:'m-note-sm', todo:'m-todo-sm', info:'m-info-sm', suggest:'m-suggest' }
+];
+
+// 动态注入扩展布局样式
+const styleExtra = document.createElement('style');
+styleExtra.textContent = `
+  .m-focus-big { grid-column: span 2; grid-row: span 3; }
+  .m-insight-big { grid-column: span 1; grid-row: span 3; }
+  .m-focus-huge { grid-column: span 3; grid-row: span 2; }
+  .m-chat-big { grid-column: span 3; grid-row: span 1; }
+  .m-note-sm { grid-column: span 1; grid-row: span 1; }
+  .m-todo-sm { grid-column: span 1; grid-row: span 1; }
+  .m-info-sm { grid-column: span 1; grid-row: span 1; }
+  @media (max-width: 1024px) {
+    .m-focus-big, .m-focus-huge { grid-column: span 2; grid-row: span 2; }
+    .m-insight-big { grid-column: span 1; grid-row: span 2; }
+    .m-chat-big { grid-column: span 2; }
+  }
+  @media (max-width: 640px) {
+    .m-focus-big, .m-focus-huge, .m-chat-big, .m-insight-big, .m-note-sm, .m-todo-sm, .m-info-sm { grid-column: span 1; grid-row: auto; }
+  }
+`;
+document.head.appendChild(styleExtra);
+
+const keyToSel = { focus:'.m-focus', chat:'.m-chat', insight:'.m-insight', note:'.m-note', todo:'.m-todo', info:'.m-info', suggest:'.m-suggest' };
+
+arrangeBtn.addEventListener('click', () => {
+  if(arrangeBtn.classList.contains('loading')) return;
+  arrangeBtn.classList.add('loading');
+  arrangeBtn.querySelector('.label').textContent = 'AI 整理中…';
+
+  setTimeout(() => {
+    recordFirst();
+    arrangeState = (arrangeState + 1) % layouts.length;
+    const layout = layouts[arrangeState];
+    // 先移除所有扩展class，恢复默认
+    Object.values(keyToSel).forEach(sel => {
+      const el = document.querySelector(sel);
+      if(el) el.className = 'module ' + sel.substring(1);
+    });
+    // 应用新布局
+    Object.entries(layout).forEach(([key, cls]) => {
+      const el = document.querySelector(keyToSel[key]);
+      if(el) el.className = 'module ' + cls;
+    });
+    // FLIP
+    document.querySelectorAll('.module').forEach(m => applyFlip(m));
+
+    arrangeBtn.classList.remove('loading');
+    const msgs = ['已恢复默认布局', '已根据你的工作节奏重新排列，重点模块已放大', '已进入精简聚焦模式，只保留核心模块'];
+    showToast(msgs[arrangeState]);
+    arrangeBtn.querySelector('.label').textContent = '让 AI 整理';
+  }, 700);
+});
+
+/* ============ 模态展开 ============ */
+const modalMask = document.getElementById('modalMask');
+const modalContent = document.getElementById('modalContent');
+const modalClose = document.getElementById('modalClose');
+
+const modalTemplates = {
+  focus: `<h2 style="font-size:20px;margin-bottom:6px">今日重点</h2><p style="color:var(--sub);font-size:13px;margin-bottom:18px">AI 根据你的目标、日程与历史完成节奏生成，每日 8:00 自动更新。</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="padding:14px;background:var(--bg);border-radius:14px"><b>完成 Q3 产品路线图评审文档</b><br><span style="font-size:12px;color:var(--sub)">高优先 · 14:00 截止 · 预计 90 分钟</span></div>
+      <div style="padding:14px;background:var(--bg);border-radius:14px;opacity:0.6"><b style="text-decoration:line-through">回复客户王经理的技术问题</b><br><span style="font-size:12px;color:var(--sub)">已完成 10:32</span></div>
+      <div style="padding:14px;background:var(--bg);border-radius:14px"><b>准备明天演示用的数据看板</b><br><span style="font-size:12px;color:var(--sub)">低优先 · 明天 9:00 前</span></div>
+    </div>`,
+  chat: `<h2 style="font-size:20px;margin-bottom:12px">AI 对话</h2>
+    <div style="background:var(--bg);border-radius:14px;padding:16px;margin-bottom:12px;font-size:13px;line-height:1.6">
+      <b>你：</b>总结今天的会议要点<br><b style="color:var(--accent)">Bento：</b>今天共有 3 场会议。核心结论：① 路线图延期一周 ② 设计系统 v2 下月启动 ③ 用户调研排期确认。需要展开某一项吗？
+    </div>
+    <div style="background:var(--bg);border-radius:14px;padding:16px;font-size:13px;line-height:1.6">
+      <b>你：</b>帮我润色这封邮件<br><b style="color:var(--accent)">Bento：</b>已润色，主要调整了开场语气和行动项的清晰度，3 处修改已标注。
+    </div>`,
+  insight: `<h2 style="font-size:20px;margin-bottom:6px">效率趋势详情</h2><p style="color:var(--sub);font-size:13px;margin-bottom:18px">近 7 日专注度分析</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px">
+      <div style="padding:14px;background:var(--bg);border-radius:14px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--accent)">92%</div><div style="font-size:11px;color:var(--sub)">平均专注度</div></div>
+      <div style="padding:14px;background:var(--bg);border-radius:14px;text-align:center"><div style="font-size:24px;font-weight:800;color:#34c759">5.2h</div><div style="font-size:11px;color:var(--sub)">日均深度工作</div></div>
+      <div style="padding:14px;background:var(--bg);border-radius:14px;text-align:center"><div style="font-size:24px;font-weight:800;color:#ff9500">12</div><div style="font-size:11px;color:var(--sub)">完成任务数</div></div>
+    </div>
+    <p style="font-size:13px;color:var(--sub);line-height:1.6">AI 分析：本周二、四专注度最高，建议把高难度任务安排在这两天上午。下午 14:00-15:00 是低谷期，适合处理轻量事务。</p>`,
+  note: `<h2 style="font-size:20px;margin-bottom:12px">灵感速记</h2><textarea style="width:100%;min-height:200px;padding:16px;background:var(--bg);border:1px solid var(--line);border-radius:14px;font-size:14px;outline:none;color:var(--text);resize:vertical" placeholder="把脑中的想法丢进来…"></textarea><button style="margin-top:12px;padding:10px 24px;background:var(--accent);color:#fff;border-radius:100px;font-size:13px;font-weight:600">保存灵感</button>`,
+  todo: `<h2 style="font-size:20px;margin-bottom:12px">待办清单</h2><div style="display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg);border-radius:12px;opacity:0.6"><div style="width:18px;height:18px;border-radius:5px;background:var(--accent)"></div><span style="text-decoration:line-through">确认会议室预订</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg);border-radius:12px;opacity:0.6"><div style="width:18px;height:18px;border-radius:5px;background:var(--accent)"></div><span style="text-decoration:line-through">提交差旅报销</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg);border-radius:12px"><div style="width:18px;height:18px;border-radius:5px;border:1.5px solid var(--line)"></div>整理用户访谈记录</div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg);border-radius:12px"><div style="width:18px;height:18px;border-radius:5px;border:1.5px solid var(--line)"></div>更新项目 Wiki</div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg);border-radius:12px"><div style="width:18px;height:18px;border-radius:5px;border:1.5px solid var(--line)"></div>联系供应商确认报价</div>
+    </div>`,
+  info: `<h2 style="font-size:20px;margin-bottom:12px">今日天气与日程</h2>
+    <div style="display:flex;gap:20px;margin-bottom:18px">
+      <div style="flex:1;padding:16px;background:var(--bg);border-radius:14px"><div style="font-size:36px;font-weight:800">26°</div><div style="color:var(--sub);font-size:13px">多云转晴 · 上海</div></div>
+      <div style="flex:1;padding:16px;background:var(--bg);border-radius:14px"><div style="font-size:13px;color:var(--sub)">湿度 58% · 风速 3 级 · 紫外线中等</div></div>
+    </div>
+    <h3 style="font-size:15px;margin-bottom:10px">今日日程</h3>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:12px;padding:12px;background:var(--bg);border-radius:12px"><b style="color:var(--accent);min-width:50px">15:30</b><div>产品周会 · 会议室 A</div></div>
+      <div style="display:flex;gap:12px;padding:12px;background:var(--bg);border-radius:12px"><b style="color:var(--sub);min-width:50px">17:00</b><div>与设计师 1on1</div></div>
+    </div>`,
+  suggest: `<h2 style="font-size:20px;margin-bottom:12px">AI 建议</h2><p style="color:var(--sub);font-size:13px;margin-bottom:18px">Bento 持续观察你的工作模式，主动给出可执行建议。</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="padding:14px;background:var(--bg);border-radius:14px"><div style="font-size:11px;color:var(--accent);font-weight:600">效率</div><b>把"整理访谈记录"拆成 3 个子任务</b><br><span style="font-size:12px;color:var(--sub)">任务过大易拖延，拆分后预计节省 40 分钟。</span></div>
+      <div style="padding:14px;background:var(--bg);border-radius:14px"><div style="font-size:11px;color:var(--accent);font-weight:600">休息</div><b>15:00 起身活动 5 分钟</b><br><span style="font-size:12px;color:var(--sub)">已连续专注 2 小时，短暂休息能提升后续效率。</span></div>
+      <div style="padding:14px;background:var(--bg);border-radius:14px"><div style="font-size:11px;color:var(--accent);font-weight:600">复盘</div><b>周五 17:00 安排周复盘</b><br><span style="font-size:12px;color:var(--sub)">本周完成率高，适合做一次轻量复盘沉淀。</span></div>
+    </div>`
+};
+
+document.querySelectorAll('.module').forEach(m => {
+  m.addEventListener('click', (e) => {
+    if(e.target.closest('input,textarea,button,.focus-check,.todo-box,.chat-chip,.suggest-card')) return;
+    const key = m.dataset.key;
+    if(modalTemplates[key]){
+      modalContent.innerHTML = modalTemplates[key];
+      modalMask.classList.add('show');
+    }
+  });
+});
+modalClose.addEventListener('click', () => modalMask.classList.remove('show'));
+modalMask.addEventListener('click', (e) => { if(e.target === modalMask) modalMask.classList.remove('show'); });
+
+/* ============ 交互 ============ */
+// 复选框
+document.addEventListener('click', (e) => {
+  if(e.target.classList.contains('focus-check')){
+    e.stopPropagation();
+    e.target.classList.toggle('done');
+    e.target.closest('.focus-item').classList.toggle('focus-done');
+  }
+  if(e.target.classList.contains('todo-box')){
+    e.stopPropagation();
+    e.target.classList.toggle('done');
+    e.target.closest('.todo-item').classList.toggle('done');
+  }
+  if(e.target.classList.contains('chat-chip')){
+    e.stopPropagation();
+    document.getElementById('chatInput').value = e.target.textContent;
+    document.getElementById('chatInput').focus();
+  }
+  if(e.target.classList.contains('suggest-card')){
+    e.stopPropagation();
+    const title = e.target.querySelector('.sc-title').textContent;
+    showToast('已采纳建议：' + title);
+  }
+});
+
+// 聊天
+const chatInput = document.getElementById('chatInput');
+const chatSend = document.getElementById('chatSend');
+const aiReplies = [
+  '已收到，我正在处理，稍后给你结果。',
+  '好的，已为你生成草稿，可在工作区查看。',
+  '这个问题我拆成了三步，第一步已完成。',
+  '已对比三个方案，结论是方案二综合最优。'
+];
+let ri = 0;
+function doChat(){
+  const v = chatInput.value.trim();
+  if(!v) return;
+  showToast('Nova：' + aiReplies[ri % aiReplies.length]);
+  ri++;
+  chatInput.value = '';
+}
+chatSend.addEventListener('click', doChat);
+chatInput.addEventListener('keydown', e => { if(e.key==='Enter') doChat(); });
+
+// 速记
+document.getElementById('noteBtn').addEventListener('click', () => {
+  const v = document.getElementById('noteArea').value.trim();
+  if(v){ showToast('灵感已保存：' + (v.length>20 ? v.slice(0,20)+'…' : v)); document.getElementById('noteArea').value=''; }
+  else { showToast('先写点什么吧'); }
+});
+
+/* ============ Toast ============ */
+const toast = document.getElementById('toast');
+const toastText = document.getElementById('toastText');
+let toastT;
+function showToast(msg){
+  toastText.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => toast.classList.remove('show'), 2400);
+}
+
+/* ============ 折线图 ============ */
+function drawChart(){
+  const canvas = document.getElementById('chart');
+  if(!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.offsetWidth, h = canvas.offsetHeight;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+  const data = [78, 85, 72, 90, 88, 95, 92];
+  const max = 100, min = 60;
+  const pts = data.map((v, i) => ({
+    x: (i / (data.length - 1)) * (w - 8) + 4,
+    y: h - ((v - min) / (max - min)) * (h - 10) - 5
+  }));
+  // 渐变填充
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  const isDark = document.body.classList.contains('dark');
+  grad.addColorStop(0, isDark ? 'rgba(0,122,255,0.4)' : 'rgba(0,122,255,0.25)');
+  grad.addColorStop(1, 'rgba(0,122,255,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, h);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, h);
+  ctx.closePath();
+  ctx.fill();
+  // 折线
+  ctx.strokeStyle = '#007aff';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.stroke();
+  // 点
+  pts.forEach((p, i) => {
+    ctx.fillStyle = i === pts.length - 1 ? '#007aff' : '#fff';
+    ctx.strokeStyle = '#007aff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, i === pts.length - 1 ? 4 : 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  });
+}
+window.addEventListener('resize', drawChart);
+window.addEventListener('load', drawChart);
+
+/* 初始 */
+setTimeout(() => showToast('Bento 已根据你的节奏准备好今日布局'), 500);
+</script>
+</body>
+</html>

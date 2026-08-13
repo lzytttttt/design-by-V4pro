@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plasma Core · 等离子核心</title>
+<style>
+  /* ========== 基础重置与变量 ========== */
+  :root {
+    --bg-deep: #000000;
+    --bg-near: #0a0118;
+    --plasma-cyan: #00d4ff;
+    --plasma-purple: #a855f7;
+    --plasma-gold: #fbbf24;
+    --text-dim: rgba(255, 255, 255, 0.45);
+    --text-mid: rgba(255, 255, 255, 0.7);
+    --text-bright: rgba(255, 255, 255, 0.95);
+    --orb-color: var(--plasma-cyan);
+    --orb-glow: rgba(0, 212, 255, 0.6);
+    --orb-glow-soft: rgba(0, 212, 255, 0.25);
+  }
+
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-deep);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text-bright);
+    user-select: none;
+  }
+
+  /* ========== 背景径向渐变 ========== */
+  .stage {
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 50%, var(--bg-near) 0%, var(--bg-deep) 70%),
+      var(--bg-deep);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* 噪点层 */
+  .noise {
+    position: fixed;
+    inset: 0;
+    opacity: 0.04;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode: overlay;
+    z-index: 1;
+  }
+
+  /* ========== 状态文字 ========== */
+  .status-text {
+    position: fixed;
+    top: 22%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    font-weight: 300;
+    letter-spacing: 4px;
+    color: var(--text-mid);
+    text-transform: none;
+    z-index: 5;
+    transition: opacity 0.6s ease, color 0.6s ease;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .status-text .dot {
+    display: inline-block;
+    animation: dotPulse 2s ease-in-out infinite;
+  }
+  .status-text .dot:nth-child(2) { animation-delay: 0.3s; }
+  .status-text .dot:nth-child(3) { animation-delay: 0.6s; }
+
+  @keyframes dotPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+
+  /* ========== 等离子光球核心 ========== */
+  .orb-system {
+    position: relative;
+    width: 360px;
+    height: 360px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 4;
+  }
+
+  .orb {
+    position: absolute;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: var(--orb-color);
+    animation: breathe 6s ease-in-out infinite;
+    transition: filter 1s ease;
+  }
+
+  /* 外层大光晕 */
+  .orb::after {
+    content: "";
+    position: absolute;
+    inset: -120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--orb-glow-soft) 0%, transparent 60%);
+    filter: blur(40px);
+    animation: glowPulse 6s ease-in-out infinite;
+    transition: background 1s ease;
+  }
+
+  /* 核心高亮 */
+  .orb::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%,
+      rgba(255, 255, 255, 0.9) 0%,
+      var(--orb-color) 25%,
+      var(--orb-glow) 55%,
+      transparent 75%);
+    filter: blur(8px);
+    animation: innerFlow 8s ease-in-out infinite;
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.06); filter: brightness(1.15); }
+  }
+
+  @keyframes glowPulse {
+    0%, 100% { opacity: 0.7; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.15); }
+  }
+
+  @keyframes innerFlow {
+    0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
+    33% { transform: scale(1.05) rotate(120deg); opacity: 1; }
+    66% { transform: scale(0.98) rotate(240deg); opacity: 0.85; }
+  }
+
+  /* 脉冲环 */
+  .pulse-ring {
+    position: absolute;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    border: 1px solid var(--orb-color);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .pulse-ring.active {
+    animation: pulseRing 1.2s ease-out;
+  }
+
+  @keyframes pulseRing {
+    0% { transform: scale(1); opacity: 0.8; }
+    100% { transform: scale(2.8); opacity: 0; }
+  }
+
+  /* ========== 轨道系统 ========== */
+  .orbit {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .orbit-1 {
+    width: 260px;
+    height: 260px;
+    animation: rotateOrbit 40s linear infinite;
+  }
+
+  .orbit-2 {
+    width: 330px;
+    height: 330px;
+    animation: rotateOrbit 60s linear infinite reverse;
+  }
+
+  .orbit-3 {
+    width: 420px;
+    height: 420px;
+    animation: rotateOrbit 90s linear infinite;
+    border-color: rgba(255, 255, 255, 0.03);
+  }
+
+  @keyframes rotateOrbit {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+
+  /* 轨道粒子（能力快捷） */
+  .particle {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--particle-color, var(--plasma-cyan));
+    box-shadow: 0 0 12px var(--particle-color, var(--plasma-cyan)), 0 0 24px var(--particle-color, var(--plasma-cyan));
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    top: 50%;
+    left: 50%;
+    margin-top: -7px;
+    margin-left: -7px;
+  }
+
+  .particle::after {
+    content: attr(data-label);
+    position: absolute;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  .particle:hover {
+    transform: scale(1.8);
+    box-shadow: 0 0 20px var(--particle-color, var(--plasma-cyan)), 0 0 40px var(--particle-color, var(--plasma-cyan));
+  }
+
+  .particle:hover::after {
+    opacity: 1;
+  }
+
+  /* 各粒子定位（反向旋转抵消父级旋转，保持文字正向） */
+  .particle-counter {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .orbit-1 .particle:nth-child(1) { transform: translate(-50%, -50%) rotate(0deg) translateX(130px); }
+  .orbit-1 .particle:nth-child(2) { transform: translate(-50%, -50%) rotate(90deg) translateX(130px); }
+  .orbit-1 .particle:nth-child(3) { transform: translate(-50%, -50%) rotate(180deg) translateX(130px); }
+  .orbit-1 .particle:nth-child(4) { transform: translate(-50%, -50%) rotate(270deg) translateX(130px); }
+
+  .orbit-2 .particle:nth-child(1) { transform: translate(-50%, -50%) rotate(45deg) translateX(165px); }
+  .orbit-2 .particle:nth-child(2) { transform: translate(-50%, -50%) rotate(135deg) translateX(165px); }
+  .orbit-2 .particle:nth-child(3) { transform: translate(-50%, -50%) rotate(225deg) translateX(165px); }
+  .orbit-2 .particle:nth-child(4) { transform: translate(-50%, -50%) rotate(315deg) translateX(165px); }
+
+  .orbit-3 .particle:nth-child(1) { transform: translate(-50%, -50%) rotate(30deg) translateX(210px); }
+  .orbit-3 .particle:nth-child(2) { transform: translate(-50%, -50%) rotate(150deg) translateX(210px); }
+  .orbit-3 .particle:nth-child(3) { transform: translate(-50%, -50%) rotate(210deg) translateX(210px); }
+
+  /* ========== 底部输入框 ========== */
+  .input-zone {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(440px, 70vw);
+    z-index: 6;
+  }
+
+  .input-line {
+    position: relative;
+    width: 100%;
+  }
+
+  .input-line input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--text-bright);
+    font-size: 15px;
+    font-weight: 300;
+    letter-spacing: 1px;
+    padding: 10px 0;
+    outline: none;
+    text-align: center;
+    font-family: inherit;
+    transition: border-color 0.4s ease;
+  }
+
+  .input-line input::placeholder {
+    color: rgba(255, 255, 255, 0.25);
+    font-weight: 200;
+  }
+
+  .input-line .underline {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 1px;
+    background: var(--plasma-cyan);
+    box-shadow: 0 0 8px var(--plasma-cyan);
+    transform: translateX(-50%);
+    transition: width 0.4s ease;
+  }
+
+  .input-line input:focus ~ .underline {
+    width: 100%;
+  }
+
+  .input-hint {
+    text-align: center;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.2);
+    margin-top: 10px;
+    letter-spacing: 2px;
+  }
+
+  /* ========== 角落图标 ========== */
+  .corner {
+    position: fixed;
+    z-index: 7;
+    opacity: 0.25;
+    transition: opacity 0.4s ease;
+    cursor: pointer;
+  }
+
+  .corner:hover {
+    opacity: 0.9;
+  }
+
+  .corner svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--text-bright);
+  }
+
+  .corner-settings {
+    bottom: 28px;
+    left: 28px;
+  }
+
+  .corner-history {
+    top: 28px;
+    right: 28px;
+  }
+
+  /* ========== 今日洞察卡片 ========== */
+  .insight-card {
+    position: fixed;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 240px;
+    background: rgba(20, 20, 35, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 18px 20px;
+    z-index: 6;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s ease;
+  }
+
+  .insight-card.collapsed {
+    transform: translateY(-50%) translateX(260px);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .insight-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .insight-title {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--plasma-gold);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .insight-collapse {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .insight-collapse:hover {
+    color: var(--text-bright);
+  }
+
+  .insight-body {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-mid);
+    font-weight: 300;
+  }
+
+  .insight-body strong {
+    color: var(--plasma-cyan);
+    font-weight: 500;
+  }
+
+  .insight-action {
+    margin-top: 14px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .insight-action button {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-bright);
+    font-size: 11px;
+    padding: 7px 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+    letter-spacing: 1px;
+  }
+
+  .insight-action button:hover {
+    background: rgba(0, 212, 255, 0.15);
+    border-color: var(--plasma-cyan);
+  }
+
+  /* 收起后的小触发器 */
+  .insight-trigger {
+    position: fixed;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-50%) translateX(260px);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(20, 20, 35, 0.6);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 6;
+    opacity: 0;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+  }
+
+  .insight-trigger.show {
+    transform: translateY(-50%) translateX(0);
+    opacity: 0.8;
+    pointer-events: auto;
+  }
+
+  .insight-trigger:hover {
+    opacity: 1;
+  }
+
+  .insight-trigger svg {
+    width: 16px;
+    height: 16px;
+    fill: var(--plasma-gold);
+  }
+
+  /* ========== 功能浮层 ========== */
+  .feature-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.85);
+    width: min(520px, 85vw);
+    max-height: 70vh;
+    background: rgba(15, 12, 28, 0.85);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    padding: 32px;
+    z-index: 20;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+  }
+
+  .feature-panel.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    pointer-events: auto;
+  }
+
+  .feature-panel h3 {
+    font-size: 20px;
+    font-weight: 400;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+
+  .feature-panel .sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+    letter-spacing: 2px;
+  }
+
+  .feature-panel .content {
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text-mid);
+    font-weight: 300;
+  }
+
+  .feature-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 22px;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+  }
+
+  .feature-close:hover {
+    color: var(--text-bright);
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  /* ========== 状态切换 ========== */
+  .stage[data-state="thinking"] {
+    --orb-color: var(--plasma-purple);
+    --orb-glow: rgba(168, 85, 247, 0.6);
+    --orb-glow-soft: rgba(168, 85, 247, 0.25);
+  }
+
+  .stage[data-state="done"] {
+    --orb-color: var(--plasma-gold);
+    --orb-glow: rgba(251, 191, 36, 0.6);
+    --orb-glow-soft: rgba(251, 191, 36, 0.25);
+  }
+
+  /* ========== 响应式 ========== */
+  @media (max-width: 640px) {
+    .orb-system {
+      width: 300px;
+      height: 300px;
+    }
+    .orb {
+      width: 150px;
+      height: 150px;
+    }
+    .orb::after {
+      inset: -100px;
+    }
+    .orbit-1 { width: 220px; height: 220px; }
+    .orbit-2 { width: 280px; height: 280px; }
+    .orbit-3 { width: 360px; height: 360px; }
+    .orbit-1 .particle:nth-child(1) { transform: translate(-50%, -50%) rotate(0deg) translateX(110px); }
+    .orbit-1 .particle:nth-child(2) { transform: translate(-50%, -50%) rotate(90deg) translateX(110px); }
+    .orbit-1 .particle:nth-child(3) { transform: translate(-50%, -50%) rotate(180deg) translateX(110px); }
+    .orbit-1 .particle:nth-child(4) { transform: translate(-50%, -50%) rotate(270deg) translateX(110px); }
+    .orbit-2 .particle:nth-child(1) { transform: translate(-50%, -50%) rotate(45deg) translateX(140px); }
+    .orbit-2 .particle:nth-child(2) { transform: translate(-50%, -50%) rotate(135deg) translateX(140px); }
+    .orbit-2 .particle:nth-child(3) { transform: translate(-50%, -50%) rotate(225deg) translateX(140px); }
+    .orbit-2 .particle:nth-child(4) { transform: translate(-50%, -50%) rotate(315deg) translateX(140px); }
+    .orbit-3 .particle:nth-child(1) { transform: translate(-50%, -50%) rotate(30deg) translateX(180px); }
+    .orbit-3 .particle:nth-child(2) { transform: translate(-50%, -50%) rotate(150deg) translateX(180px); }
+    .orbit-3 .particle:nth-child(3) { transform: translate(-50%, -50%) rotate(210deg) translateX(180px); }
+    .insight-card {
+      width: 200px;
+      right: 16px;
+      padding: 14px 16px;
+    }
+    .status-text {
+      top: 15%;
+      font-size: 12px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .orb, .orb::after, .orb::before,
+    .orbit-1, .orbit-2, .orbit-3 {
+      animation: none !important;
+    }
+  }
+
+  /* 滚动条 */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="stage" data-state="idle" id="stage">
+  <div class="noise"></div>
+
+  <!-- 状态文字 -->
+  <div class="status-text" id="statusText">
+    我在聆听<span class="dot">·</span><span class="dot">·</span><span class="dot">·</span>
+  </div>
+
+  <!-- 光球系统 -->
+  <div class="orb-system">
+    <div class="orb" id="orb"></div>
+    <div class="pulse-ring" id="pulseRing"></div>
+
+    <!-- 轨道1：核心能力 -->
+    <div class="orbit orbit-1">
+      <div class="particle" data-label="对话" data-feature="chat" style="--particle-color: #00d4ff;"></div>
+      <div class="particle" data-label="搜索" data-feature="search" style="--particle-color: #8be9fd;"></div>
+      <div class="particle" data-label="提醒" data-feature="remind" style="--particle-color: #a855f7;"></div>
+      <div class="particle" data-label="创作" data-feature="create" style="--particle-color: #fbbf24;"></div>
+    </div>
+
+    <!-- 轨道2：扩展能力 -->
+    <div class="orbit orbit-2">
+      <div class="particle" data-label="分析" data-feature="analyze" style="--particle-color: #50fa7b;"></div>
+      <div class="particle" data-label="翻译" data-feature="translate" style="--particle-color: #ff79c6;"></div>
+      <div class="particle" data-label="总结" data-feature="summarize" style="--particle-color: #f1fa8c;"></div>
+      <div class="particle" data-label="代码" data-feature="code" style="--particle-color: #00d4ff;"></div>
+    </div>
+
+    <!-- 轨道3：深层能力 -->
+    <div class="orbit orbit-3">
+      <div class="particle" data-label="记忆" data-feature="memory" style="--particle-color: #a855f7;"></div>
+      <div class="particle" data-label="规划" data-feature="plan" style="--particle-color: #fbbf24;"></div>
+      <div class="particle" data-label="学习" data-feature="learn" style="--particle-color: #50fa7b;"></div>
+    </div>
+  </div>
+
+  <!-- 底部输入 -->
+  <div class="input-zone">
+    <div class="input-line">
+      <input type="text" id="cmdInput" placeholder="向核心发出指令…" autocomplete="off">
+      <div class="underline"></div>
+    </div>
+    <div class="input-hint">回车发送 · 或点击轨道粒子</div>
+  </div>
+
+  <!-- 角落图标 -->
+  <div class="corner corner-settings" title="设置" onclick="showToast('设置面板（演示）')">
+    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.21.07-.47-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+  </div>
+
+  <div class="corner corner-history" title="会话历史" onclick="showToast('会话历史（演示）')">
+    <svg viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8z"/></svg>
+  </div>
+
+  <!-- 今日洞察卡片 -->
+  <div class="insight-card" id="insightCard">
+    <div class="insight-header">
+      <span class="insight-title">今日洞察</span>
+      <button class="insight-collapse" onclick="toggleInsight(true)">收起</button>
+    </div>
+    <div class="insight-body">
+      你今天有 <strong>3 个待办任务</strong> 尚未处理，其中"季度报告大纲"已接近截止。需要我帮你梳理优先级吗？
+    </div>
+    <div class="insight-action">
+      <button onclick="acceptInsight()">帮我梳理</button>
+      <button onclick="toggleInsight(true)">稍后</button>
+    </div>
+  </div>
+
+  <div class="insight-trigger" id="insightTrigger" onclick="toggleInsight(false)">
+    <svg viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8z"/></svg>
+  </div>
+
+  <!-- 功能浮层 -->
+  <div class="feature-panel" id="featurePanel">
+    <button class="feature-close" onclick="closeFeature()">×</button>
+    <h3 id="featureTitle">对话</h3>
+    <div class="sub" id="featureSub">DIALOGUE MODE</div>
+    <div class="content" id="featureContent"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const stage = document.getElementById('stage');
+  const orb = document.getElementById('orb');
+  const statusText = document.getElementById('statusText');
+  const pulseRing = document.getElementById('pulseRing');
+  const cmdInput = document.getElementById('cmdInput');
+  const featurePanel = document.getElementById('featurePanel');
+  const insightCard = document.getElementById('insightCard');
+  const insightTrigger = document.getElementById('insightTrigger');
+
+  // 功能定义
+  const features = {
+    chat: {
+      title: '对话',
+      sub: 'DIALOGUE MODE',
+      content: '进入自由对话模式。你可以向我提出任何问题——从日常琐事到专业领域。我会以最自然的方式回应你，并记住这次对话的上下文。\n\n当前对话已就绪，核心正在待命。'
+    },
+    search: {
+      title: '智能搜索',
+      sub: 'DEEP SEARCH',
+      content: '不只是关键词匹配。我会理解你的真实意图，在多源信息中检索、交叉验证、去重，并给出带来源的精炼答案。\n\n支持：网页、文档、知识库、实时数据。'
+    },
+    remind: {
+      title: '提醒与日程',
+      sub: 'REMINDER',
+      content: '你说"明天下午3点提醒我开会"，我会在准确时间唤醒你。\n\n我还能识别相对时间（"两小时后"）、周期时间（"每周一早上"）和模糊时间（"晚饭后"）。'
+    },
+    create: {
+      title: '创作工坊',
+      sub: 'CREATION',
+      content: '写作、绘画、作曲、设计——我是你的创作伙伴。\n\n告诉我你想要的风格、情绪、长度，或者只给一个模糊灵感，我来补完其余。'
+    },
+    analyze: {
+      title: '深度分析',
+      sub: 'ANALYSIS',
+      content: '给我数据、文本、代码或任何结构化内容，我会拆解、归类、找模式、给洞察。\n\n擅长：情感分析、趋势预测、异常检测、根因追溯。'
+    },
+    translate: {
+      title: '语境翻译',
+      sub: 'TRANSLATE',
+      content: '不是逐字翻译。我保留原文语气、文化隐喻和专业术语的准确性。\n\n支持 40+ 语言，含文言文与方言。'
+    },
+    summarize: {
+      title: '凝练总结',
+      sub: 'SUMMARY',
+      content: '长文档、长对话、长视频——给我，还你精华。\n\n可指定长度（一段话 / 三要点 / 一句话）、视角（正面 / 反面 / 中立）。'
+    },
+    code: {
+      title: '代码伙伴',
+      sub: 'CODE',
+      content: '写、读、改、调试、解释、重构。\n\n我熟悉主流语言与框架，能读懂你的项目结构，给出符合你代码风格的建议。'
+    },
+    memory: {
+      title: '记忆宫殿',
+      sub: 'MEMORY',
+      content: '我会记住你告诉过我的事——你的偏好、你的项目、你提到的人名。\n\n下次对话无需重复背景。你可以在记忆库中查看、编辑、删除。'
+    },
+    plan: {
+      title: '任务规划',
+      sub: 'PLANNING',
+      content: '把大目标拆成可执行小步。\n\n我会估算每步耗时、识别依赖关系、标记关键路径，并在你偏离计划时轻声提醒。'
+    },
+    learn: {
+      title: '持续学习',
+      sub: 'LEARNING',
+      content: '我会从你的反馈中学习——哪些回答有用，哪些方向偏差。\n\n越用越懂你，无需手动调参。'
+    }
+  };
+
+  // 状态切换
+  function setState(state, text) {
+    stage.setAttribute('data-state', state);
+    if (text) {
+      statusText.innerHTML = text;
+    }
+  }
+
+  // 脉冲
+  function pulse() {
+    pulseRing.classList.remove('active');
+    void pulseRing.offsetWidth; // reflow
+    pulseRing.classList.add('active');
+  }
+
+  // 思考模拟
+  function think(query) {
+    setState('thinking', '正在思考你的问题<span class="dot">·</span><span class="dot">·</span><span class="dot">·</span>');
+    pulse();
+    setTimeout(() => {
+      setState('done', '已完成');
+      setTimeout(() => {
+        setState('idle', '我在聆听<span class="dot">·</span><span class="dot">·</span><span class="dot">·</span>');
+      }, 2000);
+    }, 2200);
+  }
+
+  // 输入处理
+  cmdInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && cmdInput.value.trim()) {
+      const query = cmdInput.value.trim();
+      cmdInput.value = '';
+      think(query);
+    }
+  });
+
+  // 粒子点击
+  document.querySelectorAll('.particle').forEach(p => {
+    p.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = p.getAttribute('data-feature');
+      const f = features[key];
+      if (!f) return;
+      document.getElementById('featureTitle').textContent = f.title;
+      document.getElementById('featureSub').textContent = f.sub;
+      document.getElementById('featureContent').textContent = f.content;
+      featurePanel.classList.add('show');
+      // 模拟状态切换
+      setState('done', f.title + ' · 已激活');
+      setTimeout(() => {
+        setState('idle', '我在聆听<span class="dot">·</span><span class="dot">·</span><span class="dot">·</span>');
+      }, 2500);
+    });
+  });
+
+  // 关闭浮层
+  window.closeFeature = function() {
+    featurePanel.classList.remove('show');
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeFeature();
+  });
+
+  // 洞察卡片切换
+  window.toggleInsight = function(collapse) {
+    if (collapse) {
+      insightCard.classList.add('collapsed');
+      insightTrigger.classList.add('show');
+    } else {
+      insightCard.classList.remove('collapsed');
+      insightTrigger.classList.remove('show');
+    }
+  };
+
+  window.acceptInsight = function() {
+    closeFeature();
+    document.getElementById('featureTitle').textContent = '任务梳理';
+    document.getElementById('featureSub').textContent = 'TASK REVIEW';
+    document.getElementById('featureContent').textContent = '已识别你的 3 项待办：\n\n1. 季度报告大纲（截止今晚）—— 建议优先\n2. 周会幻灯片（明日）—— 可今日起步\n3. 客户邮件回复（无截止）—— 可批量处理\n\n要我先生成报告大纲吗？';
+    featurePanel.classList.add('show');
+    toggleInsight(true);
+  };
+
+  // Toast
+  window.showToast = function(msg) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;bottom:120px;left:50%;transform:translateX(-50%);background:rgba(20,20,35,0.85);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:10px 24px;border-radius:10px;font-size:13px;z-index:30;opacity:0;transition:opacity .3s;letter-spacing:1px;';
+    document.body.appendChild(t);
+    requestAnimationFrame(() => t.style.opacity = '0.9');
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2000);
+  };
+
+  // 鼠标视差（轻微）
+  document.addEventListener('mousemove', (e) => {
+    const x = (e.clientX / window.innerWidth - 0.5) * 20;
+    const y = (e.clientY / window.innerHeight - 0.5) * 20;
+    orb.style.transform = `translate(${x}px, ${y}px)`;
+  });
+
+  // 初始问候（延迟显示）
+  setTimeout(() => {
+    setState('idle', '我在聆听<span class="dot">·</span><span class="dot">·</span><span class="dot">·</span>');
+  }, 500);
+
+})();
+</script>
+</body>
+</html>

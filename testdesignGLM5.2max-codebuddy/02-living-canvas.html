@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Living Canvas · 活态画布 AI Agent</title>
+<style>
+  /* ============ Reset & Base ============ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0f;
+    --bg-grid: rgba(255,255,255,0.04);
+    --node-bg: rgba(22, 22, 32, 0.82);
+    --node-border: rgba(255,255,255,0.10);
+    --text: rgba(255,255,255,0.92);
+    --muted: rgba(255,255,255,0.50);
+    --cyan: #00f5d4;
+    --orange: #ffa94d;
+    --purple: #b06aff;
+    --green: #69db7c;
+    --blue: #5b8def;
+    --pink: #ff6b9d;
+    --line-glow: rgba(0, 245, 212, 0.6);
+  }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  /* ============ Canvas viewport ============ */
+  #viewport {
+    position: fixed; inset: 0; overflow: hidden;
+    cursor: grab;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(91,141,239,0.06), transparent 50%),
+      radial-gradient(ellipse at 70% 80%, rgba(176,106,255,0.06), transparent 50%),
+      var(--bg);
+  }
+  #viewport.panning { cursor: grabbing; }
+
+  /* dotted grid */
+  #grid-bg {
+    position: absolute; inset: -50%;
+    background-image: radial-gradient(circle, var(--bg-grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    will-change: transform;
+  }
+
+  /* world layer (pan/zoom) */
+  #world {
+    position: absolute;
+    top: 0; left: 0;
+    width: 0; height: 0;
+    transform-origin: 0 0;
+    will-change: transform;
+  }
+
+  /* SVG connection layer */
+  #connections {
+    position: absolute;
+    top: -5000px; left: -5000px;
+    width: 10000px; height: 10000px;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .conn-path {
+    fill: none;
+    stroke: var(--cyan);
+    stroke-width: 2;
+    opacity: 0.35;
+    filter: drop-shadow(0 0 4px var(--line-glow));
+  }
+  .conn-flow {
+    fill: var(--cyan);
+    filter: drop-shadow(0 0 6px var(--cyan));
+  }
+
+  /* ============ Nodes ============ */
+  .node {
+    position: absolute;
+    background: var(--node-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--node-border);
+    border-radius: 14px;
+    color: var(--text);
+    cursor: grab;
+    transition: box-shadow .25s ease, border-color .25s ease, transform .15s ease;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    will-change: transform;
+    overflow: hidden;
+  }
+  .node:hover {
+    box-shadow: 0 12px 44px rgba(0,0,0,0.6), 0 0 0 1px var(--accent-color, var(--cyan));
+    z-index: 10;
+  }
+  .node.dragging { cursor: grabbing; transition: none; box-shadow: 0 20px 60px rgba(0,0,0,0.7); z-index: 100; }
+
+  .node-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--node-border);
+    font-size: 12px; font-weight: 600;
+  }
+  .node-type-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent-color, var(--cyan));
+    box-shadow: 0 0 8px var(--accent-color, var(--cyan));
+  }
+  .node-type-label { color: var(--accent-color, var(--cyan)); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .node-title { flex: 1; font-size: 13.5px; }
+  .node-close {
+    width: 20px; height: 20px; border-radius: 6px; border: none;
+    background: rgba(255,255,255,0.05); color: var(--muted); cursor: pointer;
+    font-size: 13px; line-height: 1; display: grid; place-items: center;
+    transition: all .15s;
+  }
+  .node-close:hover { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+  .node-body { padding: 12px 14px; font-size: 13px; line-height: 1.55; }
+
+  /* node type accent colors */
+  .node.core { --accent-color: var(--cyan); }
+  .node.note { --accent-color: var(--orange); }
+  .node.chart { --accent-color: var(--purple); }
+  .node.todo { --accent-color: var(--green); }
+  .node.chat { --accent-color: var(--blue); }
+  .node.doc { --accent-color: var(--pink); }
+  .node.note .node-head { border-bottom-color: rgba(255,169,77,0.2); }
+  .node.chart .node-head { border-bottom-color: rgba(176,106,255,0.2); }
+  .node.todo .node-head { border-bottom-color: rgba(105,219,124,0.2); }
+  .node.chat .node-head { border-bottom-color: rgba(91,141,239,0.2); }
+  .node.doc .node-head { border-bottom-color: rgba(255,107,157,0.2); }
+
+  /* Core node - circular glowing */
+  .node.core {
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    text-align: center;
+    border: 2px solid var(--cyan);
+    box-shadow: 0 0 40px rgba(0,245,212,0.3), 0 8px 32px rgba(0,0,0,0.5);
+    background: radial-gradient(circle, rgba(0,245,212,0.12), rgba(22,22,32,0.85) 70%);
+  }
+  .node.core:hover { box-shadow: 0 0 60px rgba(0,245,212,0.5), 0 8px 32px rgba(0,0,0,0.5); }
+  .node.core .core-avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--cyan), var(--blue), var(--purple), var(--cyan));
+    display: grid; place-items: center;
+    font-size: 18px; font-weight: 800; color: #0a0a0f;
+    margin-bottom: 8px;
+    animation: spin 8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .node.core .core-name { font-size: 14px; font-weight: 700; }
+  .node.core .core-status { font-size: 11px; color: var(--cyan); margin-top: 2px; display: flex; align-items: center; gap: 5px; justify-content: center; }
+  .core-status .pulse {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--cyan);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 0.4; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.4); } }
+
+  /* note node */
+  .node.note .node-body {
+    background: linear-gradient(135deg, rgba(255,169,77,0.06), transparent);
+    color: rgba(255,255,255,0.85);
+    font-style: italic;
+  }
+
+  /* chart node */
+  .node.chart canvas { width: 100%; height: 80px; display: block; }
+  .chart-meta { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; }
+  .chart-val { font-size: 18px; font-weight: 700; color: var(--purple); }
+  .chart-delta { color: var(--green); font-weight: 600; }
+
+  /* todo node */
+  .todo-item {
+    display: flex; align-items: center; gap: 8px; padding: 4px 0;
+    font-size: 12.5px; cursor: pointer;
+  }
+  .todo-box {
+    width: 15px; height: 15px; border-radius: 4px; flex-shrink: 0;
+    border: 1.5px solid var(--muted); display: grid; place-items: center;
+    transition: all .15s;
+  }
+  .todo-item.done .todo-box { background: var(--green); border-color: var(--green); }
+  .todo-item.done .todo-box::after {
+    content: ""; width: 4px; height: 7px; border: solid #0a0a0f;
+    border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px);
+  }
+  .todo-item.done .todo-text { text-decoration: line-through; color: var(--muted); }
+
+  /* chat node */
+  .chat-bubble {
+    background: rgba(91,141,239,0.1); border-radius: 10px; padding: 8px 10px;
+    font-size: 12.5px; margin-bottom: 6px;
+  }
+  .chat-bubble.ai { background: rgba(0,245,212,0.08); border-left: 2px solid var(--cyan); }
+
+  /* doc node */
+  .doc-line { height: 7px; border-radius: 3px; background: rgba(255,255,255,0.08); margin-bottom: 6px; }
+  .doc-line.short { width: 60%; }
+  .doc-line.medium { width: 85%; }
+
+  /* ============ Floating UI ============ */
+  /* top toolbar */
+  .toolbar {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 50;
+    display: flex; align-items: center; gap: 4px;
+    padding: 6px 8px;
+    background: var(--node-bg);
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--node-border);
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .tool-btn {
+    width: 34px; height: 34px; border-radius: 9px; border: none;
+    background: transparent; color: var(--muted); cursor: pointer;
+    display: grid; place-items: center; transition: all .15s;
+  }
+  .tool-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+  .tool-btn.active { background: var(--cyan); color: #0a0a0f; }
+  .tool-divider { width: 1px; height: 20px; background: var(--node-border); margin: 0 4px; }
+  .zoom-label {
+    font-size: 12px; color: var(--muted); padding: 0 8px; min-width: 48px; text-align: center;
+  }
+
+  /* agent status float (top-right) */
+  .agent-float {
+    position: fixed; top: 16px; right: 16px; z-index: 50;
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px 8px 8px;
+    background: var(--node-bg);
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--node-border);
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .agent-float .af-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--cyan), var(--blue), var(--purple), var(--cyan));
+    display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #0a0a0f;
+    position: relative;
+  }
+  .agent-float .af-avatar::after {
+    content: ""; position: absolute; bottom: -1px; right: -1px;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--green);
+    border: 2px solid var(--bg);
+  }
+  .af-info { display: flex; flex-direction: column; gap: 1px; }
+  .af-name { font-size: 12.5px; font-weight: 600; }
+  .af-stat { font-size: 11px; color: var(--muted); }
+  .af-stat b { color: var(--cyan); }
+
+  /* FAB (bottom-left) */
+  .fab {
+    position: fixed; bottom: 28px; left: 28px; z-index: 50;
+    width: 60px; height: 60px; border-radius: 50%; border: none;
+    background: conic-gradient(from 0deg, var(--cyan), var(--blue), var(--purple), var(--cyan));
+    cursor: pointer; display: grid; place-items: center;
+    box-shadow: 0 8px 28px rgba(0,245,212,0.4);
+    transition: transform .2s ease;
+    animation: fab-glow 3s ease-in-out infinite;
+  }
+  @keyframes fab-glow {
+    0%,100% { box-shadow: 0 8px 28px rgba(0,245,212,0.4); }
+    50% { box-shadow: 0 8px 40px rgba(0,245,212,0.7); }
+  }
+  .fab:hover { transform: scale(1.1); }
+  .fab svg { width: 26px; height: 26px; color: #0a0a0f; }
+  .fab-label {
+    position: fixed; bottom: 24px; left: 96px; z-index: 50;
+    font-size: 11.5px; color: var(--muted);
+    background: var(--node-bg); padding: 4px 10px; border-radius: 8px;
+    border: 1px solid var(--node-border);
+    pointer-events: none;
+    opacity: 0; transition: opacity .2s;
+  }
+  .fab-wrap:hover .fab-label { opacity: 1; }
+
+  /* AI input popup */
+  .ai-popup {
+    position: fixed; bottom: 100px; left: 28px; z-index: 60;
+    width: 320px;
+    background: var(--node-bg);
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--node-border);
+    border-radius: 16px;
+    box-shadow: 0 12px 44px rgba(0,0,0,0.6);
+    overflow: hidden;
+    transform: translateY(10px) scale(0.95); opacity: 0;
+    pointer-events: none;
+    transition: all .25s cubic-bezier(.2,.8,.2,1);
+  }
+  .ai-popup.open { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+  .ai-popup-head {
+    padding: 10px 14px; border-bottom: 1px solid var(--node-border);
+    font-size: 12px; color: var(--muted);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ai-popup-head .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); animation: pulse 1.5s infinite; }
+  .ai-popup textarea {
+    width: 100%; background: none; border: none; outline: none; resize: none;
+    color: var(--text); font-size: 14px; font-family: inherit;
+    padding: 12px 14px; line-height: 1.5; min-height: 60px;
+  }
+  .ai-popup textarea::placeholder { color: var(--muted); }
+  .ai-popup-foot {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 10px; border-top: 1px solid var(--node-border);
+  }
+  .ai-popup-hint { font-size: 11px; color: var(--muted); padding-left: 4px; }
+  .ai-send {
+    padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, var(--cyan), #00b894);
+    color: #0a0a0f; font-size: 12.5px; font-weight: 600;
+    transition: transform .15s;
+  }
+  .ai-send:hover { transform: scale(1.05); }
+
+  /* node expand modal-like overlay (inline expand) */
+  .node.expanded {
+    z-index: 200;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px var(--accent-color, var(--cyan));
+  }
+
+  /* hint toast */
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+    z-index: 100; opacity: 0;
+    background: var(--node-bg); backdrop-filter: blur(18px);
+    border: 1px solid var(--node-border); border-radius: 10px;
+    padding: 10px 18px; font-size: 13px; color: var(--text);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    transition: all .3s cubic-bezier(.2,.8,.2,1);
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* mobile */
+  @media (max-width: 640px) {
+    .toolbar { top: 10px; }
+    .agent-float { top: 10px; right: 10px; padding: 6px 10px 6px 6px; }
+    .af-info { display: none; }
+    .fab { bottom: 20px; left: 20px; width: 52px; height: 52px; }
+    .ai-popup { left: 12px; right: 12px; width: auto; bottom: 84px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- viewport -->
+<div id="viewport">
+  <div id="grid-bg"></div>
+  <div id="world">
+    <svg id="connections" xmlns="http://www.w3.org/2000/svg"></svg>
+    <!-- nodes injected here -->
+  </div>
+</div>
+
+<!-- top toolbar -->
+<div class="toolbar">
+  <button class="tool-btn" title="缩小" onclick="zoomBy(0.85)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35M8 11h6"/></svg>
+  </button>
+  <span class="zoom-label" id="zoomLabel">100%</span>
+  <button class="tool-btn" title="放大" onclick="zoomBy(1.18)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/></svg>
+  </button>
+  <div class="tool-divider"></div>
+  <button class="tool-btn" title="重置视图" onclick="resetView()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+  </button>
+  <button class="tool-btn" title="自动整理布局" onclick="autoLayout()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+  </button>
+  <div class="tool-divider"></div>
+  <button class="tool-btn" title="适应内容" onclick="fitContent()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></svg>
+  </button>
+</div>
+
+<!-- agent status float -->
+<div class="agent-float">
+  <div class="af-avatar">AI</div>
+  <div class="af-info">
+    <div class="af-name">星河助手</div>
+    <div class="af-stat">在线 · 今日已生成 <b id="nodeCount">6</b> 节点</div>
+  </div>
+</div>
+
+<!-- FAB -->
+<div class="fab-wrap" style="display:contents;">
+  <button class="fab" id="fab" onclick="toggleAIPopup()" title="召唤 AI">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5z"/><path d="M19 19l.5 1.5L21 21l-1.5.5L19 23l-.5-1.5L17 21l1.5-.5z"/></svg>
+  </button>
+  <span class="fab-label">召唤 AI 生成节点</span>
+</div>
+
+<!-- AI input popup -->
+<div class="ai-popup" id="aiPopup">
+  <div class="ai-popup-head"><span class="dot"></span> 告诉 AI 你想生成什么…</div>
+  <textarea id="aiInput" placeholder="例如：生成一个竞品分析节点" rows="2"></textarea>
+  <div class="ai-popup-foot">
+    <span class="ai-popup-hint">Enter 生成 · Esc 关闭</span>
+    <button class="ai-send" onclick="spawnNodeFromAI()">生成节点</button>
+  </div>
+</div>
+
+<!-- toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ State ============ */
+const viewport = document.getElementById('viewport');
+const world = document.getElementById('world');
+const gridBg = document.getElementById('grid-bg');
+const svg = document.getElementById('connections');
+const aiPopup = document.getElementById('aiPopup');
+const aiInput = document.getElementById('aiInput');
+const zoomLabel = document.getElementById('zoomLabel');
+const nodeCountEl = document.getElementById('nodeCount');
+
+let view = { x: 0, y: 0, scale: 1 };
+let nodes = []; // {id, el, x, y, w, h, type, title}
+let nodeIdCounter = 0;
+let isPanning = false;
+let panStart = { x: 0, y: 0, vx: 0, vy: 0 };
+let draggedNode = null;
+let dragOffset = { x: 0, y: 0 };
+
+/* ============ View transform ============ */
+function applyTransform() {
+  world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+  gridBg.style.transform = `translate(${view.x % 28}px, ${view.y % 28}px)`;
+  zoomLabel.textContent = Math.round(view.scale * 100) + '%';
+}
+
+function screenToWorld(sx, sy) {
+  const rect = viewport.getBoundingClientRect();
+  return {
+    x: (sx - rect.left - view.x) / view.scale,
+    y: (sy - rect.top - view.y) / view.scale
+  };
+}
+
+function zoomBy(factor) {
+  const rect = viewport.getBoundingClientRect();
+  const cx = rect.width / 2, cy = rect.height / 2;
+  const newScale = Math.max(0.3, Math.min(2.5, view.scale * factor));
+  const ratio = newScale / view.scale;
+  view.x = cx - (cx - view.x) * ratio;
+  view.y = cy - (cy - view.y) * ratio;
+  view.scale = newScale;
+  applyTransform();
+}
+
+function resetView() {
+  view = { x: window.innerWidth/2 - 80, y: window.innerHeight/2 - 80, scale: 1 };
+  applyTransform();
+  showToast('视图已重置');
+}
+
+function fitContent() {
+  if (nodes.length === 0) return;
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  nodes.forEach(n => {
+    minX = Math.min(minX, n.x);
+    minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + n.w);
+    maxY = Math.max(maxY, n.y + n.h);
+  });
+  const pad = 80;
+  const cw = maxX - minX + pad*2;
+  const ch = maxY - minY + pad*2;
+  const rect = viewport.getBoundingClientRect();
+  const scale = Math.min(rect.width / cw, rect.height / ch, 1.2);
+  view.scale = scale;
+  view.x = rect.width/2 - (minX + (maxX-minX)/2) * scale;
+  view.y = rect.height/2 - (minY + (maxY-minY)/2) * scale;
+  applyTransform();
+  showToast('已适应内容');
+}
+
+/* ============ Pan ============ */
+viewport.addEventListener('mousedown', (e) => {
+  if (e.target.closest('.node') || e.target.closest('.toolbar') || e.target.closest('.agent-float') || e.target.closest('.fab') || e.target.closest('.ai-popup') || e.target.closest('.toast')) return;
+  isPanning = true;
+  viewport.classList.add('panning');
+  panStart = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (isPanning) {
+    view.x = panStart.vx + (e.clientX - panStart.x);
+    view.y = panStart.vy + (e.clientY - panStart.y);
+    applyTransform();
+  }
+  if (draggedNode) {
+    const w = screenToWorld(e.clientX, e.clientY);
+    draggedNode.x = w.x - dragOffset.x;
+    draggedNode.y = w.y - dragOffset.y;
+    draggedNode.el.style.left = draggedNode.x + 'px';
+    draggedNode.el.style.top = draggedNode.y + 'px';
+    redrawConnections();
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  if (isPanning) { isPanning = false; viewport.classList.remove('panning'); }
+  if (draggedNode) {
+    draggedNode.el.classList.remove('dragging');
+    draggedNode = null;
+  }
+});
+
+/* wheel zoom */
+viewport.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = viewport.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const factor = e.deltaY < 0 ? 1.12 : 0.89;
+  const newScale = Math.max(0.3, Math.min(2.5, view.scale * factor));
+  const ratio = newScale / view.scale;
+  view.x = mx - (mx - view.x) * ratio;
+  view.y = my - (my - view.y) * ratio;
+  view.scale = newScale;
+  applyTransform();
+}, { passive: false });
+
+/* touch pan (basic) */
+let touchStart = null;
+viewport.addEventListener('touchstart', (e) => {
+  if (e.target.closest('.node') || e.target.closest('.toolbar') || e.target.closest('.agent-float') || e.target.closest('.fab') || e.target.closest('.ai-popup')) return;
+  if (e.touches.length === 1) {
+    touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, vx: view.x, vy: view.y };
+  }
+}, { passive: true });
+viewport.addEventListener('touchmove', (e) => {
+  if (touchStart && e.touches.length === 1) {
+    view.x = touchStart.vx + (e.touches[0].clientX - touchStart.x);
+    view.y = touchStart.vy + (e.touches[0].clientY - touchStart.y);
+    applyTransform();
+  }
+}, { passive: true });
+viewport.addEventListener('touchend', () => { touchStart = null; });
+
+/* ============ Node creation ============ */
+function createNode(opts) {
+  const id = 'n' + (++nodeIdCounter);
+  const node = document.createElement('div');
+  node.className = 'node ' + (opts.type || 'note');
+  node.style.left = opts.x + 'px';
+  node.style.top = opts.y + 'px';
+  if (opts.width) node.style.width = opts.width + 'px';
+  node.dataset.id = id;
+
+  const typeLabels = {
+    core: '核心', note: '灵感笔记', chart: '数据洞察', todo: '待办清单',
+    chat: '对话', doc: '知识文档', custom: 'AI生成'
+  };
+
+  if (opts.type === 'core') {
+    node.innerHTML = opts.innerHTML || `
+      <div class="core-avatar">AI</div>
+      <div class="core-name">${opts.title || '我的AI助手'}</div>
+      <div class="core-status"><span class="pulse"></span> 正在思考</div>`;
+  } else {
+    node.innerHTML = `
+      <div class="node-head">
+        <span class="node-type-dot"></span>
+        <span class="node-type-label">${typeLabels[opts.type] || '节点'}</span>
+        <span class="node-title">${opts.title || ''}</span>
+        <button class="node-close" onclick="removeNode('${id}')">×</button>
+      </div>
+      <div class="node-body">${opts.body || ''}</div>`;
+  }
+
+  world.appendChild(node);
+
+  // measure
+  const rect = node.getBoundingClientRect();
+  const w = opts.width || (rect.width / view.scale);
+  const h = rect.height / view.scale;
+
+  const nodeData = { id, el: node, x: opts.x, y: opts.y, w, h, type: opts.type, title: opts.title, parent: opts.parent };
+  nodes.push(nodeData);
+
+  // drag
+  node.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.node-close') || e.target.closest('.todo-item') || e.target.tagName === 'CANVAS') return;
+    e.stopPropagation();
+    draggedNode = nodeData;
+    node.classList.add('dragging');
+    const wpt = screenToWorld(e.clientX, e.clientY);
+    dragOffset = { x: wpt.x - nodeData.x, y: wpt.y - nodeData.y };
+  });
+
+  // touch drag
+  node.addEventListener('touchstart', (e) => {
+    if (e.target.closest('.node-close') || e.target.closest('.todo-item')) return;
+    e.stopPropagation();
+    draggedNode = nodeData;
+    const t = e.touches[0];
+    const wpt = screenToWorld(t.clientX, t.clientY);
+    dragOffset = { x: wpt.x - nodeData.x, y: wpt.y - nodeData.y };
+  }, { passive: true });
+
+  // double click expand
+  node.addEventListener('dblclick', (e) => {
+    if (opts.type === 'core') return;
+    node.classList.toggle('expanded');
+    if (node.classList.contains('expanded')) {
+      showToast('节点已展开 · 双击收起');
+    }
+  });
+
+  updateNodeCount();
+  return nodeData;
+}
+
+function removeNode(id) {
+  const idx = nodes.findIndex(n => n.id === id);
+  if (idx >= 0) {
+    const n = nodes[idx];
+    n.el.style.transition = 'opacity .2s, transform .2s';
+    n.el.style.opacity = '0';
+    n.el.style.transform = 'scale(0.8)';
+    setTimeout(() => n.el.remove(), 200);
+    nodes.splice(idx, 1);
+    redrawConnections();
+    updateNodeCount();
+  }
+}
+
+function updateNodeCount() {
+  nodeCountEl.textContent = nodes.filter(n => n.type !== 'core').length;
+}
+
+/* ============ Connections ============ */
+function redrawConnections() {
+  svg.innerHTML = '';
+  const offset = 5000; // svg offset
+  nodes.forEach(n => {
+    if (n.parent) {
+      const parent = nodes.find(p => p.id === n.parent);
+      if (parent) drawConnection(parent, n);
+    }
+  });
+}
+
+function drawConnection(from, to) {
+  const offset = 5000;
+  // connection points: from center-bottom-ish to to center-top-ish
+  const fx = from.x + from.w/2 + offset;
+  const fy = from.y + from.h/2 + offset;
+  const tx = to.x + to.w/2 + offset;
+  const ty = to.y + to.h/2 + offset;
+
+  // bezier control points
+  const dx = tx - fx, dy = ty - fy;
+  const c1x = fx + dx * 0.3, c1y = fy + dy * 0.1;
+  const c2x = tx - dx * 0.3, c2y = ty - dy * 0.1;
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('class', 'conn-path');
+  path.setAttribute('d', `M ${fx} ${fy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${tx} ${ty}`);
+  svg.appendChild(path);
+
+  // flowing dot
+  const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  dot.setAttribute('class', 'conn-flow');
+  dot.setAttribute('r', '3');
+  svg.appendChild(dot);
+
+  // animate dot along path
+  const dur = 2.5 + Math.random() * 1.5;
+  const anim = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
+  anim.setAttribute('dur', dur + 's');
+  anim.setAttribute('repeatCount', 'indefinite');
+  anim.setAttribute('path', `M ${fx} ${fy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${tx} ${ty}`);
+  dot.appendChild(anim);
+}
+
+/* ============ Auto layout ============ */
+function autoLayout() {
+  const core = nodes.find(n => n.type === 'core');
+  if (!core) return;
+  const others = nodes.filter(n => n !== core);
+  const cx = core.x + core.w/2, cy = core.y + core.h/2;
+  const radius = 280;
+  others.forEach((n, i) => {
+    const angle = (i / others.length) * Math.PI * 2 - Math.PI/2;
+    n.x = cx + Math.cos(angle) * radius - n.w/2;
+    n.y = cy + Math.sin(angle) * radius - n.h/2;
+    n.el.style.transition = 'left .4s cubic-bezier(.2,.8,.2,1), top .4s cubic-bezier(.2,.8,.2,1)';
+    n.el.style.left = n.x + 'px';
+    n.el.style.top = n.y + 'px';
+    setTimeout(() => n.el.style.transition = '', 450);
+  });
+  setTimeout(redrawConnections, 450);
+  showToast('布局已自动整理');
+}
+
+/* ============ AI popup ============ */
+function toggleAIPopup() {
+  aiPopup.classList.toggle('open');
+  if (aiPopup.classList.contains('open')) {
+    setTimeout(() => aiInput.focus(), 100);
+  }
+}
+
+aiInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    spawnNodeFromAI();
+  } else if (e.key === 'Escape') {
+    aiPopup.classList.remove('open');
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') aiPopup.classList.remove('open');
+});
+
+function spawnNodeFromAI() {
+  const text = aiInput.value.trim();
+  if (!text) return;
+  aiInput.value = '';
+  aiPopup.classList.remove('open');
+
+  // spawn near core or center of view
+  const core = nodes.find(n => n.type === 'core');
+  const rect = viewport.getBoundingClientRect();
+  const center = screenToWorld(rect.left + rect.width/2, rect.top + rect.height/2);
+
+  // pick a type based on keywords
+  let type = 'custom';
+  let body = '';
+  const t = text.toLowerCase();
+  if (t.includes('数据') || t.includes('图表') || t.includes('分析')) {
+    type = 'chart';
+    body = `<div class="chart-meta"><span class="chart-val">${Math.floor(Math.random()*500+200)}</span><span class="chart-delta">▲ ${Math.floor(Math.random()*30+5)}%</span></div><canvas class="node-chart" width="200" height="80"></canvas>`;
+  } else if (t.includes('待办') || t.includes('任务') || t.includes('清单')) {
+    type = 'todo';
+    body = `<div class="todo-item" onclick="this.classList.toggle('done')"><div class="todo-box"></div><span class="todo-text">${text} - 步骤一</span></div><div class="todo-item" onclick="this.classList.toggle('done')"><div class="todo-box"></div><span class="todo-text">${text} - 步骤二</span></div><div class="todo-item" onclick="this.classList.toggle('done')"><div class="todo-box"></div><span class="todo-text">${text} - 步骤三</span></div>`;
+  } else if (t.includes('灵感') || t.includes('想法') || t.includes('笔记')) {
+    type = 'note';
+    body = `"${text}" — 这是一个值得深挖的方向，建议从用户场景、技术可行性、商业价值三个维度展开。`;
+  } else if (t.includes('文档') || t.includes('知识') || t.includes('记录')) {
+    type = 'doc';
+    body = `<div class="doc-line medium"></div><div class="doc-line"></div><div class="doc-line short"></div><div class="doc-line medium"></div><div class="doc-line short"></div>`;
+  } else {
+    type = 'chat';
+    body = `<div class="chat-bubble ai">已生成节点：${text}</div><div class="chat-bubble">点击节点可拖拽，双击展开</div>`;
+  }
+
+  // random offset so they don't stack
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 200 + Math.random() * 60;
+  const px = center.x + Math.cos(angle) * dist;
+  const py = center.y + Math.sin(angle) * dist;
+
+  const parent = core ? core.id : null;
+  const node = createNode({
+    type, title: text.slice(0, 20), x: px, y: py, width: 220,
+    body, parent
+  });
+
+  // grow-in animation
+  node.el.style.opacity = '0';
+  node.el.style.transform = 'scale(0.6)';
+  requestAnimationFrame(() => {
+    node.el.style.transition = 'opacity .4s, transform .4s cubic-bezier(.2,.8,.2,1)';
+    node.el.style.opacity = '1';
+    node.el.style.transform = 'scale(1)';
+    setTimeout(() => {
+      node.el.style.transition = '';
+      redrawConnections();
+      // draw chart if chart type
+      if (type === 'chart') {
+        const cv = node.el.querySelector('canvas.node-chart');
+        if (cv) drawNodeChart(cv);
+      }
+    }, 400);
+  });
+
+  showToast(`AI 已生成"${text.slice(0,12)}"节点`);
+}
+
+/* ============ Charts ============ */
+function drawNodeChart(cv) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.width || 200, H = cv.height || 80;
+  cv.width = W * dpr; cv.height = H * dpr;
+  cv.style.width = '100%'; cv.style.height = '80px';
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const data = Array.from({length: 7}, () => Math.random() * 80 + 20);
+  const max = Math.max(...data) * 1.1;
+  const pad = 6;
+  const stepX = (W - pad*2) / (data.length - 1);
+  ctx.beginPath();
+  ctx.moveTo(pad, H-pad);
+  data.forEach((v,i) => {
+    const x = pad + i*stepX;
+    const y = H - pad - (v/max)*(H-pad*2);
+    ctx.lineTo(x, y);
+  });
+  ctx.lineTo(pad + (data.length-1)*stepX, H-pad);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(176,106,255,0.4)');
+  grad.addColorStop(1, 'rgba(176,106,255,0.02)');
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.beginPath();
+  data.forEach((v,i) => {
+    const x = pad + i*stepX;
+    const y = H - pad - (v/max)*(H-pad*2);
+    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = '#b06aff'; ctx.lineWidth = 2;
+  ctx.shadowColor = 'rgba(176,106,255,0.5)'; ctx.shadowBlur = 6;
+  ctx.stroke();
+}
+
+/* ============ Toast ============ */
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ============ Init canvas ============ */
+function initCanvas() {
+  // center the world
+  view.x = window.innerWidth / 2 - 80;
+  view.y = window.innerHeight / 2 - 80;
+  applyTransform();
+
+  // Core node
+  const core = createNode({
+    type: 'core',
+    title: '我的AI助手',
+    x: 0, y: 0,
+    width: 160
+  });
+  // re-measure core
+  core.w = 160; core.h = 160;
+
+  // surrounding nodes
+  const note = createNode({
+    type: 'note', title: '今日灵感',
+    x: 240, y: -180, width: 210,
+    body: `"Agent 的本质不是工具，而是协作者。`+
+          `当 AI 主动生长出节点，思维就有了空间。"`+
+          `<br><br><span style="color:var(--muted);font-size:11px">— 今早 09:12 闪念</span>`,
+    parent: core.id
+  });
+
+  const chart = createNode({
+    type: 'chart', title: '项目A · 本周数据',
+    x: 260, y: 60, width: 230,
+    body: `<div class="chart-meta"><span class="chart-val">1,284</span><span class="chart-delta">▲ 18.4%</span></div><canvas class="node-chart" width="200" height="80"></canvas>`,
+    parent: core.id
+  });
+  setTimeout(() => {
+    const cv = chart.el.querySelector('canvas.node-chart');
+    if (cv) drawNodeChart(cv);
+  }, 100);
+
+  const todo = createNode({
+    type: 'todo', title: '本周计划',
+    x: -240, y: -160, width: 200,
+    body: `
+      <div class="todo-item done" onclick="this.classList.toggle('done')"><div class="todo-box"></div><span class="todo-text">梳理本周目标</span></div>
+      <div class="todo-item done" onclick="this.classList.toggle('done')"><div class="todo-box"></div><span class="todo-text">同步迭代方向</span></div>
+      <div class="todo-item" onclick="this.classList.toggle('done')"><div class="todo-box"></div><span class="todo-text">完成原型设计</span></div>
+      <div class="todo-item" onclick="this.classList.toggle('done')"><div class="todo-box"></div><span class="todo-text">用户访谈整理</span></div>
+      <div class="todo-item" onclick="this.classList.toggle('done')"><div class="todo-box"></div><span class="todo-text">撰写周报</span></div>`,
+    parent: core.id
+  });
+
+  const chat = createNode({
+    type: 'chat', title: '近期对话',
+    x: -260, y: 80, width: 220,
+    body: `
+      <div class="chat-bubble">帮我分析下本周数据</div>
+      <div class="chat-bubble ai">DAU 增长 18.4%，周末峰值明显，建议关注留存</div>
+      <div class="chat-bubble">生成一版改进方案</div>
+      <div class="chat-bubble ai">已在画布生成"本周计划"节点，可查看</div>`,
+    parent: core.id
+  });
+
+  const doc = createNode({
+    type: 'doc', title: '设计文档 · v2',
+    x: 20, y: 240, width: 200,
+    body: `<div class="doc-line medium"></div><div class="doc-line"></div><div class="doc-line short"></div><div class="doc-line medium"></div><div class="doc-line"></div><div class="doc-line short"></div>`,
+    parent: core.id
+  });
+
+  const note2 = createNode({
+    type: 'note', title: '竞品观察',
+    x: -380, y: -20, width: 190,
+    body: `竞品 B 上线了"空间化"交互，用户反馈两极分化。我们的画布方案需强化"AI 主动生长"的差异化。`,
+    parent: core.id
+  });
+
+  redrawConnections();
+  showToast('提示：拖拽空白处平移 · 滚轮缩放 · 拖拽节点移动 · 双击展开');
+}
+
+/* boot */
+window.addEventListener('load', initCanvas);
+window.addEventListener('resize', () => applyTransform());
+</script>
+</body>
+</html>

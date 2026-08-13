@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Constellation · Nova 星图</title>
+<style>
+  :root {
+    --space-deep: #050818;
+    --space-1: #0a0e27;
+    --space-2: #1a1a3e;
+    --space-3: #252550;
+    --star-gold: #ffd76b;
+    --star-cyan: #6bd5ff;
+    --star-white: #e8f0ff;
+    --line-soft: rgba(107, 213, 255, 0.18);
+    --line-mid: rgba(107, 213, 255, 0.4);
+    --core-color: #ffd76b;
+    --core-glow: rgba(255, 215, 107, 0.6);
+    --text: #e8f0ff;
+    --text-soft: #a8b4d4;
+    --text-mute: #6b7299;
+    --panel-bg: rgba(15, 18, 45, 0.92);
+    --panel-border: rgba(107, 213, 255, 0.25);
+    --accent: #6bd5ff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: var(--space-deep);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  /* 深空背景 */
+  .space-bg {
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(80, 60, 160, 0.35) 0%, transparent 45%),
+      radial-gradient(ellipse at 75% 70%, rgba(40, 80, 180, 0.3) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, var(--space-2) 0%, var(--space-1) 40%, var(--space-deep) 100%);
+    z-index: 0;
+  }
+
+  /* 星云雾漂移层 */
+  .nebula {
+    position: fixed;
+    inset: -10%;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(120, 80, 200, 0.12) 0%, transparent 25%),
+      radial-gradient(circle at 80% 60%, rgba(60, 120, 200, 0.1) 0%, transparent 30%),
+      radial-gradient(circle at 50% 80%, rgba(200, 100, 180, 0.08) 0%, transparent 25%);
+    animation: nebulaDrift 60s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  @keyframes nebulaDrift {
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(-3%, 2%) scale(1.05); }
+    100% { transform: translate(2%, -3%) scale(1.02); }
+  }
+
+  /* 背景星点 - 用多层box-shadow生成 */
+  .starfield {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .starfield::before, .starfield::after {
+    content: '';
+    position: absolute;
+    width: 2px; height: 2px;
+    border-radius: 50%;
+    background: transparent;
+  }
+  .starfield::before {
+    box-shadow:
+      120px 80px white, 340px 200px #ccd, 580px 120px white, 800px 320px #aaf,
+      200px 450px white, 450px 600px #ddf, 700px 500px white, 950px 700px #ccd,
+      150px 750px white, 380px 850px #aaf, 620px 780px white, 880px 880px #ddf,
+      1080px 150px white, 1200px 380px #ccd, 1340px 250px white, 1100px 550px #aaf,
+      1280px 680px white, 1450px 800px #ddf, 60px 300px #ccd, 1180px 920px white,
+      250px 950px #aaf, 520px 980px white, 780px 950px #ccd, 1380px 60px white,
+      100px 550px #ddf, 1150px 480px white, 330px 350px #ccd, 1050px 880px #aaf;
+    animation: twinkle 4s ease-in-out infinite;
+  }
+  .starfield::after {
+    box-shadow:
+      80px 160px 1px #eef, 420px 280px 1px white, 660px 200px 1px #aaf,
+      920px 400px 1px #ddf, 280px 520px 1px white, 540px 680px 1px #ccd,
+      760px 580px 1px white, 1020px 760px 1px #aaf, 180px 680px 1px #ddf,
+      400px 780px 1px white, 680px 860px 1px #ccd, 980px 920px 1px white,
+      1240px 200px 1px #aaf, 1380px 420px 1px #ddf, 1120px 620px 1px white,
+      1280px 780px 1px #ccd, 40px 420px 1px white, 1160px 100px 1px #aaf,
+      220px 880px 1px #ddf, 500px 920px 1px white, 820px 980px 1px #ccd;
+    animation: twinkle 6s ease-in-out infinite reverse;
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  /* 视差容器 */
+  .parallax-wrap {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    will-change: transform;
+    transition: transform 0.4s ease-out;
+  }
+
+  /* 星图SVG */
+  .constellation {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* 星辰 */
+  .star {
+    position: absolute;
+    cursor: pointer;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 5;
+  }
+  .star-core {
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--star-white) 0%, var(--star-cyan) 40%, transparent 70%);
+    box-shadow:
+      0 0 12px var(--star-cyan),
+      0 0 24px rgba(107, 213, 255, 0.4),
+      0 0 48px rgba(107, 213, 255, 0.2);
+    animation: starBreathe 4s ease-in-out infinite;
+  }
+  .star.large .star-core {
+    background: radial-gradient(circle, #fff 0%, var(--star-gold) 40%, transparent 70%);
+    box-shadow:
+      0 0 16px var(--star-gold),
+      0 0 32px rgba(255, 215, 107, 0.5),
+      0 0 64px rgba(255, 215, 107, 0.25);
+  }
+  .star.medium .star-core {
+    background: radial-gradient(circle, #fff 0%, var(--star-cyan) 50%, transparent 70%);
+    box-shadow:
+      0 0 10px var(--star-cyan),
+      0 0 20px rgba(107, 213, 255, 0.4);
+  }
+  .star:hover {
+    transform: scale(1.4);
+    z-index: 15;
+  }
+  .star:hover .star-core {
+    animation-play-state: paused;
+    filter: brightness(1.4);
+  }
+  .star.dimmed {
+    opacity: 0.25;
+    filter: grayscale(0.6);
+  }
+  .star.dimmed .star-core { animation-play-state: paused; }
+
+  @keyframes starBreathe {
+    0%, 100% { transform: scale(1); opacity: 0.95; }
+    50% { transform: scale(1.12); opacity: 1; }
+  }
+
+  .star-label {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-soft);
+    white-space: nowrap;
+    text-shadow: 0 0 8px rgba(0,0,0,0.8);
+    pointer-events: none;
+    letter-spacing: 0.5px;
+  }
+  .star:hover .star-label {
+    color: var(--star-cyan);
+    font-weight: 600;
+  }
+
+  /* 星辰tooltip */
+  .star-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(16px);
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 11px;
+    color: var(--text);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .star:hover .star-tooltip { opacity: 1; }
+  .star-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--panel-bg);
+  }
+
+  /* 中心Agent核心 */
+  .agent-core {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 8;
+    cursor: pointer;
+  }
+  .core-orb {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 0%, var(--core-color) 35%, #ff9d4a 70%, transparent 100%);
+    box-shadow:
+      0 0 40px var(--core-glow),
+      0 0 80px rgba(255, 215, 107, 0.4),
+      0 0 120px rgba(255, 157, 74, 0.2);
+    animation: corePulse 3s ease-in-out infinite;
+    position: relative;
+  }
+  .core-orb::before, .core-orb::after {
+    content: '';
+    position: absolute;
+    inset: -20px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 215, 107, 0.3);
+    animation: coreRing 3s ease-out infinite;
+  }
+  .core-orb::after {
+    inset: -40px;
+    animation-delay: 1.5s;
+    border-color: rgba(255, 215, 107, 0.15);
+  }
+  @keyframes corePulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 40px var(--core-glow), 0 0 80px rgba(255, 215, 107, 0.4), 0 0 120px rgba(255, 157, 74, 0.2); }
+    50% { transform: scale(1.08); box-shadow: 0 0 60px var(--core-glow), 0 0 100px rgba(255, 215, 107, 0.5), 0 0 160px rgba(255, 157, 74, 0.3); }
+  }
+  @keyframes coreRing {
+    0% { opacity: 1; transform: scale(0.8); }
+    100% { opacity: 0; transform: scale(1.6); }
+  }
+  .core-label {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 20px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .core-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--core-color);
+    letter-spacing: 2px;
+    text-shadow: 0 0 12px rgba(255, 215, 107, 0.5);
+  }
+  .core-sub {
+    font-size: 10px;
+    color: var(--text-mute);
+    margin-top: 2px;
+    letter-spacing: 1px;
+  }
+
+  /* 连线SVG */
+  .constellation-lines {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .const-line {
+    stroke: var(--line-soft);
+    stroke-width: 1;
+    fill: none;
+    transition: stroke 0.4s, opacity 0.4s;
+  }
+  .const-line.highlight {
+    stroke: var(--line-mid);
+    stroke-width: 1.5;
+  }
+  .const-line.dimmed { opacity: 0.15; }
+
+  /* 顶部信息条 */
+  .top-info {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 28px;
+    pointer-events: none;
+  }
+  .info-chip {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(16px);
+    padding: 10px 18px;
+    border-radius: 24px;
+    font-size: 13px;
+    color: var(--text);
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .info-chip .chip-label {
+    color: var(--text-mute);
+    font-size: 11px;
+  }
+  .info-chip .chip-value {
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .info-chip.center {
+    padding: 8px 20px;
+  }
+  .info-chip.center .agent-badge {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--star-gold), var(--star-cyan));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--space-deep);
+    box-shadow: 0 0 12px var(--core-glow);
+  }
+  .info-chip.center .agent-title {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+
+  /* 功能面板 */
+  .ability-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.85);
+    width: min(440px, 90vw);
+    max-height: 75vh;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(24px);
+    border-radius: 24px;
+    padding: 28px;
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5), 0 0 60px rgba(107, 213, 255, 0.1);
+    overflow-y: auto;
+  }
+  .ability-panel.open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .ability-panel::-webkit-scrollbar { width: 4px; }
+  .ability-panel::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 2px; }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .panel-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .panel-icon {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, rgba(107, 213, 255, 0.2), rgba(255, 215, 107, 0.15));
+    border: 1px solid var(--panel-border);
+    font-size: 20px;
+  }
+  .panel-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .panel-subtitle {
+    font-size: 11px;
+    color: var(--text-mute);
+    margin-top: 2px;
+  }
+  .panel-close {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--panel-border);
+    color: var(--text-soft);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .panel-close:hover { background: rgba(255,107,107,0.15); color: #ff6b6b; border-color: #ff6b6b; }
+
+  .panel-desc {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-soft);
+    margin-bottom: 18px;
+    padding: 12px 14px;
+    background: rgba(107, 213, 255, 0.06);
+    border-radius: 12px;
+    border-left: 2px solid var(--accent);
+  }
+
+  .panel-input {
+    width: 100%;
+    padding: 14px 16px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    resize: none;
+    outline: none;
+    min-height: 100px;
+    transition: border-color 0.2s;
+    user-select: text;
+  }
+  .panel-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(107, 213, 255, 0.1); }
+  .panel-input::placeholder { color: var(--text-mute); }
+
+  .panel-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .panel-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .panel-btn-primary {
+    background: linear-gradient(135deg, var(--accent), #4ab8e8);
+    color: var(--space-deep);
+  }
+  .panel-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(107, 213, 255, 0.3); }
+  .panel-btn-ghost {
+    background: rgba(255,255,255,0.05);
+    color: var(--text-soft);
+    border: 1px solid var(--panel-border);
+  }
+  .panel-btn-ghost:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+
+  .panel-output {
+    margin-top: 16px;
+    padding: 14px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 12px;
+    border: 1px solid var(--panel-border);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+    white-space: pre-wrap;
+    display: none;
+  }
+  .panel-output.show { display: block; animation: fadeIn 0.4s; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .panel-quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .quick-tag {
+    padding: 6px 12px;
+    background: rgba(107, 213, 255, 0.08);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    font-size: 12px;
+    color: var(--text-soft);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .quick-tag:hover { background: rgba(107, 213, 255, 0.18); color: var(--accent); }
+
+  /* 底部输入框 */
+  .bottom-input {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(560px, 92vw);
+    z-index: 30;
+  }
+  .input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(16px);
+    padding: 8px 8px 8px 20px;
+    border-radius: 28px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .input-wrap:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 3px rgba(107, 213, 255, 0.12);
+  }
+  .input-icon {
+    color: var(--text-mute);
+    flex-shrink: 0;
+  }
+  .input-field {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    padding: 8px 0;
+    user-select: text;
+  }
+  .input-field::placeholder { color: var(--text-mute); }
+  .input-send {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, var(--accent), #4ab8e8);
+    color: var(--space-deep);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .input-send:hover { transform: scale(1.08); box-shadow: 0 4px 16px rgba(107, 213, 255, 0.4); }
+  .input-send:active { transform: scale(0.95); }
+
+  /* 发现新能力按钮 */
+  .discover-btn {
+    position: fixed;
+    bottom: 90px;
+    right: 24px;
+    z-index: 30;
+    background: linear-gradient(135deg, rgba(255, 215, 107, 0.2), rgba(255, 157, 74, 0.15));
+    border: 1px solid rgba(255, 215, 107, 0.4);
+    backdrop-filter: blur(16px);
+    color: var(--star-gold);
+    padding: 12px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    animation: discoverPulse 2.5s ease-in-out infinite;
+  }
+  @keyframes discoverPulse {
+    0%, 100% { box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 0 0 rgba(255, 215, 107, 0.4); }
+    50% { box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 0 12px rgba(255, 215, 107, 0); }
+  }
+  .discover-btn:hover { transform: translateY(-2px); background: linear-gradient(135deg, rgba(255, 215, 107, 0.3), rgba(255, 157, 74, 0.25)); }
+  .discover-btn svg { animation: spin 8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 新星诞生动画 */
+  .new-star-burst {
+    position: absolute;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: white;
+    pointer-events: none;
+    z-index: 20;
+  }
+  .new-star-burst::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    background: radial-gradient(circle, white, var(--star-gold), transparent);
+    animation: starBurst 1.2s ease-out forwards;
+  }
+  @keyframes starBurst {
+    0% { transform: scale(0); opacity: 1; }
+    100% { transform: scale(40); opacity: 0; }
+  }
+
+  /* 提示 */
+  .toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(16px);
+    color: var(--text);
+    padding: 12px 22px;
+    border-radius: 24px;
+    font-size: 13px;
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.4s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast .toast-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--star-gold);
+    box-shadow: 0 0 8px var(--star-gold);
+  }
+
+  @media (max-width: 640px) {
+    .top-info { padding: 14px; flex-wrap: wrap; gap: 8px; }
+    .info-chip { padding: 8px 14px; font-size: 12px; }
+    .info-chip.center .agent-title { font-size: 13px; }
+    .ability-panel { padding: 22px 20px; }
+    .panel-title { font-size: 16px; }
+    .discover-btn { padding: 10px 14px; font-size: 12px; bottom: 84px; right: 16px; }
+    .star-label { font-size: 10px; }
+    .core-orb { width: 64px; height: 64px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 深空背景层 -->
+<div class="space-bg"></div>
+<div class="nebula"></div>
+<div class="starfield"></div>
+
+<!-- 视差容器 -->
+<div class="parallax-wrap" id="parallaxWrap">
+  <svg class="constellation-lines" id="linesSvg"></svg>
+  <div class="constellation" id="constellation">
+    <!-- 星辰由JS生成 -->
+    <!-- 中心Agent核心 -->
+    <div class="agent-core" id="agentCore">
+      <div class="core-orb"></div>
+      <div class="core-label">
+        <div class="core-name">NOVA</div>
+        <div class="core-sub">AGENT CORE</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 顶部信息 -->
+<header class="top-info">
+  <div class="info-chip">
+    <span class="chip-label">已掌握能力</span>
+    <span class="chip-value" id="abilityCount">11</span>
+  </div>
+  <div class="info-chip center">
+    <div class="agent-badge">N</div>
+    <span class="agent-title">Nova</span>
+  </div>
+  <div class="info-chip">
+    <span class="chip-label">今日交互</span>
+    <span class="chip-value" id="interactCount">37</span>
+  </div>
+</header>
+
+<!-- 功能面板 -->
+<div class="ability-panel" id="abilityPanel">
+  <div class="panel-header">
+    <div class="panel-title-group">
+      <div class="panel-icon" id="panelIcon">✦</div>
+      <div>
+        <div class="panel-title" id="panelTitle">能力</div>
+        <div class="panel-subtitle" id="panelSubtitle">Nova 能力中心</div>
+      </div>
+    </div>
+    <button class="panel-close" id="panelClose" aria-label="关闭">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="panel-desc" id="panelDesc"></div>
+  <div class="panel-quick" id="panelQuick"></div>
+  <textarea class="panel-input" id="panelInput" placeholder="在这里输入..."></textarea>
+  <div class="panel-actions">
+    <button class="panel-btn panel-btn-ghost" id="panelCancel">取消</button>
+    <button class="panel-btn panel-btn-primary" id="panelSubmit">执行</button>
+  </div>
+  <div class="panel-output" id="panelOutput"></div>
+</div>
+
+<!-- 底部输入 -->
+<div class="bottom-input">
+  <div class="input-wrap">
+    <svg class="input-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+    <input class="input-field" id="globalInput" placeholder="或直接对我说..." />
+    <button class="input-send" id="inputSend" aria-label="发送">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- 发现新能力 -->
+<button class="discover-btn" id="discoverBtn">
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+  发现新能力
+</button>
+
+<!-- 提示 -->
+<div class="toast" id="toast">
+  <span class="toast-dot"></span>
+  <span id="toastText"></span>
+</div>
+
+<script>
+// 星辰数据
+const STARS = [
+  { id: 'chat', name: '对话', x: 22, y: 25, size: 'medium', icon: '💬',
+    desc: '与 Nova 自然对话，理解上下文与意图，支持多轮深度交流。',
+    placeholder: '想聊点什么？',
+    quicks: ['帮我总结今天', '解释一下量子计算', '推荐一本好书'],
+    output: '好的，我随时在这里。你可以问我任何问题，或者让我帮你处理任务。' },
+  { id: 'writing', name: '写作', x: 78, y: 22, size: 'large', icon: '✍️',
+    desc: '生成、润色、改写各类文案。从邮件到报告，从故事到方案，风格随你定。',
+    placeholder: '输入写作主题或要求...',
+    quicks: ['写一封周报', '润色这段文字', '生成产品slogan'],
+    output: '我已为你起草了初稿，你可以在此基础上调整。需要修改语气、长度或重点吗？' },
+  { id: 'analysis', name: '分析', x: 12, y: 55, size: 'medium', icon: '📊',
+    desc: '数据洞察与趋势分析。上传数据或描述问题，我为你拆解并给出建议。',
+    placeholder: '描述你想分析的数据或问题...',
+    quicks: ['分析销售趋势', '对比两个方案', '找出异常值'],
+    output: '基于分析，我发现三个关键趋势：1) 增长主力来自移动端；2) 留存率在周三最高；3) 建议加大 A 渠道投入。' },
+  { id: 'memory', name: '记忆', x: 88, y: 52, size: 'medium', icon: '🧠',
+    desc: '我记得你的偏好、历史与上下文。随时调用，让协作更连贯。',
+    placeholder: '查看或搜索你的记忆...',
+    quicks: ['我上周做了什么', '我的偏好设置', '搜索"项目X"'],
+    output: '已记录 1,247 条记忆。最近：你偏好简洁回复、习惯在上午处理深度工作、正在推进 V4.0 项目。' },
+  { id: 'search', name: '搜索', x: 30, y: 78, size: 'medium', icon: '🔍',
+    desc: '实时联网搜索，整合多源信息，给你经过验证的答案而非链接列表。',
+    placeholder: '搜索任何问题...',
+    quicks: ['最新AI进展', '查某个概念', '对比两款产品'],
+    output: '已整合 12 个来源。核心结论：截至本月，该领域有 3 项重要突破，详见下方结构化摘要。' },
+  { id: 'creation', name: '创作', x: 72, y: 80, size: 'large', icon: '🎨',
+    desc: '创意发想与内容生成。文案、脚本、故事、命名、方案——激发灵感。',
+    placeholder: '描述你的创作需求...',
+    quicks: ['起个产品名', '写个短视频脚本', '头脑风暴活动主题'],
+    output: '为你生成 5 个创意方向：1) "星河计划" 2) "深空对话" 3) "宇宙图书馆" 4) "光年协奏" 5) "引力工坊"。' },
+  { id: 'schedule', name: '日程', x: 8, y: 82, size: 'small', icon: '📅',
+    desc: '智能排程与时间管理。根据优先级与精力曲线，自动优化你的日程。',
+    placeholder: '添加或查询日程...',
+    quicks: ['规划明天', '找个开会时间', '本周时间分配'],
+    output: '明日已优化：10-12 深度工作（路线图文档），14-15 设计评审，16-17 异步处理。已为你屏蔽通知。' },
+  { id: 'knowledge', name: '知识库', x: 92, y: 80, size: 'small', icon: '📚',
+    desc: '你的私人知识图谱。文档、笔记、网页——全部可检索、可关联、可引用。',
+    placeholder: '搜索你的知识库...',
+    quicks: ['查找"用户调研"', '相关知识', '导出笔记'],
+    output: '找到 8 条相关内容，来自 3 份文档和 5 条笔记。最相关：《Q3 用户访谈纪要》。' },
+  { id: 'translate', name: '翻译', x: 50, y: 12, size: 'small', icon: '🌐',
+    desc: '多语言互译，保留语境与语气。支持 100+ 语言，专业领域自适应。',
+    placeholder: '输入要翻译的文本...',
+    quicks: ['中译英', '英译中', '翻译这段话'],
+    output: 'Translation complete. The context-aware rendering preserves your original tone and intent.' },
+  { id: 'code', name: '代码', x: 50, y: 88, size: 'medium', icon: '⚡',
+    desc: '编写、审查、调试代码。支持 40+ 语言，理解项目上下文。',
+    placeholder: '描述编程需求或贴入代码...',
+    quicks: ['写个函数', '审查这段代码', '解释这个报错'],
+    output: '已完成。关键点：使用了尾递归优化，时间复杂度 O(n)。建议补充边界测试用例。' },
+  { id: 'vision', name: '视觉', x: 38, y: 45, size: 'small', icon: '👁️',
+    desc: '理解图像与图表。识别、描述、提取信息，让视觉内容可对话。',
+    placeholder: '上传图片或描述视觉任务...',
+    quicks: ['识别图中内容', '描述这张图', '提取图表数据'],
+    output: '图像分析完成：检测到一份产品原型图，包含 4 个主要模块，标注了 2 处待优化区域。' },
+];
+
+// 星座连线（能力关联）
+const CONSTELLATIONS = [
+  ['chat', 'writing'], ['writing', 'creation'], ['chat', 'analysis'],
+  ['analysis', 'data'], ['memory', 'chat'], ['memory', 'knowledge'],
+  ['search', 'knowledge'], ['creation', 'code'], ['schedule', 'memory'],
+  ['translate', 'chat'], ['vision', 'analysis'], ['chat', 'core'],
+  ['writing', 'core'], ['analysis', 'core'], ['memory', 'core'],
+  ['search', 'core'], ['creation', 'core'], ['code', 'core'],
+];
+
+const CORE = { x: 50, y: 50 };
+
+// 渲染星辰
+function renderStars() {
+  const container = document.getElementById('constellation');
+  STARS.forEach((star, i) => {
+    const el = document.createElement('div');
+    el.className = `star ${star.size}`;
+    el.dataset.id = star.id;
+    // 尺寸
+    const sizeMap = { large: 22, medium: 16, small: 12 };
+    const s = sizeMap[star.size];
+    el.style.left = `${star.x}%`;
+    el.style.top = `${star.y}%`;
+    el.style.transform = 'translate(-50%, -50%)';
+    el.style.animationDelay = `${i * 0.3}s`;
+
+    el.innerHTML = `
+      <div class="star-core" style="width:${s}px;height:${s}px;animation-delay:${i * 0.4}s"></div>
+      <div class="star-label">${star.name}</div>
+      <div class="star-tooltip">${star.desc.substring(0, 30)}...</div>
+    `;
+
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openAbility(star);
+    });
+
+    container.appendChild(el);
+  });
+}
+
+// 渲染连线
+function renderLines() {
+  const svg = document.getElementById('linesSvg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('preserveAspectRatio', 'none');
+
+  CONSTELLATIONS.forEach(([a, b]) => {
+    const starA = a === 'core' ? CORE : STARS.find(s => s.id === a);
+    const starB = b === 'core' ? CORE : STARS.find(s => s.id === b);
+    if (!starA || !starB) return;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', starA.x);
+    line.setAttribute('y1', starA.y);
+    line.setAttribute('x2', starB.x);
+    line.setAttribute('y2', starB.y);
+    line.setAttribute('class', 'const-line');
+    line.dataset.from = a;
+    line.dataset.to = b;
+    svg.appendChild(line);
+  });
+}
+
+// 高亮相关星辰与连线
+function highlightStar(starId) {
+  document.querySelectorAll('.star').forEach(s => {
+    const connected = CONSTELLATIONS.some(([a, b]) =>
+      (a === starId && b === s.dataset.id) || (b === starId && a === s.dataset.id)
+    ) || s.dataset.id === starId;
+    s.classList.toggle('dimmed', !connected);
+  });
+  document.querySelectorAll('.const-line').forEach(l => {
+    const involved = l.dataset.from === starId || l.dataset.to === starId;
+    l.classList.toggle('highlight', involved);
+    l.classList.toggle('dimmed', !involved);
+  });
+}
+
+function resetHighlight() {
+  document.querySelectorAll('.star').forEach(s => s.classList.remove('dimmed'));
+  document.querySelectorAll('.const-line').forEach(l => {
+    l.classList.remove('highlight', 'dimmed');
+  });
+}
+
+// 打开能力面板
+let interactCount = 37;
+function openAbility(star) {
+  const panel = document.getElementById('abilityPanel');
+  document.getElementById('panelIcon').textContent = star.icon;
+  document.getElementById('panelTitle').textContent = star.name;
+  document.getElementById('panelSubtitle').textContent = `Nova · ${star.name}能力`;
+  document.getElementById('panelDesc').textContent = star.desc;
+  document.getElementById('panelInput').value = '';
+  document.getElementById('panelInput').placeholder = star.placeholder;
+  document.getElementById('panelOutput').classList.remove('show');
+
+  const quickWrap = document.getElementById('panelQuick');
+  quickWrap.innerHTML = star.quicks.map(q => `<span class="quick-tag">${q}</span>`).join('');
+  quickWrap.querySelectorAll('.quick-tag').forEach((tag, i) => {
+    tag.addEventListener('click', () => {
+      document.getElementById('panelInput').value = star.quicks[i];
+      document.getElementById('panelInput').focus();
+    });
+  });
+
+  panel.dataset.currentStar = star.id;
+  panel.classList.add('open');
+  highlightStar(star.id);
+  interactCount++;
+  document.getElementById('interactCount').textContent = interactCount;
+}
+
+// 关闭面板
+function closePanel() {
+  document.getElementById('abilityPanel').classList.remove('open');
+  resetHighlight();
+}
+
+document.getElementById('panelClose').addEventListener('click', closePanel);
+document.getElementById('panelCancel').addEventListener('click', closePanel);
+
+// 执行能力
+document.getElementById('panelSubmit').addEventListener('click', () => {
+  const panel = document.getElementById('abilityPanel');
+  const starId = panel.dataset.currentStar;
+  const star = STARS.find(s => s.id === starId);
+  const input = document.getElementById('panelInput').value.trim();
+  const output = document.getElementById('panelOutput');
+  output.classList.add('show');
+  if (input) {
+    output.textContent = `「${input}」\n\n${star.output}`;
+  } else {
+    output.textContent = star.output;
+  }
+  interactCount++;
+  document.getElementById('interactCount').textContent = interactCount;
+});
+
+// 点击空白关闭
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.ability-panel, .star, .discover-btn, .bottom-input, .top-info')) return;
+  closePanel();
+});
+
+// ESC关闭
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePanel();
+});
+
+// 视差效果
+let parallaxX = 0, parallaxY = 0;
+document.addEventListener('mousemove', (e) => {
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2;
+  parallaxX = (e.clientX - cx) / cx * 15;
+  parallaxY = (e.clientY - cy) / cy * 15;
+  document.getElementById('parallaxWrap').style.transform = `translate(${-parallaxX}px, ${-parallaxY}px)`;
+});
+
+// 底部输入 - 智能路由到相关星辰
+function handleGlobalInput() {
+  const input = document.getElementById('globalInput').value.trim();
+  if (!input) return;
+  // 简单关键词匹配
+  const keywords = {
+    '写作': 'writing', '写': 'writing', '文案': 'writing', '文章': 'writing', '邮件': 'writing',
+    '分析': 'analysis', '数据': 'analysis', '趋势': 'analysis', '统计': 'analysis',
+    '记': 'memory', '上次': 'memory', '之前': 'memory', '偏好': 'memory',
+    '搜': 'search', '查': 'search', '查找': 'search', '最新': 'search',
+    '创': 'creation', '创意': 'creation', '点子': 'creation', '起名': 'creation',
+    '日程': 'schedule', '安排': 'schedule', '会议': 'schedule', '计划': 'schedule',
+    '知识': 'knowledge', '笔记': 'knowledge', '文档': 'knowledge',
+    '翻译': 'translate', '译': 'translate', 'english': 'translate',
+    '代码': 'code', '函数': 'code', '编程': 'code', 'bug': 'code',
+    '图': 'vision', '看': 'vision', '识别': 'vision',
+  };
+  let matched = null;
+  for (const [k, v] of Object.entries(keywords)) {
+    if (input.toLowerCase().includes(k)) { matched = v; break; }
+  }
+  if (!matched) matched = 'chat'; // 默认对话
+
+  const star = STARS.find(s => s.id === matched);
+  document.getElementById('globalInput').value = '';
+  showToast(`已聚焦到「${star.name}」星辰`);
+  setTimeout(() => openAbility(star), 400);
+}
+
+document.getElementById('inputSend').addEventListener('click', handleGlobalInput);
+document.getElementById('globalInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') handleGlobalInput();
+});
+
+// 提示
+function showToast(text) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toastText').textContent = text;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+// 发现新能力 - 点亮新星
+const NEW_ABILITIES = [
+  { id: 'audio', name: '语音', x: 60, y: 35, size: 'small', icon: '🎙️',
+    desc: '语音识别与合成，自然流畅的语音交互体验。',
+    placeholder: '说点什么或输入文本...',
+    quicks: ['转文字', '生成语音', '语音摘要'],
+    output: '语音能力已激活。我可以听懂你的语音指令，也可以为你朗读任何内容。' },
+  { id: 'automation', name: '自动化', x: 40, y: 65, size: 'small', icon: '⚙️',
+    desc: '构建自动化工作流，连接你的工具与服务。',
+    placeholder: '描述你想自动化的流程...',
+    quicks: ['每日简报', '自动整理邮件', '定时提醒'],
+    output: '已创建自动化流程：每日 8:00 自动汇总昨日数据并发送到你的邮箱。' },
+  { id: 'reasoning', name: '推理', x: 65, y: 60, size: 'medium', icon: '🧩',
+    desc: '深度逻辑推理与多步规划，处理复杂决策。',
+    placeholder: '描述一个需要推理的问题...',
+    quicks: ['多步规划', '逻辑推导', '决策树分析'],
+    output: '经过 5 步推理：前提条件 → 约束分析 → 路径枚举 → 最优选择 → 验证。结论：方案 B 在当前约束下收益最高。' },
+];
+
+let newAbilityIdx = 0;
+document.getElementById('discoverBtn').addEventListener('click', () => {
+  if (newAbilityIdx >= NEW_ABILITIES.length) {
+    showToast('暂无新能力可发现，Nova 持续学习中...');
+    return;
+  }
+  const star = NEW_ABILITIES[newAbilityIdx];
+  // 添加到星辰列表
+  STARS.push(star);
+  // 渲染新星
+  const container = document.getElementById('constellation');
+  const el = document.createElement('div');
+  el.className = `star ${star.size}`;
+  el.dataset.id = star.id;
+  const sizeMap = { large: 22, medium: 16, small: 12 };
+  const s = sizeMap[star.size];
+  el.style.left = `${star.x}%`;
+  el.style.top = `${star.y}%`;
+  el.style.transform = 'translate(-50%, -50%)';
+  el.innerHTML = `
+    <div class="star-core" style="width:${s}px;height:${s}px"></div>
+    <div class="star-label">${star.name}</div>
+    <div class="star-tooltip">新点亮的能力</div>
+  `;
+  el.addEventListener('click', (e) => { e.stopPropagation(); openAbility(star); });
+  container.appendChild(el);
+
+  // 爆开动画
+  const burst = document.createElement('div');
+  burst.className = 'new-star-burst';
+  burst.style.left = `${star.x}%`;
+  burst.style.top = `${star.y}%`;
+  burst.style.transform = 'translate(-50%, -50%)';
+  container.appendChild(burst);
+  setTimeout(() => burst.remove(), 1200);
+
+  // 新连线
+  const svg = document.getElementById('linesSvg');
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', CORE.x);
+  line.setAttribute('y1', CORE.y);
+  line.setAttribute('x2', star.x);
+  line.setAttribute('y2', star.y);
+  line.setAttribute('class', 'const-line highlight');
+  svg.appendChild(line);
+
+  // 更新计数
+  document.getElementById('abilityCount').textContent = STARS.length;
+  showToast(`✦ 发现新能力：${star.name}`);
+  newAbilityIdx++;
+});
+
+// 星辰轨道微漂移
+function orbitStars() {
+  document.querySelectorAll('.star').forEach((el, i) => {
+    const baseLeft = parseFloat(el.style.left);
+    const baseTop = parseFloat(el.style.top);
+    // 用CSS变量记录基准位置
+    if (!el.dataset.baseX) {
+      el.dataset.baseX = baseLeft;
+      el.dataset.baseY = baseTop;
+    }
+  });
+}
+
+let orbitT = 0;
+function animateOrbit() {
+  orbitT += 0.005;
+  document.querySelectorAll('.star').forEach((el, i) => {
+    if (!el.dataset.baseX) return;
+    const bx = parseFloat(el.dataset.baseX);
+    const by = parseFloat(el.dataset.baseY);
+    const amp = 0.8;
+    const dx = Math.sin(orbitT + i * 0.7) * amp;
+    const dy = Math.cos(orbitT + i * 0.9) * amp;
+    el.style.left = `${bx + dx}%`;
+    el.style.top = `${by + dy}%`;
+  });
+  // 更新连线
+  document.querySelectorAll('.const-line').forEach(line => {
+    const starA = line.dataset.from === 'core' ? CORE : STARS.find(s => s.id === line.dataset.from);
+    const starB = line.dataset.to === 'core' ? CORE : STARS.find(s => s.id === line.dataset.to);
+    if (starA) {
+      const elA = line.dataset.from === 'core' ? null : document.querySelector(`.star[data-id="${line.dataset.from}"]`);
+      const ax = elA ? parseFloat(elA.style.left) : starA.x;
+      const ay = elA ? parseFloat(elA.style.top) : starA.y;
+      line.setAttribute('x1', ax);
+      line.setAttribute('y1', ay);
+    }
+    if (starB) {
+      const elB = line.dataset.to === 'core' ? null : document.querySelector(`.star[data-id="${line.dataset.to}"]`);
+      const bx = elB ? parseFloat(elB.style.top) : starB.x;
+      const by = elB ? parseFloat(elB.style.top) : starB.y;
+      if (elB) {
+        line.setAttribute('x2', parseFloat(elB.style.left));
+        line.setAttribute('y2', parseFloat(elB.style.top));
+      } else {
+        line.setAttribute('x2', starB.x);
+        line.setAttribute('y2', starB.y);
+      }
+    }
+  });
+  requestAnimationFrame(animateOrbit);
+}
+
+// 点击核心
+document.getElementById('agentCore').addEventListener('click', () => {
+  showToast('Nova 核心 · 你的智能体中枢');
+  resetHighlight();
+});
+
+// 初始化
+renderStars();
+renderLines();
+orbitStars();
+animateOrbit();
+document.getElementById('abilityCount').textContent = STARS.length;
+
+// 欢迎提示
+setTimeout(() => showToast('欢迎来到 Nova 星图 · 点击星辰探索能力'), 600);
+</script>
+
+</body>
+</html>

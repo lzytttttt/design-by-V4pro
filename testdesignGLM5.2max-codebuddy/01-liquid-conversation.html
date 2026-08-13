@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liquid Conversation · 液态对话 AI Agent</title>
+<style>
+  /* ============ Reset & Base ============ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-0: #0f0c29;
+    --bg-1: #302b63;
+    --bg-2: #24243e;
+    --accent: #00f5d4;
+    --accent-soft: rgba(0, 245, 212, 0.15);
+    --accent-glow: rgba(0, 245, 212, 0.45);
+    --user-bubble: rgba(255, 255, 255, 0.08);
+    --user-bubble-border: rgba(255, 255, 255, 0.14);
+    --ai-text: rgba(255, 255, 255, 0.92);
+    --muted: rgba(255, 255, 255, 0.55);
+    --card-bg: rgba(255, 255, 255, 0.05);
+    --card-border: rgba(255, 255, 255, 0.10);
+    --code-bg: rgba(0, 0, 0, 0.35);
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(160deg, var(--bg-0) 0%, var(--bg-1) 50%, var(--bg-2) 100%);
+    background-attachment: fixed;
+    color: var(--ai-text);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ============ Ambient blobs ============ */
+  .ambient { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .blob {
+    position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.5;
+    animation: drift 18s ease-in-out infinite;
+  }
+  .blob.b1 { width: 420px; height: 420px; background: #5b2a86; top: -120px; left: -80px; }
+  .blob.b2 { width: 360px; height: 360px; background: #0f4c75; bottom: -100px; right: -60px; animation-delay: -6s; }
+  .blob.b3 { width: 300px; height: 300px; background: #006d5b; top: 40%; left: 60%; animation-delay: -12s; opacity: 0.35; }
+  @keyframes drift {
+    0%,100% { transform: translate(0,0) scale(1); }
+    33% { transform: translate(40px,-30px) scale(1.1); }
+    66% { transform: translate(-30px,40px) scale(0.95); }
+  }
+
+  /* ============ Status bar ============ */
+  .status-bar {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 22px;
+    background: rgba(15, 12, 41, 0.55);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-bottom: 1px solid var(--card-border);
+  }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: conic-gradient(from 180deg, #00f5d4, #5b8def, #b06aff, #00f5d4);
+    display: grid; place-items: center; flex-shrink: 0;
+    box-shadow: 0 0 18px var(--accent-glow);
+    position: relative;
+  }
+  .avatar::after {
+    content: "AI"; font-size: 13px; font-weight: 700; color: #0f0c29; letter-spacing: 0.5px;
+  }
+  .status-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .status-name { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .thinking-dots { display: inline-flex; gap: 3px; align-items: center; }
+  .thinking-dots span {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+    animation: breathe 1.4s ease-in-out infinite;
+  }
+  .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes breathe {
+    0%,100% { opacity: 0.3; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.3); }
+  }
+  .status-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag {
+    font-size: 11px; color: var(--muted);
+    padding: 2px 8px; border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--card-border);
+  }
+  .status-spacer { flex: 1; }
+  .status-actions { display: flex; gap: 8px; }
+  .icon-btn {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);
+    color: var(--muted); cursor: pointer; display: grid; place-items: center;
+    transition: all .2s ease;
+  }
+  .icon-btn:hover { color: var(--accent); border-color: var(--accent-soft); background: var(--accent-soft); }
+
+  /* ============ Conversation stream ============ */
+  .stream {
+    position: relative; z-index: 1;
+    flex: 1; overflow-y: auto;
+    padding: 28px 0 18px;
+    scroll-behavior: smooth;
+  }
+  .stream::-webkit-scrollbar { width: 6px; }
+  .stream::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 6px; }
+  .stream::-webkit-scrollbar-track { background: transparent; }
+
+  .msg-row {
+    display: flex; padding: 8px 22px; gap: 12px;
+    animation: rise .5s cubic-bezier(.2,.8,.2,1) both;
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .msg-row.user { justify-content: flex-end; }
+  .msg-row.ai { justify-content: flex-start; }
+
+  .msg-avatar {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    background: conic-gradient(from 180deg, #00f5d4, #5b8def, #b06aff, #00f5d4);
+    display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #0f0c29;
+    box-shadow: 0 0 12px var(--accent-glow);
+    align-self: flex-end;
+  }
+  .msg-row.user .msg-avatar {
+    background: linear-gradient(135deg, #4a4a6a, #6a6a8a);
+    color: #fff; box-shadow: none;
+  }
+
+  .bubble {
+    max-width: min(680px, 78%);
+    padding: 12px 16px;
+    font-size: 14.5px; line-height: 1.65;
+    word-wrap: break-word;
+  }
+  .msg-row.user .bubble {
+    background: var(--user-bubble);
+    border: 1px solid var(--user-bubble-border);
+    border-radius: 18px 18px 4px 18px;
+    color: rgba(255,255,255,0.9);
+  }
+  .msg-row.ai .bubble {
+    border-radius: 4px 18px 18px 18px;
+    color: var(--ai-text);
+  }
+  .msg-row.ai .bubble.rich {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--card-border);
+  }
+  .bubble p + p { margin-top: 8px; }
+  .bubble .lead { color: var(--accent); font-weight: 600; }
+
+  /* streaming cursor */
+  .cursor {
+    display: inline-block; width: 8px; height: 16px; vertical-align: text-bottom;
+    background: var(--accent); margin-left: 2px;
+    animation: blink 1s steps(2) infinite;
+    border-radius: 2px;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ============ Inline components ============ */
+  .comp { margin-top: 12px; }
+  .comp-label {
+    font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+  }
+  .comp-label::before { content: ""; width: 14px; height: 1px; background: var(--accent); }
+
+  /* timeline */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .tl-item {
+    display: flex; gap: 12px; padding: 8px 0;
+    position: relative;
+  }
+  .tl-item:not(:last-child)::after {
+    content: ""; position: absolute; left: 5px; top: 22px; bottom: -6px;
+    width: 2px; background: linear-gradient(var(--accent-soft), transparent);
+  }
+  .tl-dot {
+    width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
+    background: var(--accent); box-shadow: 0 0 8px var(--accent-glow);
+  }
+  .tl-dot.muted { background: rgba(255,255,255,0.2); box-shadow: none; }
+  .tl-body { flex: 1; min-width: 0; }
+  .tl-time { font-size: 11px; color: var(--accent); margin-bottom: 2px; }
+  .tl-title { font-size: 13.5px; font-weight: 500; }
+  .tl-desc { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  /* priority cards grid */
+  .pgrid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .pcard {
+    padding: 12px 14px; border-radius: 12px;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-left: 3px solid var(--accent);
+    transition: transform .2s ease, border-color .2s ease;
+    cursor: default;
+  }
+  .pcard:hover { transform: translateY(-2px); }
+  .pcard.p1 { border-left-color: #ff6b6b; }
+  .pcard.p2 { border-left-color: #ffa94d; }
+  .pcard.p3 { border-left-color: #69db7c; }
+  .pcard-tag { font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+  .pcard.p1 .pcard-tag { color: #ff6b6b; }
+  .pcard.p2 .pcard-tag { color: #ffa94d; }
+  .pcard.p3 .pcard-tag { color: #69db7c; }
+  .pcard-title { font-size: 13.5px; font-weight: 600; margin: 4px 0 4px; }
+  .pcard-meta { font-size: 11.5px; color: var(--muted); }
+
+  /* code block */
+  .codeblock {
+    background: var(--code-bg); border: 1px solid var(--card-border);
+    border-radius: 10px; overflow: hidden;
+  }
+  .code-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; background: rgba(0,0,0,0.25);
+    border-bottom: 1px solid var(--card-border);
+    font-size: 11.5px; color: var(--muted);
+  }
+  .code-head .lang { color: var(--accent); font-weight: 600; }
+  .copy-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 11px; padding: 2px 6px; border-radius: 4px; transition: color .2s;
+  }
+  .copy-btn:hover { color: var(--accent); }
+  .codeblock pre {
+    margin: 0; padding: 12px 14px; overflow-x: auto;
+    font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+    font-size: 12.5px; line-height: 1.6;
+  }
+  .codeblock pre::-webkit-scrollbar { height: 5px; }
+  .codeblock pre::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+  .tok-kw { color: #c792ea; }
+  .tok-fn { color: #82aaff; }
+  .tok-str { color: #c3e88d; }
+  .tok-num { color: #f78c6c; }
+  .tok-com { color: #546e7a; font-style: italic; }
+  .tok-var { color: #ffcb6b; }
+
+  /* mini chart */
+  .chart-wrap {
+    padding: 12px 14px; border-radius: 12px;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+  }
+  .chart-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .chart-title { font-size: 13px; font-weight: 600; }
+  .chart-delta { font-size: 11.5px; color: #69db7c; font-weight: 600; }
+  .chart-delta.down { color: #ff6b6b; }
+  canvas.chart { width: 100%; height: 90px; display: block; }
+
+  /* todo checklist */
+  .todo-list { display: flex; flex-direction: column; gap: 6px; }
+  .todo-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
+    font-size: 13px; cursor: pointer; transition: background .2s;
+  }
+  .todo-item:hover { background: rgba(255,255,255,0.06); }
+  .todo-box {
+    width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0;
+    border: 1.5px solid var(--muted); display: grid; place-items: center;
+    transition: all .2s;
+  }
+  .todo-item.done .todo-box {
+    background: var(--accent); border-color: var(--accent);
+  }
+  .todo-item.done .todo-box::after {
+    content: ""; width: 5px; height: 9px; border: solid #0f0c29;
+    border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px);
+  }
+  .todo-item.done .todo-text { text-decoration: line-through; color: var(--muted); }
+
+  /* options card grid */
+  .opts-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+  }
+  .opt-card {
+    padding: 12px; border-radius: 10px; cursor: pointer;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    transition: all .2s;
+  }
+  .opt-card:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-2px); }
+  .opt-emoji { font-size: 20px; margin-bottom: 4px; }
+  .opt-title { font-size: 13px; font-weight: 600; }
+  .opt-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* button group */
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .btn {
+    padding: 9px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--card-border);
+    background: rgba(255,255,255,0.05); color: var(--ai-text);
+    transition: all .2s; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { background: rgba(255,255,255,0.1); }
+  .btn.primary {
+    background: linear-gradient(135deg, var(--accent), #00b894);
+    color: #0f0c29; border: none;
+    box-shadow: 0 4px 16px var(--accent-glow);
+  }
+  .btn.primary:hover { transform: translateY(-1px); box-shadow: 0 6px 22px var(--accent-glow); }
+
+  /* weather card */
+  .weather {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 16px; border-radius: 12px;
+    background: linear-gradient(135deg, rgba(0,245,212,0.08), rgba(91,138,239,0.08));
+    border: 1px solid var(--card-border);
+  }
+  .weather-icon { font-size: 32px; }
+  .weather-temp { font-size: 24px; font-weight: 700; }
+  .weather-meta { font-size: 12px; color: var(--muted); }
+
+  /* ============ Input area ============ */
+  .input-zone {
+    position: relative; z-index: 2;
+    padding: 10px 22px 16px;
+    background: rgba(15, 12, 41, 0.6);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-top: 1px solid var(--card-border);
+  }
+  .chips {
+    display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px;
+    scrollbar-width: none;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex-shrink: 0; padding: 6px 12px; border-radius: 16px;
+    font-size: 12.5px; color: var(--muted); cursor: pointer;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--card-border);
+    transition: all .2s; white-space: nowrap;
+  }
+  .chip:hover { color: var(--accent); border-color: var(--accent-soft); background: var(--accent-soft); }
+  .chip .slash { color: var(--accent); margin-right: 2px; }
+
+  .input-box {
+    display: flex; align-items: flex-end; gap: 10px;
+    padding: 8px 8px 8px 16px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    transition: border-color .2s;
+  }
+  .input-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .input-box textarea {
+    flex: 1; background: none; border: none; outline: none; resize: none;
+    color: var(--ai-text); font-size: 14.5px; font-family: inherit;
+    line-height: 1.5; max-height: 120px; padding: 8px 0;
+  }
+  .input-box textarea::placeholder { color: var(--muted); }
+  .send-btn {
+    width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--accent), #00b894);
+    border: none; cursor: pointer; display: grid; place-items: center;
+    color: #0f0c29; transition: transform .15s;
+    box-shadow: 0 2px 10px var(--accent-glow);
+  }
+  .send-btn:hover { transform: scale(1.05); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .send-btn svg { width: 18px; height: 18px; }
+
+  /* responsive */
+  @media (max-width: 640px) {
+    .status-bar { padding: 12px 14px; }
+    .msg-row { padding: 8px 14px; }
+    .input-zone { padding: 10px 14px 12px; }
+    .bubble { max-width: 88%; font-size: 14px; }
+    .pgrid { grid-template-columns: 1fr; }
+    .opts-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* typing indicator */
+  .typing {
+    display: flex; gap: 4px; align-items: center; padding: 4px 0;
+  }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+    animation: typing 1.2s ease-in-out infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes typing {
+    0%,60%,100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ambient background -->
+<div class="ambient">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+</div>
+
+<!-- Status bar -->
+<header class="status-bar">
+  <div class="avatar"></div>
+  <div class="status-meta">
+    <div class="status-name">
+      星河助手
+      <span class="thinking-dots"><span></span><span></span><span></span></span>
+    </div>
+    <div class="status-tags">
+      <span class="tag">规划</span>
+      <span class="tag">分析</span>
+      <span class="tag">创作</span>
+      <span class="tag">代码</span>
+    </div>
+  </div>
+  <div class="status-spacer"></div>
+  <div class="status-actions">
+    <button class="icon-btn" title="新对话" onclick="newConversation()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <button class="icon-btn" title="历史记录" onclick="alert('历史记录功能演示中')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    </button>
+    <button class="icon-btn" title="设置" onclick="alert('设置面板演示中')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- Conversation stream -->
+<main class="stream" id="stream"></main>
+
+<!-- Input zone -->
+<footer class="input-zone">
+  <div class="chips" id="chips">
+    <div class="chip" onclick="insertChip(this)"><span class="slash">/</span>总结</div>
+    <div class="chip" onclick="insertChip(this)"><span class="slash">/</span>绘图</div>
+    <div class="chip" onclick="insertChip(this)"><span class="slash">/</span>分析</div>
+    <div class="chip" onclick="insertChip(this)"><span class="slash">/</span>规划</div>
+    <div class="chip" onclick="insertChip(this)"><span class="slash">/</span>翻译</div>
+    <div class="chip" onclick="insertChip(this)"><span class="slash">/</span>写代码</div>
+    <div class="chip" onclick="insertChip(this)"><span class="slash">/</span>生成方案</div>
+    <div class="chip" onclick="insertChip(this)"><span class="slash">/</span>头脑风暴</div>
+  </div>
+  <div class="input-box">
+    <textarea id="input" rows="1" placeholder="和星河助手说点什么…  (Enter 发送, Shift+Enter 换行)"></textarea>
+    <button class="send-btn" id="sendBtn" onclick="sendUserMessage()" title="发送">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    </button>
+  </div>
+</footer>
+
+<script>
+/* ============ Data ============ */
+const stream = document.getElementById('stream');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('sendBtn');
+
+/* ============ Helpers ============ */
+function el(tag, cls, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html !== undefined) e.innerHTML = html;
+  return e;
+}
+function scrollBottom() { stream.scrollTop = stream.scrollHeight; }
+
+function userRow(text) {
+  const row = el('div', 'msg-row user');
+  row.appendChild(el('div', 'msg-avatar', '你'));
+  const bub = el('div', 'bubble', escapeHtml(text));
+  row.appendChild(bub);
+  stream.appendChild(row);
+  scrollBottom();
+}
+
+function aiRowRich(contentBuilder) {
+  const row = el('div', 'msg-row ai');
+  const av = el('div', 'msg-avatar', 'AI');
+  row.appendChild(av);
+  const bub = el('div', 'bubble rich');
+  row.appendChild(bub);
+  stream.appendChild(row);
+  contentBuilder(bub);
+  scrollBottom();
+  return bub;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* streaming text effect */
+async function streamText(container, text, speed=18) {
+  const target = el('p', '', '');
+  container.appendChild(target);
+  for (let i=0; i<text.length; i++) {
+    target.textContent += text[i];
+    if (i % 2 === 0) scrollBottom();
+    await new Promise(r => setTimeout(r, speed + Math.random()*15));
+  }
+  scrollBottom();
+}
+
+/* typing indicator */
+function showTyping() {
+  const row = el('div', 'msg-row ai typing-row');
+  row.appendChild(el('div', 'msg-avatar', 'AI'));
+  const bub = el('div', 'bubble rich');
+  bub.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+  row.appendChild(bub);
+  stream.appendChild(row);
+  scrollBottom();
+  return row;
+}
+
+/* ============ Inline components ============ */
+
+function buildWeather(host) {
+  const w = el('div', 'comp');
+  w.innerHTML = `
+    <div class="comp-label">实时环境</div>
+    <div class="weather">
+      <div class="weather-icon">⛅</div>
+      <div>
+        <div class="weather-temp">23°<span style="font-size:13px;color:var(--muted)">C</span></div>
+        <div class="weather-meta">多云转晴 · 上海 · 湿度 62% · 适合户外</div>
+      </div>
+    </div>`;
+  host.appendChild(w);
+  scrollBottom();
+}
+
+function buildTimeline(host) {
+  const t = el('div', 'comp');
+  t.innerHTML = `
+    <div class="comp-label">本周日程时间线</div>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-body">
+          <div class="tl-time">周一 09:00</div>
+          <div class="tl-title">产品周会 · 确定迭代方向</div>
+          <div class="tl-desc">评审上周数据，分配本周任务</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-body">
+          <div class="tl-time">周二 14:00</div>
+          <div class="tl-title">用户访谈 · 3 位深度用户</div>
+          <div class="tl-desc">聚焦 Agent 工作流痛点</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-body">
+          <div class="tl-time">周四 10:00</div>
+          <div class="tl-title">原型评审 · 设计与工程对齐</div>
+          <div class="tl-desc">确认交互细节与实现可行性</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot muted"></div>
+        <div class="tl-body">
+          <div class="tl-time">周五 16:00</div>
+          <div class="tl-title">复盘 · 本周总结与下周规划</div>
+          <div class="tl-desc">输出周报，更新 OKR 进度</div>
+        </div>
+      </div>
+    </div>`;
+  host.appendChild(t);
+  scrollBottom();
+}
+
+function buildPriorityCards(host) {
+  const p = el('div', 'comp');
+  p.innerHTML = `
+    <div class="comp-label">三大优先级</div>
+    <div class="pgrid">
+      <div class="pcard p1">
+        <div class="pcard-tag">P0 · 紧急</div>
+        <div class="pcard-title">完成 Agent 对话流原型</div>
+        <div class="pcard-meta">截止 周三 · 预计 6h</div>
+      </div>
+      <div class="pcard p2">
+        <div class="pcard-tag">P1 · 重要</div>
+        <div class="pcard-title">用户访谈整理与洞察提炼</div>
+        <div class="pcard-meta">截止 周三 · 预计 3h</div>
+      </div>
+      <div class="pcard p3">
+        <div class="pcard-tag">P2 · 推进</div>
+        <div class="pcard-title">数据看板指标体系梳理</div>
+        <div class="pcard-meta">截止 周五 · 预计 4h</div>
+      </div>
+    </div>`;
+  host.appendChild(p);
+  scrollBottom();
+}
+
+function buildActionButtons(host) {
+  const b = el('div', 'btn-group');
+  b.innerHTML = `
+    <button class="btn primary" onclick="generatePlan(this)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      生成详细方案
+    </button>
+    <button class="btn" onclick="addToCalendar(this)">加入日历</button>
+    <button class="btn" onclick="sharePlan(this)">分享给团队</button>`;
+  host.appendChild(b);
+  scrollBottom();
+}
+
+function buildChart(host, type='line') {
+  const c = el('div', 'comp');
+  const id = 'chart-' + Math.random().toString(36).slice(2,8);
+  c.innerHTML = `
+    <div class="comp-label">项目A · 本周活跃度趋势</div>
+    <div class="chart-wrap">
+      <div class="chart-head">
+        <div class="chart-title">日活用户 (DAU)</div>
+        <div class="chart-delta">▲ 18.4%</div>
+      </div>
+      <canvas class="chart" id="${id}" width="600" height="90"></canvas>
+    </div>`;
+  host.appendChild(c);
+  setTimeout(() => drawChart(id, type), 50);
+  scrollBottom();
+}
+
+function drawChart(id, type) {
+  const cv = document.getElementById(id);
+  if (!cv) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = 90;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const data = [320, 410, 380, 520, 610, 580, 720];
+  const labels = ['一','二','三','四','五','六','日'];
+  const max = Math.max(...data) * 1.15;
+  const pad = 8;
+  const stepX = (W - pad*2) / (data.length - 1);
+
+  // grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let i=0; i<=3; i++) {
+    const y = pad + (H - pad*2) * i/3;
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W-pad, y); ctx.stroke();
+  }
+
+  if (type === 'bar') {
+    const bw = stepX * 0.5;
+    data.forEach((v,i) => {
+      const x = pad + i*stepX - bw/2;
+      const h = (v/max) * (H - pad*2);
+      const y = H - pad - h;
+      const grad = ctx.createLinearGradient(0, y, 0, H-pad);
+      grad.addColorStop(0, '#00f5d4');
+      grad.addColorStop(1, 'rgba(0,245,212,0.15)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, y, bw, h);
+    });
+  } else {
+    // area fill
+    ctx.beginPath();
+    ctx.moveTo(pad, H-pad);
+    data.forEach((v,i) => {
+      const x = pad + i*stepX;
+      const y = H - pad - (v/max)*(H-pad*2);
+      ctx.lineTo(x, y);
+    });
+    ctx.lineTo(pad + (data.length-1)*stepX, H-pad);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, pad, 0, H-pad);
+    grad.addColorStop(0, 'rgba(0,245,212,0.35)');
+    grad.addColorStop(1, 'rgba(0,245,212,0.02)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // line
+    ctx.beginPath();
+    data.forEach((v,i) => {
+      const x = pad + i*stepX;
+      const y = H - pad - (v/max)*(H-pad*2);
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle = '#00f5d4';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(0,245,212,0.6)';
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // dots
+    data.forEach((v,i) => {
+      const x = pad + i*stepX;
+      const y = H - pad - (v/max)*(H-pad*2);
+      ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2);
+      ctx.fillStyle = '#00f5d4'; ctx.fill();
+      ctx.strokeStyle = '#0f0c29'; ctx.lineWidth = 2; ctx.stroke();
+    });
+  }
+
+  // labels
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  data.forEach((v,i) => {
+    const x = pad + i*stepX;
+    ctx.fillText(labels[i], x, H-1);
+  });
+}
+
+function buildCodeBlock(host) {
+  const c = el('div', 'comp');
+  const code = `<span class="tok-com">// Agent 流式响应核心逻辑</span>
+<span class="tok-kw">async function</span> <span class="tok-fn">streamResponse</span>(prompt) {
+  <span class="tok-kw">const</span> <span class="tok-var">stream</span> = <span class="tok-kw">await</span> agent.<span class="tok-fn">chat</span>({
+    model: <span class="tok-str">"glm-5"</span>,
+    messages: [{ role: <span class="tok-str">"user"</span>, content: prompt }],
+    stream: <span class="tok-kw">true</span>
+  });
+  <span class="tok-kw">for await</span> (<span class="tok-kw">const</span> <span class="tok-var">chunk</span> <span class="tok-kw">of</span> stream) {
+    <span class="tok-fn">renderToken</span>(chunk.<span class="tok-var">delta</span>);
+  }
+  <span class="tok-kw">return</span> <span class="tok-str">"done"</span>;
+}`;
+  c.innerHTML = `
+    <div class="comp-label">代码实现</div>
+    <div class="codeblock">
+      <div class="code-head">
+        <span class="lang">JavaScript</span>
+        <button class="copy-btn" onclick="copyCode(this)">复制</button>
+      </div>
+      <pre>${code}</pre>
+    </div>`;
+  host.appendChild(c);
+  scrollBottom();
+}
+
+function buildTodoList(host) {
+  const t = el('div', 'comp');
+  t.innerHTML = `
+    <div class="comp-label">待办清单 · 今日</div>
+    <div class="todo-list">
+      <div class="todo-item done" onclick="toggleTodo(this)">
+        <div class="todo-box"></div>
+        <span class="todo-text">梳理本周目标与优先级</span>
+      </div>
+      <div class="todo-item done" onclick="toggleTodo(this)">
+        <div class="todo-box"></div>
+        <span class="todo-text">同步产品迭代方向</span>
+      </div>
+      <div class="todo-item" onclick="toggleTodo(this)">
+        <div class="todo-box"></div>
+        <span class="todo-text">完成 Agent 对话流原型</span>
+      </div>
+      <div class="todo-item" onclick="toggleTodo(this)">
+        <div class="todo-box"></div>
+        <span class="todo-text">整理用户访谈记录</span>
+      </div>
+      <div class="todo-item" onclick="toggleTodo(this)">
+        <div class="todo-box"></div>
+        <span class="todo-text">更新设计文档</span>
+      </div>
+    </div>`;
+  host.appendChild(t);
+  scrollBottom();
+}
+
+function buildOptionsGrid(host) {
+  const o = el('div', 'comp');
+  o.innerHTML = `
+    <div class="comp-label">你想让我接下来做什么？</div>
+    <div class="opts-grid">
+      <div class="opt-card" onclick="optSelect(this,'生成甘特图')">
+        <div class="opt-emoji">📊</div>
+        <div class="opt-title">生成甘特图</div>
+        <div class="opt-desc">可视化项目排期</div>
+      </div>
+      <div class="opt-card" onclick="optSelect(this,'深度分析')">
+        <div class="opt-emoji">🔍</div>
+        <div class="opt-title">深度分析</div>
+        <div class="opt-desc">挖掘风险与机会</div>
+      </div>
+      <div class="opt-card" onclick="optSelect(this,'撰写周报')">
+        <div class="opt-emoji">📝</div>
+        <div class="opt-title">撰写周报</div>
+        <div class="opt-desc">一键生成结构化周报</div>
+      </div>
+      <div class="opt-card" onclick="optSelect(this,'创建任务')">
+        <div class="opt-emoji">✅</div>
+        <div class="opt-title">创建任务</div>
+        <div class="opt-desc">拆解为可执行子任务</div>
+      </div>
+    </div>`;
+  host.appendChild(o);
+  scrollBottom();
+}
+
+/* ============ Interactions ============ */
+function toggleTodo(item) {
+  item.classList.toggle('done');
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('.codeblock').querySelector('pre');
+  navigator.clipboard?.writeText(pre.innerText).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '已复制';
+    setTimeout(() => btn.textContent = orig, 1500);
+  }).catch(() => {
+    btn.textContent = '复制失败';
+    setTimeout(() => btn.textContent = '复制', 1500);
+  });
+}
+
+function generatePlan(btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<span>生成中…</span>';
+  setTimeout(() => {
+    btn.outerHTML = '<div class="btn primary" style="pointer-events:none">✓ 详细方案已生成</div>';
+    aiRowRich(async (bub) => {
+      await streamText(bub, '已为你生成《本周工作详细方案》，包含每日任务分配、时间预估、风险提示与协作建议。', 16);
+      buildChart(bub, 'bar');
+      buildTodoList(bub);
+    });
+  }, 1200);
+}
+
+function addToCalendar(btn) {
+  const o = btn.textContent;
+  btn.textContent = '✓ 已加入';
+  btn.style.color = 'var(--accent)';
+  setTimeout(() => { btn.textContent = o; btn.style.color = ''; }, 2000);
+}
+
+function sharePlan(btn) {
+  const o = btn.textContent;
+  btn.textContent = '✓ 链接已复制';
+  btn.style.color = 'var(--accent)';
+  setTimeout(() => { btn.textContent = o; btn.style.color = ''; }, 2000);
+}
+
+function optSelect(card, label) {
+  document.querySelectorAll('.opt-card').forEach(c => c.style.borderColor = '');
+  card.style.borderColor = 'var(--accent)';
+  card.style.background = 'var(--accent-soft)';
+  input.value = label;
+  input.focus();
+  autoResize();
+}
+
+function insertChip(chip) {
+  const text = chip.textContent;
+  input.value = input.value ? input.value + ' ' + text : text;
+  input.focus();
+  autoResize();
+}
+
+function newConversation() {
+  if (confirm('确定开始新对话？当前内容将被清空。')) {
+    stream.innerHTML = '';
+    initConversation();
+  }
+}
+
+/* textarea auto resize */
+function autoResize() {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+}
+input.addEventListener('input', autoResize);
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendUserMessage();
+  }
+});
+
+/* ============ Send & simulate AI reply ============ */
+let isReplying = false;
+function sendUserMessage() {
+  const text = input.value.trim();
+  if (!text || isReplying) return;
+  userRow(text);
+  input.value = '';
+  autoResize();
+  simulateAIReply(text);
+}
+
+async function simulateAIReply(text) {
+  isReplying = true;
+  sendBtn.disabled = true;
+
+  const typing = showTyping();
+  await new Promise(r => setTimeout(r, 900));
+  typing.remove();
+
+  // keyword-based rich replies
+  const t = text.toLowerCase();
+
+  if (t.includes('天气') || t.includes('环境')) {
+    aiRowRich(async (b) => {
+      await streamText(b, '当前上海多云转晴，气温 23°C，湿度 62%，空气质量良好，适合户外活动。');
+      buildWeather(b);
+    });
+  } else if (t.includes('数据') || t.includes('图表') || t.includes('趋势') || t.includes('分析')) {
+    aiRowRich(async (b) => {
+      await streamText(b, '我已调取项目A本周数据，活跃用户呈上升趋势，周末达到峰值。以下是详细趋势图：');
+      buildChart(b, 'line');
+      buildOptionsGrid(b);
+    });
+  } else if (t.includes('代码') || t.includes('函数') || t.includes('实现')) {
+    aiRowRich(async (b) => {
+      await streamText(b, '这是一个 Agent 流式响应的核心实现示例，使用异步迭代处理 token 流：');
+      buildCodeBlock(b);
+    });
+  } else if (t.includes('待办') || t.includes('清单') || t.includes('todo')) {
+    aiRowRich(async (b) => {
+      await streamText(b, '这是你今日的待办清单，点击可勾选完成：');
+      buildTodoList(b);
+    });
+  } else if (t.includes('规划') || t.includes('本周') || t.includes('工作') || t.includes('计划')) {
+    aiRowRich(async (b) => {
+      await streamText(b, '我来帮你梳理本周工作。结合你的 OKR 与日历，本周有 4 个关键节点，3 项核心优先级：', 16);
+      buildTimeline(b);
+      buildPriorityCards(b);
+      buildActionButtons(b);
+    });
+  } else {
+    aiRowRich(async (b) => {
+      await streamText(b, `关于"${text}"，我的理解是：这是一个值得深入探讨的方向。我可以从多个维度帮你展开——你可以选择下方任意一个方向继续：`, 16);
+      buildOptionsGrid(b);
+    });
+  }
+
+  isReplying = false;
+  sendBtn.disabled = false;
+}
+
+/* ============ Initial sample conversation ============ */
+function initConversation() {
+  aiRowRich(async (b) => {
+    await streamText(b, '你好，我是星河助手 👋  你的 AI 原生工作伙伴。我可以帮你规划日程、分析数据、撰写方案、生成代码——所有内容都直接生长在这条对话里。', 14);
+    buildWeather(b);
+  });
+
+  setTimeout(() => {
+    userRow('帮我规划本周工作');
+  }, 1800);
+
+  setTimeout(async () => {
+    const typing = showTyping();
+    await new Promise(r => setTimeout(r, 1100));
+    typing.remove();
+
+    aiRowRich(async (b) => {
+      await streamText(b, '好的，我已结合你的 OKR 与日历梳理了本周工作。本周有 4 个关键节点，3 项核心优先级：', 16);
+      buildTimeline(b);
+      buildPriorityCards(b);
+      buildChart(b, 'line');
+      buildActionButtons(b);
+    });
+  }, 3400);
+}
+
+/* boot */
+initConversation();
+</script>
+</body>
+</html>
