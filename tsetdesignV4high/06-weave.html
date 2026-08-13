@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>06 · 编织 / Weave</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --bg: #120d0a; --ink: #f4ede6; --dim: #a08d7a; }
+  body {
+    background: var(--bg); color: var(--ink); overflow: hidden;
+    font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #weave { position: fixed; inset: 0; }
+  .hud {
+    position: fixed; inset: 0; pointer-events: none; z-index: 5;
+    display: flex; flex-direction: column; justify-content: space-between; padding: 3vh 4vw;
+  }
+  .top, .bot { display: flex; justify-content: space-between; align-items: flex-end; }
+  .lab { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.35em; color: var(--dim); text-transform: uppercase; }
+  .title h1 { font-weight: 200; font-size: clamp(1.8rem, 4vw, 3.6rem); }
+  .title h1 .it { font-family: Georgia, serif; font-style: italic; }
+  .title p { color: var(--dim); font-size: 0.8rem; letter-spacing: 0.08em; margin-top: 0.5rem; }
+  .legend { display: flex; gap: 1.6rem; flex-wrap: wrap; }
+  .legend span { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.2em; color: var(--dim); cursor: pointer; transition: 0.3s; pointer-events: auto; }
+  .legend span i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  .legend span.active { color: var(--ink); }
+  .desc {
+    position: fixed; left: 4vw; bottom: 6vh; z-index: 6; max-width: 40ch;
+    pointer-events: none; transition: 0.4s;
+  }
+  .desc .n { font-size: 1.1rem; font-weight: 400; letter-spacing: 0.05em; }
+  .desc .d { color: var(--dim); font-size: 0.82rem; line-height: 1.8; margin-top: 0.4rem; }
+</style>
+</head>
+<body>
+<canvas id="weave"></canvas>
+<div class="hud">
+  <div class="top"><span class="lab">AI-NATIVE · 06 / 10</span><span class="lab">WEAVE · 经纬编织</span></div>
+  <div class="bot">
+    <div class="title">
+      <h1>人与机器<br>被<span class="it">编织</span>成一块织物</h1>
+      <p>悬停一根线，听见它独自的声音</p>
+    </div>
+    <div class="legend" id="legend"></div>
+  </div>
+</div>
+<div class="desc" id="desc"></div>
+
+<script>
+  const cv = document.getElementById('weave'), ctx = cv.getContext('2d');
+  let W, H, D = devicePixelRatio;
+  const mouse = { x: -1e4, y: -1e4 };
+
+  const THREADS = [
+    { n: 'HUMAN', c: '#e07a5f', d: '人类语境 —— 你要什么、此刻的语气，与未说出口的期待。' },
+    { n: 'AGENT', c: '#81b29a', d: '智能体意识 —— 它的自我叙事，与当下正在生成的动作。' },
+    { n: 'MEMORY', c: '#f2cc8f', d: '记忆 —— 跨会话沉淀下来的过往，被反复穿梭。' },
+    { n: 'TOOLS', c: '#8da9c4', d: '工具 —— 外部世界被调用的接口，织入同一条经线。' },
+    { n: 'INTENT', c: '#c9a0dc', d: '意图 —— 把人与机器对齐的那根主线，最细却最韧。' },
+  ];
+
+  let warpX = [];
+  let selected = -1, hovered = -1, time = 0;
+
+  function resize() {
+    W = cv.width = innerWidth * D; H = cv.height = innerHeight * D;
+    cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+    const gap = 110 * D;
+    warpX = [];
+    for (let x = -gap; x < W + gap; x += gap) warpX.push(x);
+  }
+
+  function yFor(i, t) {
+    const base = H * (i + 0.5) / THREADS.length;
+    const lift = (hovered === i || selected === i) ? -16 * D : 0;
+    return base + Math.sin(t / 1600 + i * 1.3) * 26 * D + lift;
+  }
+
+  function draw(t) {
+    time = t;
+    ctx.clearRect(0, 0, W, H);
+    const bg = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H)*0.7);
+    bg.addColorStop(0, '#18110b'); bg.addColorStop(1, '#0c0806');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    const dimmed = (i) => selected >= 0 && i !== selected;
+    const alpha = (i) => dimmed(i) ? 0.14 : 1;
+
+    // warp (vertical) lines
+    ctx.lineWidth = D;
+    for (const x of warpX) {
+      ctx.strokeStyle = 'rgba(160,141,122,0.12)';
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+
+    // weft threads, drawn segment by segment to weave over/under warp
+    for (let i = 0; i < THREADS.length; i++) {
+      const col = THREADS[i].c;
+      for (let k = 0; k < warpX.length - 1; k++) {
+        const x0 = warpX[k], x1 = warpX[k + 1];
+        const y0 = yFor(i, t) + Math.sin(t/2100 + k * 0.6 + i) * 3 * D;
+        const y1 = yFor(i, t) + Math.sin(t/2100 + (k+1) * 0.6 + i) * 3 * D;
+        const over = ((k + i) % 2 === 0);
+        ctx.strokeStyle = col; ctx.globalAlpha = over ? alpha(i) * 0.95 : alpha(i) * 0.45;
+        ctx.lineWidth = (2.2 + (selected === i ? 1 : 0)) * D;
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+        if (!over) {
+          // warp passes on top
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = 'rgba(160,141,122,0.35)';
+          ctx.lineWidth = D;
+          ctx.beginPath(); ctx.moveTo(x1, 0); ctx.lineTo(x1, H); ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function hit() {
+    let best = -1, bd = 1e9;
+    for (let i = 0; i < THREADS.length; i++) {
+      const d = Math.abs(yFor(i, time) - mouse.y);
+      if (d < bd) { bd = d; best = i; }
+    }
+    return bd < 40 * D ? best : -1;
+  }
+  function update() {
+    hovered = hit();
+    const i = selected >= 0 ? selected : hovered;
+    if (i >= 0) {
+      document.getElementById('desc').innerHTML =
+        `<div class="n" style="color:${THREADS[i].c}">${THREADS[i].n}</div><div class="d">${THREADS[i].d}</div>`;
+    } else {
+      document.getElementById('desc').innerHTML = '';
+    }
+    document.querySelectorAll('#legend span').forEach((s, idx) =>
+      s.classList.toggle('active', idx === selected || (selected < 0 && idx === hovered)));
+  }
+
+  // legend
+  const lg = document.getElementById('legend');
+  THREADS.forEach((th, i) => {
+    const s = document.createElement('span');
+    s.innerHTML = `<i style="background:${th.c}"></i>${th.n}`;
+    s.addEventListener('mouseenter', () => { hovered = i; update(); });
+    s.addEventListener('mouseleave', () => { hovered = -1; update(); });
+    s.addEventListener('click', () => { selected = selected === i ? -1 : i; update(); });
+    lg.appendChild(s);
+  });
+
+  addEventListener('resize', resize);
+  addEventListener('pointermove', e => { mouse.x = e.clientX * D; mouse.y = e.clientY * D; update(); });
+  addEventListener('pointerleave', () => { mouse.x = mouse.y = -1e4; hovered = -1; update(); });
+
+  function loop(t) { draw(t); requestAnimationFrame(loop); }
+  resize(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>

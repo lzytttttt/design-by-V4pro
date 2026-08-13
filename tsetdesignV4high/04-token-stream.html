@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04 · 令牌流 / Token Stream</title>
+<style>
+  :root {
+    --bg: #0a0a0c; --ink: #e6e4ef; --dim: #757187;
+    --lo: #38e8a8; --mid: #f5c451; --hi: #ff6b6b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
+    -webkit-font-smoothing: antialiased;
+  }
+  header { padding: 5vh 5vw 2vh; border-bottom: 1px solid rgba(117,113,135,0.2); }
+  .lab { font-size: 10px; letter-spacing: 0.4em; color: var(--dim); text-transform: uppercase; }
+  h1 { margin-top: 1.4rem; font-size: clamp(1.8rem, 4vw, 3.4rem); font-weight: 300; letter-spacing: -0.02em; }
+  h1 .dim { color: var(--dim); }
+  .mantra { margin-top: 1rem; color: var(--dim); font-size: 0.85rem; line-height: 1.9; max-width: 70ch; }
+  .mantra b { color: var(--ink); font-weight: 500; }
+
+  .stream-wrap { padding: 4vh 5vw; }
+  .stream-label { font-size: 10px; letter-spacing: 0.3em; color: var(--dim); margin-bottom: 1.2rem; text-transform: uppercase; display: flex; gap: 1rem; align-items: center; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lo); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+  .stream {
+    font-size: clamp(1.2rem, 2.2vw, 1.7rem); line-height: 2.2; font-weight: 300;
+    word-spacing: 0.15em; max-width: 46ch;
+  }
+  .tok {
+    display: inline-block; margin: 2px 1px; padding: 1px 5px; border-radius: 3px;
+    position: relative; cursor: default; vertical-align: baseline;
+    background: rgba(230,228,239,0.05); border-bottom: 2px solid var(--c, #555);
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+  .tok:hover { transform: translateY(-2px); background: rgba(230,228,239,0.12); }
+  .tok.new { animation: pop 0.25s ease; }
+  @keyframes pop { 0% { transform: scale(1.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+  /* distribution panel */
+  .panel {
+    position: fixed; right: 5vw; top: 50%; transform: translateY(-50%) translateX(20px);
+    width: 320px; background: rgba(16,16,20,0.92); border: 1px solid rgba(117,113,135,0.3);
+    border-radius: 6px; padding: 1.4rem; opacity: 0; pointer-events: none;
+    transition: 0.25s ease; backdrop-filter: blur(10px);
+  }
+  .panel.on { opacity: 1; transform: translateY(-50%) translateX(0); }
+  .panel .p-t { font-size: 11px; color: var(--dim); letter-spacing: 0.15em; margin-bottom: 0.4rem; }
+  .panel .p-tok { font-size: 1.3rem; font-weight: 500; margin-bottom: 0.2rem; color: var(--ink); }
+  .panel .p-ctx { font-size: 10px; color: var(--dim); margin-bottom: 1.2rem; }
+  .row { display: flex; align-items: center; gap: 0.6rem; margin: 0.55rem 0; }
+  .row .tokc { flex: 0 0 96px; font-size: 0.8rem; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .bar { flex: 1; height: 8px; background: rgba(230,228,239,0.06); border-radius: 4px; overflow: hidden; }
+  .row .fill { height: 100%; border-radius: 4px; background: var(--lo); }
+  .row .pc { flex: 0 0 44px; font-size: 10px; color: var(--dim); text-align: right; }
+  .row.top .fill { background: var(--lo); }
+  .row.mid .fill { background: var(--mid); }
+  .row.low .fill { background: var(--hi); }
+
+  footer { padding: 5vh 5vw 8vh; font-size: 10px; letter-spacing: 0.3em; color: var(--dim); display: flex; justify-content: space-between; }
+  .legend { display: flex; gap: 1.4rem; font-size: 10px; color: var(--dim); margin-top: 2rem; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="lab">AI-NATIVE · 04 / 10 · TOKEN STREAM</div>
+  <h1>你看见的不是文字，<br><span class="dim">而是正在被采样的下一个 token。</span></h1>
+  <p class="mantra">最细粒度的建材。每个 token 携带一份<b>概率分布</b> —— 悬停任意一枚，看见机器在吐字之前的全部犹豫。颜色越偏红，熵越高。</p>
+</header>
+
+<main class="stream-wrap">
+  <div class="stream-label"><span class="dot"></span> LIVE · 正在生成</div>
+  <div class="stream" id="stream"></div>
+  <div class="legend">
+    <span><i style="background:var(--lo)"></i>低熵 · 确定</span>
+    <span><i style="background:var(--mid)"></i>中熵</span>
+    <span><i style="background:var(--hi)"></i>高熵 · 分歧</span>
+  </div>
+</main>
+
+<footer><span>TOKEN STREAM</span><span>hover token → 采样分布</span></footer>
+
+<aside class="panel" id="panel">
+  <div class="p-t">NEXT-TOKEN DISTRIBUTION</div>
+  <div class="p-tok" id="pTok"></div>
+  <div class="p-ctx" id="pCtx"></div>
+  <div id="rows"></div>
+</aside>
+
+<script>
+  const SRC = `当界面不再为导航而设计 而是为意识而设计 每一个像素都是一次采样 每一个字母都曾被权衡 于是主页不再是关于我的页面 而是我正在成为我的过程`.split(/\s+/).filter(Boolean);
+  const ALTS = ['意识','界面','导航','采样','生成','概率','权衡','过程','设计','世界','答案','语境','意义','存在','涌现','记忆','推理','空白','节奏','温度'];
+
+  function colorFor(entropy) {
+    // entropy 0..1 -> green..red
+    if (entropy < 0.35) return '#38e8a8';
+    if (entropy < 0.65) return '#f5c451';
+    return '#ff6b6b';
+  }
+  function makeAlts(seed) {
+    let s = seed; const arr = [];
+    const n = 5; let remaining = 1;
+    for (let i = 0; i < n; i++) {
+      s = (s * 9301 + 49297) % 233280;
+      const r = (s / 233280);
+      let w = (i === n - 1) ? remaining : r * remaining * 0.7;
+      if (w < 0.02) w = 0.02;
+      remaining -= w;
+      arr.push({ tok: ALTS[(s % ALTS.length + ALTS.length) % ALTS.length], p: w });
+    }
+    arr.sort((a, b) => b.p - a.p);
+    // normalize
+    const sum = arr.reduce((a, b) => a + b.p, 0);
+    arr.forEach(a => a.p /= sum);
+    return arr;
+  }
+
+  const stream = document.getElementById('stream');
+  const panel = document.getElementById('panel');
+
+  const tokens = SRC.map((t, i) => {
+    let s = i * 7 + t.length * 131;
+    const entropy = ((s * 2654435761) % 1000) / 1000;
+    return { text: t, entropy, alts: makeAlts(i + 1) };
+  });
+
+  let idx = 0;
+  function emit() {
+    if (idx >= tokens.length) { idx = 0; stream.innerHTML = ''; }
+    const tk = tokens[idx++];
+    const el = document.createElement('span');
+    el.className = 'tok new';
+    el.textContent = tk.text;
+    el.style.setProperty('--c', colorFor(tk.entropy));
+    el.addEventListener('mouseenter', e => showPanel(tk, el));
+    el.addEventListener('mouseleave', hidePanel);
+    stream.appendChild(el);
+    setTimeout(emit, 90 + Math.random() * 160);
+  }
+  emit();
+
+  function showPanel(tk, el) {
+    const ctx = tokens.slice(Math.max(0, tokens.indexOf(tk) - 3), tokens.indexOf(tk)).map(t => t.text).join(' ');
+    document.getElementById('pTok').textContent = tk.text;
+    document.getElementById('pCtx').textContent = '上下文：… ' + ctx + ' ▍';
+    const rows = document.getElementById('rows'); rows.innerHTML = '';
+    const tiers = ['top', 'top', 'mid', 'low', 'low'];
+    tk.alts.forEach((a, i) => {
+      const r = document.createElement('div'); r.className = 'row ' + tiers[i];
+      r.innerHTML = `<span class="tokc">${a.tok}</span><span class="bar"><span class="fill" style="width:${(a.p * 100).toFixed(0)}%"></span></span><span class="pc">${(a.p * 100).toFixed(1)}%</span>`;
+      rows.appendChild(r);
+    });
+    panel.classList.add('on');
+  }
+  function hidePanel() { panel.classList.remove('on'); }
+</script>
+</body>
+</html>

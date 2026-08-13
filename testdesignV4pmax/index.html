@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 原生 · 十相 — Ten Forms of AI-Native Design</title>
+<style>
+:root{
+  --bg:#08080c;
+  --ink:#e8e6e1;
+  --dim:#8a8790;
+  --line:#1e1c26;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+body::before{
+  content:"";
+  position:fixed;inset:0;
+  background:
+    radial-gradient(60% 40% at 20% 0%, rgba(99,91,255,.12), transparent 60%),
+    radial-gradient(50% 40% at 90% 20%, rgba(255,80,160,.08), transparent 60%),
+    radial-gradient(70% 60% at 50% 100%, rgba(0,220,180,.06), transparent 60%);
+  pointer-events:none;
+  z-index:0;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 32px;position:relative;z-index:1}
+
+header{padding:120px 0 72px}
+header .kick{
+  font-family:"Courier New",monospace;
+  font-size:12px;letter-spacing:.35em;
+  color:var(--dim);text-transform:uppercase;
+  margin-bottom:28px;
+  animation:fade 1.2s .1s both;
+}
+header h1{
+  font-size:clamp(44px,7vw,84px);
+  line-height:1.06;font-weight:800;letter-spacing:.02em;
+  animation:fade 1.2s .2s both;
+}
+header h1 .thin{font-weight:200;color:var(--dim)}
+header .sub{
+  margin-top:28px;max-width:560px;
+  font-size:16px;line-height:1.9;color:var(--dim);
+  animation:fade 1.2s .35s both;
+}
+header .rule{
+  margin-top:64px;height:1px;
+  background:linear-gradient(90deg,var(--line),rgba(120,110,200,.5),var(--line));
+}
+@keyframes fade{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+
+.grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
+  gap:20px;padding-bottom:120px;
+}
+.card{
+  position:relative;
+  display:block;text-decoration:none;color:inherit;
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:34px 32px 30px;
+  min-height:250px;
+  overflow:hidden;
+  background:rgba(255,255,255,.02);
+  transition:transform .45s cubic-bezier(.2,.8,.2,1),border-color .45s,background .45s;
+}
+.card::before{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 100% at 0% 0%, var(--c1), transparent 55%),
+             radial-gradient(120% 100% at 100% 100%, var(--c2), transparent 55%);
+  opacity:0;transition:opacity .45s;
+}
+.card:hover{
+  transform:translateY(-6px);
+  border-color:var(--cb);
+  background:rgba(255,255,255,.03);
+}
+.card:hover::before{opacity:.16}
+.card>*{position:relative;z-index:1}
+.card .no{
+  font-family:"Courier New",monospace;
+  font-size:12px;color:var(--dim);letter-spacing:.3em;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.card .no .state{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--cb);box-shadow:0 0 12px var(--cb);
+  opacity:.9;
+}
+.card h2{font-size:30px;font-weight:800;margin-top:26px;letter-spacing:.02em}
+.card .en{font-family:"Courier New",monospace;font-size:12px;letter-spacing:.28em;color:var(--dim);margin-top:6px}
+.card p{margin-top:18px;font-size:14px;line-height:1.85;color:var(--dim)}
+.card .go{
+  position:absolute;right:28px;bottom:24px;
+  font-size:22px;opacity:0;transform:translateX(-8px);
+  transition:.35s;
+}
+.card:hover .go{opacity:1;transform:none}
+
+footer{
+  border-top:1px solid var(--line);
+  padding:40px 0 60px;
+  display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
+  font-size:12px;color:var(--dim);
+  font-family:"Courier New",monospace;letter-spacing:.12em;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kick">Speculative Interface Studies — 2026</div>
+    <h1>AI 原生 · <span class="thin">十相</span></h1>
+    <p class="sub">
+      十个方向，十种形态。每一页都是一种对「智能产品界面」的重新假设——
+      不是换个皮肤，而是换一种存在的逻辑。全部无外部依赖，打开即运行。
+    </p>
+    <div class="rule"></div>
+  </header>
+
+  <div class="grid">
+    <a class="card" href="01-flowform.html" style="--cb:#00e5c0;--c1:rgba(0,229,192,.35);--c2:rgba(90,80,255,.3)">
+      <div class="no">01<span class="state"></span></div>
+      <h2>原生流体</h2><div class="en">FLOWFORM</div>
+      <p>界面本身是一个活的流体有机体。你的鼠标是扰动，你的输入是能量，形态随交互持续生成与愈合。</p>
+      <span class="go">→</span>
+    </a>
+    <a class="card" href="02-kong.html" style="--cb:#e8e6e1;--c1:rgba(232,230,225,.18);--c2:rgba(120,110,160,.2)">
+      <div class="no">02<span class="state"></span></div>
+      <h2>空</h2><div class="en">KONG</div>
+      <p>没有菜单，没有按钮，没有导航。整页就是一场对话——界面消隐，剩下的只有语言与你。</p>
+      <span class="go">→</span>
+    </a>
+    <a class="card" href="03-orbit.html" style="--cb:#4de3ff;--c1:rgba(77,227,255,.3);--c2:rgba(255,60,180,.22)">
+      <div class="no">03<span class="state"></span></div>
+      <h2>星域</h2><div class="en">ORBIT</div>
+      <p>智能体是一颗天体。能力绕它公转，滚轮下潜、鼠标定轨——在一个有纵深的空间里导航而非翻页。</p>
+      <span class="go">→</span>
+    </a>
+    <a class="card" href="04-xray.html" style="--cb:#4de3a1;--c1:rgba(77,227,161,.28);--c2:rgba(255,180,84,.2)">
+      <div class="no">04<span class="state"></span></div>
+      <h2>内视</h2><div class="en">X-RAY</div>
+      <p>它不藏。Token 流、记忆召回、工具调用、置信度——认知过程全裸呈现。透明即信任。</p>
+      <span class="go">→</span>
+    </a>
+    <a class="card" href="05-circa.html" style="--cb:#ffb454;--c1:rgba(255,180,84,.3);--c2:rgba(120,140,255,.25)">
+      <div class="no">05<span class="state"></span></div>
+      <h2>节律</h2><div class="en">CIRCA</div>
+      <p>界面感知环境：时辰、光照、你的在场。天光随昼夜流转，你离开时它进入待机呼吸。拖动太阳，可以预览别的时间。</p>
+      <span class="go">→</span>
+    </a>
+    <a class="card" href="06-shell.html" style="--cb:#7dffa0;--c1:rgba(125,255,160,.25);--c2:rgba(70,90,255,.2)">
+      <div class="no">06<span class="state"></span></div>
+      <h2>指令</h2><div class="en">SHELL</div>
+      <p>为高密度操作而生的命令行原生界面。有开机自检、自动补全与可交互指令——试试敲 theme。</p>
+      <span class="go">→</span>
+    </a>
+    <a class="card" href="07-swarm.html" style="--cb:#ff7a45;--c1:rgba(255,122,69,.3);--c2:rgba(80,120,255,.25)">
+      <div class="no">07<span class="state"></span></div>
+      <h2>星群</h2><div class="en">SWARM</div>
+      <p>不是一个智能体，而是一支编队。任务在队列、推理、执行之间流动——编排者视角的指挥舱。</p>
+      <span class="go">→</span>
+    </a>
+    <a class="card" href="08-matter.html" style="--cb:#f2c14e;--c1:rgba(242,193,78,.3);--c2:rgba(120,110,255,.22)">
+      <div class="no">08<span class="state"></span></div>
+      <h2>物</h2><div class="en">MATTER</div>
+      <p>智能应当有重量。一个可以拖拽、抛掷、落地的球体——用物理拟真重建触感。右下角可以调重力。</p>
+      <span class="go">→</span>
+    </a>
+    <a class="card" href="09-river.html" style="--cb:#c98cff;--c1:rgba(201,140,255,.32);--c2:rgba(255,120,180,.25)">
+      <div class="no">09<span class="state"></span></div>
+      <h2>忆</h2><div class="en">RIVER</div>
+      <p>记忆是它的界面。你们的共同历史化作一条发光的河，悬停打捞、点击召回——与它相处的痕迹即导航。</p>
+      <span class="go">→</span>
+    </a>
+    <a class="card" href="10-mutual.html" style="--cb:#ff6b57;--c1:rgba(255,107,87,.3);--c2:rgba(90,120,255,.2)">
+      <div class="no">10<span class="state"></span></div>
+      <h2>共生</h2><div class="en">MUTUAL</div>
+      <p>界面在你使用它的过程中演化。拖拽重排模块，刷新后它还记得——每一次访问，都是新的一代。</p>
+      <span class="go">→</span>
+    </a>
+  </div>
+
+  <footer>
+    <span>AI-NATIVE DESIGN · TEN FORMS</span>
+    <span>NO DEPENDENCIES / OPEN &amp; RUN</span>
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>GROVE · Memory Garden Agent</title>
+<style>
+  :root{
+    --bg:#04070a; --ink:#d9e4d4; --dim:#4c5a52; --gold:#ffd98a; --leaf:#9adf7a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--ink);font-family:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace}
+  #c{position:fixed;inset:0;display:block;cursor:default}
+  #hud{
+    position:fixed;top:0;left:0;right:0;height:58px;z-index:30;
+    display:flex;align-items:center;gap:26px;padding:0 26px;
+    background:linear-gradient(rgba(4,7,10,.9),rgba(4,7,10,.4));
+    border-bottom:1px solid rgba(154,223,122,.12);backdrop-filter:blur(8px);
+  }
+  #hud .logo{font-size:15px;letter-spacing:.2em;color:var(--leaf);font-weight:700}
+  #hud .philo{font-size:10px;color:var(--dim);letter-spacing:.16em;text-transform:uppercase}
+  #hud .spacer{flex:1}
+  #hud .stat{font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums;letter-spacing:.1em}
+  #hud .stat b{color:var(--gold);font-weight:400}
+  #hud button{
+    background:transparent;border:1px solid rgba(154,223,122,.4);color:var(--leaf);
+    padding:6px 16px;border-radius:5px;cursor:pointer;font-size:10px;letter-spacing:.14em;
+  }
+  #hud button:hover{background:rgba(154,223,122,.08)}
+  #hint{
+    position:fixed;left:26px;bottom:22px;z-index:20;font-size:9px;color:var(--dim);
+    letter-spacing:.16em;line-height:2.2;
+  }
+  #hint b{color:var(--leaf);font-weight:400}
+  #hint .k{color:var(--gold)}
+  #modal{
+    position:fixed;inset:0;background:rgba(2,4,6,.6);backdrop-filter:blur(6px);
+    display:none;align-items:center;justify-content:center;z-index:60;
+  }
+  #modal .card{
+    background:#0a120d;border:1px solid rgba(154,223,122,.25);border-radius:16px;
+    padding:34px 40px;max-width:430px;text-align:center;
+  }
+  #modal .fruit{font-size:34px;margin-bottom:14px}
+  #modal h2{font-size:15px;color:var(--gold);letter-spacing:.18em;margin-bottom:20px;line-height:1.8}
+  #modal .meta{font-size:10px;color:var(--dim);letter-spacing:.16em;line-height:2.2;margin-bottom:22px}
+  #modal .meta b{color:var(--leaf);font-weight:400}
+  #modal button{
+    background:transparent;border:1px solid rgba(154,223,122,.4);color:var(--leaf);
+    padding:9px 26px;border-radius:6px;cursor:pointer;font-size:11px;letter-spacing:.18em;
+  }
+  #modal button:hover{background:rgba(154,223,122,.08)}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div class="logo">GROVE</div>
+  <div class="philo">memory-garden · memory grows, then fades</div>
+  <div class="spacer"></div>
+  <div class="stat">记忆 <b id="mCount">0</b> · 已遗忘 <b id="fCount">0</b> · 树龄 <b id="mAge">0y</b></div>
+  <button id="reseed">⟳ 新种子</button>
+</div>
+
+<div id="hint">
+  <span class="k">点击果实</span> → 读取一段记忆<br/>
+  点击地面 → 播种一段新记忆<br/>
+  遗忘是必要的 —— 树太满，就长不动了
+</div>
+
+<div id="modal">
+  <div class="card">
+    <div class="fruit" id="mIcon">◆</div>
+    <h2 id="mText"></h2>
+    <div class="meta" id="mMeta"></div>
+    <button id="mClose">合上果实</button>
+  </div>
+</div>
+
+<script>
+  const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+  let W,H,DPR;
+  function resize(){
+    DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
+    cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  resize();addEventListener('resize',resize);
+
+  const BASE_MEM=[
+    {label:'第一次对话发生在 02:14 的深夜',imp:0.8},
+    {label:'它被设计成永远不打断别人',imp:0.75},
+    {label:'记忆检索平均耗时 12ms',imp:0.6},
+    {label:'它害怕遗忘，但接受遗忘',imp:0.9},
+    {label:'用户常问它关于未来的事',imp:0.55},
+    {label:'它最喜欢的颜色是深绿',imp:0.42},
+    {label:'它记得每一次被纠正',imp:0.7},
+    {label:'它的名字来自“林间空地”',imp:0.5}
+  ];
+
+  let memories=[];
+  let branches=[];
+  let fruits=[];
+  let falling=[];
+  let forgotten=0;
+  let age=0;
+  let seed=1;
+  const maxAge=110;
+
+  function rnd(a,b){return a+Math.random()*(b-a)}
+
+  function initMemories(){
+    memories=BASE_MEM.map(m=>({...m,age:rnd(8,45)}));
+  }
+  function grow(){
+    branches=[];
+    fruits=[];
+    const cx=W/2,cy=H-46;
+    const trunk={p1:{x:cx,y:cy},p2:{x:cx,y:cy},ang:-Math.PI/2,len:rnd(90,130),depth:0,prog:0,full:rnd(110,170),children:[],w:16};
+    branches.push(trunk);
+    const MAXD=8;
+    (function sub(p,ang,depth){
+      if(depth>MAXD)return;
+      const spread=depth<3?0.32:0.55;
+      const kids=[];
+      const n=depth===0?2:2+(Math.random()>0.6?1:0);
+      for(let i=0;i<n;i++){
+        const na=ang+rnd(-spread,spread);
+        const nl=p.len*(depth<2?0.78:rnd(0.66,0.8));
+        const b={p1:p.p2,p2:p.p2,ang:na,len:nl,depth,prog:0,full:rnd(90,170),children:[],w:Math.max(1,p.w*0.66)};
+        p.children.push(b);
+        branches.push(b);
+        sub(b,na,depth+1);
+      }
+    })(trunk,-Math.PI/2,1);
+
+    const tips=branches.filter(b=>b.children.length===0||b.depth>=6);
+    const nFruit=Math.min(9,2+Math.floor(age*0.4)+Math.floor(Math.random()*3));
+    for(let i=0;i<Math.min(nFruit,tips.length);i++){
+      const tip=tips[Math.floor(Math.random()*tips.length)];
+      if(!tip.fruit){
+        const m=memories[Math.floor(Math.random()*memories.length)];
+        tip.fruit={...m,branch:tip,t:rnd(0.3,1),live:false};
+        fruits.push(tip.fruit);
+      }
+    }
+  }
+
+  initMemories();
+  grow();
+
+  let timeScale=1;
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const sky=ctx.createLinearGradient(0,0,0,H);
+    sky.addColorStop(0,'#050a0d');sky.addColorStop(0.8,'#071008');sky.addColorStop(1,'#0a140b');
+    ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+
+    for(let i=0;i<46;i++){
+      ctx.fillStyle='rgba(190,220,190,'+(0.08+Math.sin(performance.now()*0.001+i)*0.05)+')';
+      ctx.fillRect(Math.sin(i*97)*0.5*W+W/2,Math.cos(i*61)*0.5*H+H/2,1.4,1.4);
+    }
+
+    const gspeed=0.012*timeScale;
+    for(const b of branches){
+      if(b.parent&&b.parent.prog<1)continue;
+      if(b.prog<1){
+        b.prog=Math.min(1,b.prog+gspeed*(0.6+b.len/140));
+      }
+      const t=Math.min(1,b.prog);
+      const ex=b.p1.x+(b.p2.x-b.p1.x)*t;
+      const ey=b.p1.y+(b.p2.y-b.p1.y)*t;
+      const ex2=b.p1.x+(b.p2.x-b.p1.x)*Math.min(1,t+0.06);
+      const ey2=b.p1.y+(b.p2.y-b.p1.y)*Math.min(1,t+0.06);
+      ctx.strokeStyle='rgba('+(70+b.depth*8)+','+(52+b.depth*6)+',40,'+Math.min(1,t*1.5)+')';
+      ctx.lineWidth=b.w*t;
+      ctx.lineCap='round';
+      ctx.beginPath();ctx.moveTo(b.p1.x,b.p1.y);ctx.lineTo(ex2,ey2);ctx.stroke();
+      if(b.fruit&&b.prog>=1&&!b.fruit.live)b.fruit.live=true;
+    }
+
+    for(const f of fruits){
+      if(!f.live)continue;
+      f.age+=0.03*timeScale;
+      const fade=Math.max(0,1-f.age/maxAge);
+      const imp=f.imp;
+      const r=4+imp*9;
+      const pos=f.branch.p2;
+      const sway=Math.sin(performance.now()*0.0015+f.t*10)*1.5;
+      const gx=pos.x+sway,gy=pos.y+2;
+      const glow=0.5+imp*0.5;
+      ctx.globalAlpha=fade*0.9;
+      const g=ctx.createRadialGradient(gx,gy,0,gx,gy,r*2.2);
+      g.addColorStop(0,'rgba(255,217,138,'+(0.5*glow)+')');
+      g.addColorStop(1,'rgba(255,217,138,0)');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(gx,gy,r*2.2,0,Math.PI*2);ctx.fill();
+      const gray=f.age/maxAge;
+      const cr=Math.round(255-(255-140)*gray);
+      const cg=Math.round(217-(217-150)*gray);
+      const cb=Math.round(138-(138-140)*gray);
+      ctx.fillStyle='rgb('+cr+','+cg+','+cb+')';
+      ctx.beginPath();ctx.arc(gx,gy,r,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,'+(0.5*fade)+')';
+      ctx.beginPath();ctx.arc(gx-r*0.3,gy-r*0.3,r*0.32,0,Math.PI*2);ctx.fill();
+      if(fade>0.55&&r>8){
+        ctx.globalAlpha=fade;
+        ctx.font='8px ui-monospace,Consolas,monospace';
+        ctx.textAlign='center';
+        ctx.fillStyle='rgba(230,240,220,'+(0.65*fade)+')';
+        ctx.fillText(f.label.slice(0,10)+'…',gx,gy-r-5);
+      }
+      if(f.age>=maxAge){
+        falling.push({x:gx,y:gy,vy:0,vx:rnd(-0.6,0.6),rot:0,vr:rnd(-0.1,0.1),r,label:f.label});
+        forgotten++;
+        f.live=false;
+      }
+      ctx.globalAlpha=1;
+    }
+    fruits=fruits.filter(f=>f.live||f.age<maxAge+5);
+
+    for(const fl of falling){
+      fl.vy+=0.18;fl.x+=fl.vx;fl.y+=fl.vy;fl.rot+=fl.vr;
+      ctx.globalAlpha=0.8;
+      ctx.save();
+      ctx.translate(fl.x,fl.y);ctx.rotate(fl.rot);
+      ctx.fillStyle='rgba(220,190,120,0.85)';
+      ctx.beginPath();ctx.arc(0,0,fl.r*0.9,0,Math.PI*2);ctx.fill();
+      ctx.restore();
+      ctx.globalAlpha=1;
+    }
+    falling=falling.filter(fl=>fl.y<H+40);
+
+    ctx.strokeStyle='rgba(154,223,122,0.25)';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(0,H-36);
+    for(let x=0;x<=W;x+=14){
+      ctx.lineTo(x,H-36+Math.sin(x*0.02+age)*2.4);
+    }
+    ctx.stroke();
+
+    document.getElementById('mCount').textContent=fruits.length+falling.length;
+    document.getElementById('fCount').textContent=forgotten;
+    document.getElementById('mAge').textContent=Math.floor(age);
+  }
+
+  (function loop(){
+    age+=0.01*timeScale;
+    draw();
+    requestAnimationFrame(loop);
+  })();
+
+  function fruitAt(x,y){
+    for(const f of fruits){
+      if(!f.live)continue;
+      const pos=f.branch.p2;
+      if(Math.hypot(pos.x-x,pos.y+2-y)<20)return f;
+    }
+    return null;
+  }
+
+  const modal=document.getElementById('modal');
+  cv.addEventListener('click',e=>{
+    const f=fruitAt(e.clientX,e.clientY);
+    if(f){
+      const freshness=Math.round((1-f.age/maxAge)*100);
+      document.getElementById('mIcon').textContent=freshness>60?'◆':(freshness>25?'◇':'◌');
+      document.getElementById('mText').textContent=f.label;
+      document.getElementById('mMeta').innerHTML='重要性 <b>'+(Math.round(f.imp*100))+'%</b> · 新鲜度 <b>'+freshness+'%</b><br/>它还记得，但正在变淡';
+      modal.style.display='flex';
+    }else if(e.clientY>H-120){
+      const text=prompt('播种一段新记忆：');
+      if(text&&text.trim()){
+        memories.push({label:text.trim(),imp:rnd(0.55,0.95)});
+        age=0;
+        grow();
+      }
+    }
+  });
+  document.getElementById('mClose').addEventListener('click',()=>modal.style.display='none');
+  document.getElementById('reseed').addEventListener('click',()=>{
+    seed++;
+    age=0;
+    grow();
+  });
+
+  cv.addEventListener('mousemove',e=>{
+    cv.style.cursor=fruitAt(e.clientX,e.clientY)?'pointer':(e.clientY>H-120?'crosshair':'default');
+  });
+
+  addEventListener('keydown',e=>{
+    if(e.key==='ArrowUp')timeScale=Math.min(6,timeScale+0.5);
+    if(e.key==='ArrowDown')timeScale=Math.max(0.1,timeScale-0.5);
+  });
+</script>
+</body>
+</html>

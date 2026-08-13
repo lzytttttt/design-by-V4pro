@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>PRISM · Attention Field Agent</title>
+<style>
+  :root{
+    --bg:#080a0f; --ink:#dfe8f2; --dim:#55617a; --acc:#ff8f9e; --acc2:#ffb4be;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--ink);font-family:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace}
+  #c{position:fixed;inset:0;display:block;pointer-events:none;z-index:2;mix-blend-mode:screen}
+  #hud{
+    position:fixed;top:0;left:0;right:0;height:58px;z-index:30;
+    display:flex;align-items:center;gap:26px;padding:0 26px;
+    border-bottom:1px solid rgba(255,143,158,.12);
+    background:linear-gradient(rgba(8,10,15,.9),rgba(8,10,15,.45));
+    backdrop-filter:blur(8px);
+  }
+  #hud .logo{font-size:15px;letter-spacing:.2em;color:var(--acc);font-weight:700}
+  #hud .philo{font-size:10px;color:var(--dim);letter-spacing:.16em;text-transform:uppercase}
+  #hud .spacer{flex:1}
+  #hud .en{display:flex;align-items:center;gap:10px;font-size:10px;color:var(--dim);letter-spacing:.12em}
+  #hud .enbar{width:110px;height:4px;background:#141a26;border-radius:2px;overflow:hidden}
+  #hud .enfill{height:100%;width:0;background:linear-gradient(90deg,#ff8f9e,#ffd9a0);transition:width .2s}
+  #hud button{
+    background:transparent;border:1px solid rgba(255,143,158,.4);color:var(--acc);
+    padding:6px 14px;border-radius:5px;cursor:pointer;font-size:10px;letter-spacing:.12em;
+  }
+  #hud button.on{background:rgba(255,143,158,.12)}
+  #field{position:fixed;inset:58px 0 0 0;z-index:10}
+  .node{
+    position:absolute;transform:translate(-50%,-50%);
+    padding:14px 22px;border-radius:12px;cursor:pointer;
+    background:rgba(18,24,36,.75);border:1px solid #243247;
+    font-size:12px;letter-spacing:.1em;color:#c8d4e4;
+    user-select:none;transition:border-color .3s;
+    will-change:transform,opacity;
+  }
+  .node .n{font-size:9px;color:var(--dim);letter-spacing:.3em;display:block;margin-bottom:6px}
+  .node:hover{border-color:rgba(255,143,158,.6)}
+  .node.focused{border-color:var(--acc);background:rgba(255,143,158,.1)}
+  #focus{
+    position:fixed;width:120px;height:120px;border:1px dashed rgba(255,143,158,.55);
+    border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:20;
+    display:none;animation:spin 14s linear infinite;
+  }
+  @keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+  #focus::after{content:'ATTN';position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:8px;letter-spacing:.3em;color:rgba(255,143,158,.7)}
+  #panel{
+    position:fixed;right:22px;top:50%;transform:translateY(-50%) translateX(340px);z-index:30;
+    width:300px;background:rgba(13,17,27,.92);border:1px solid #26334a;border-radius:14px;
+    padding:26px 26px;transition:transform .45s cubic-bezier(.2,.9,.25,1);
+    backdrop-filter:blur(10px);
+  }
+  #panel.show{transform:translateY(-50%) translateX(0)}
+  #panel h3{font-size:15px;letter-spacing:.18em;color:var(--acc);margin-bottom:6px}
+  #panel .cat{font-size:9px;color:var(--dim);letter-spacing:.3em;margin-bottom:14px}
+  #panel p{font-size:11px;color:#aeb9c8;line-height:2.05}
+  #panel .att{font-size:10px;color:var(--dim);margin-top:16px;letter-spacing:.12em}
+  #panel .att b{color:var(--acc2)}
+  #panel button{
+    margin-top:16px;background:transparent;border:1px solid #33415c;color:var(--dim);
+    padding:6px 14px;border-radius:5px;cursor:pointer;font-size:10px;letter-spacing:.14em;
+  }
+  #hint{
+    position:fixed;left:26px;bottom:22px;z-index:20;font-size:9px;color:var(--dim);
+    letter-spacing:.18em;line-height:2.2;
+  }
+  #hint b{color:var(--acc);font-weight:400}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="hud">
+  <div class="logo">PRISM</div>
+  <div class="philo">attention-field · the interface bends toward your gaze</div>
+  <div class="spacer"></div>
+  <div class="en"><span>ENERGY</span><div class="enbar"><div class="enfill" id="enfill"></div></div><span id="enval">0%</span></div>
+  <button id="heat">热场 ⇧A</button>
+</div>
+
+<div id="field"></div>
+<div id="focus"></div>
+
+<div id="panel">
+  <h3 id="pName">—</h3>
+  <div class="cat" id="pCat">CAPABILITY</div>
+  <p id="pDesc"></p>
+  <div class="att">当前注意力 <b id="pAtt">0%</b></div>
+  <button id="pClose">释放焦点</button>
+</div>
+
+<div id="hint">移动目光 → 布局变形 · 点击元素 → 锚定注意力<br/>按 <b>A</b> 切换注意力热场</div>
+
+<script>
+  const DATA=[
+    {name:'流式感知',cat:'INPUT',desc:'持续监听多模态输入流，并在注意力到达时提供即时摘要。它不等你说完，它已经准备好。'},
+    {name:'深度推理',cat:'CORE',desc:'将长链思考拆成可追踪的步骤。每一步都接受审视，每一步都可被回溯到前提。'},
+    {name:'向量记忆',cat:'MEM',desc:'记忆不是档案柜，而是高维空间里的近邻。相关的事物总在彼此附近。'},
+    {name:'工具调度',cat:'ACTION',desc:'自动选择、编排与调用外部工具。能动手的时候，它不空谈。'},
+    {name:'风格调制',cat:'EXPR',desc:'根据上下文切换语气与节奏。它说的不是它的语言，而是你的语言。'},
+    {name:'自我校验',cat:'META',desc:'对输出持续检查，发现矛盾时主动推翻自己。诚实优先于顺畅。'},
+    {name:'增量学习',cat:'MEM',desc:'每一次交互都留下可复用的模式，但旧的模式会被新的证据更新。'},
+    {name:'节奏控制',cat:'EXPR',desc:'知道何时详述、何时停顿、何时结束。停顿也是表达的一部分。'},
+    {name:'世界建模',cat:'CORE',desc:'在内部维持对环境的动态模型，预测下一步，而不是被动回应。'},
+    {name:'不确定性管理',cat:'META',desc:'为每个结论保留置信度。它告诉你它有多确定，而不是假装确定。'},
+    {name:'跨模态翻译',cat:'INPUT',desc:'在文本、图像、声音与代码之间自由转译。表达形式的边界对它而言是可选配置。'},
+    {name:'任务分解',cat:'ACTION',desc:'把庞大目标切成可验证的子任务，并为每个子任务设定通过标准。'},
+    {name:'回溯修正',cat:'META',desc:'发现错误路径后，会沿着推理链回退并重排。轨迹公开，所以修正也有迹可循。'}
+  ];
+
+  const field=document.getElementById('field');
+  const nodes=DATA.map((d,i)=>{
+    const el=document.createElement('div');
+    el.className='node';
+    el.innerHTML='<span class="n">'+String(i+1).padStart(2,'0')+' · '+d.cat+'</span>'+d.name;
+    field.appendChild(el);
+    const pad=90;
+    return {
+      el,data:d,
+      ax:pad+Math.random()*(innerWidth-pad*2-320),
+      ay:90+Math.random()*(innerHeight-190),
+      x:pad+Math.random()*(innerWidth-pad*2),
+      y:90+Math.random()*(innerHeight-190),
+      scale:0.5,att:0,blur:16
+    };
+  });
+
+  let mouse={x:innerWidth/2,y:innerHeight/2,in:false};
+  let pinned=null;
+  let showHeat=true;
+  const focusEl=document.getElementById('focus');
+  const panel=document.getElementById('panel');
+
+  addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;mouse.in=true;});
+  addEventListener('mouseleave',()=>mouse.in=false);
+  addEventListener('resize',()=>{});
+
+  const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+  let W,H,DPR;
+  function resize(){
+    DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
+    cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  resize();addEventListener('resize',resize);
+
+  document.getElementById('heat').addEventListener('click',function(){
+    showHeat=!showHeat;this.classList.toggle('on',showHeat);
+  });
+  addEventListener('keydown',e=>{
+    if(e.key==='a'||e.key==='A'){
+      showHeat=!showHeat;
+      document.getElementById('heat').classList.toggle('on',showHeat);
+    }
+  });
+
+  function unpin(){
+    pinned=null;
+    nodes.forEach(n=>n.el.classList.remove('focused'));
+    panel.classList.remove('show');
+    focusEl.style.display='none';
+  }
+  document.getElementById('pClose').addEventListener('click',unpin);
+
+  nodes.forEach(n=>{
+    n.el.addEventListener('mousedown',e=>{
+      e.stopPropagation();
+      pinned=n;
+      nodes.forEach(x=>x.el.classList.remove('focused'));
+      n.el.classList.add('focused');
+      focusEl.style.display='block';
+      panel.classList.add('show');
+      document.getElementById('pName').textContent=n.data.name;
+      document.getElementById('pCat').textContent=n.data.cat;
+      document.getElementById('pDesc').textContent=n.data.desc;
+    });
+  });
+  field.addEventListener('mousedown',()=>unpin());
+
+  let prevEnergy=0;
+  const SIGMA=230;
+
+  (function loop(){
+    let fx,fy;
+    if(pinned){
+      fx=pinned.ax;fy=pinned.ay;
+    }else if(mouse.in){
+      fx=mouse.x;fy=mouse.y;
+    }else{
+      const t=performance.now()*0.0004;
+      fx=innerWidth/2+Math.sin(t)*innerWidth*0.24;
+      fy=innerHeight/2+Math.cos(t*1.3)*innerHeight*0.22;
+    }
+
+    if(pinned){
+      focusEl.style.left=pinned.ax+'px';
+      focusEl.style.top=pinned.ay+'px';
+      focusEl.style.display='block';
+    }else if(mouse.in){
+      focusEl.style.display='block';
+      focusEl.style.left=fx+'px';
+      focusEl.style.top=fy+'px';
+    }else{
+      focusEl.style.display='none';
+    }
+
+    let energy=0;
+    nodes.forEach(n=>{
+      const d=Math.hypot(n.x-fx,n.y-fy);
+      const att=Math.exp(-(d*d)/(2*SIGMA*SIGMA));
+      n.att=att;
+      energy+=att;
+      const ts=1+1.0*att;
+      n.scale+=(ts-n.scale)*0.1;
+      n.blur+=(Math.round((20*(1-att)))*4-n.blur)*0.1;
+      n.x+=(n.ax-n.x)*0.02;
+      if(!pinned&&d<170&&d>0.01){
+        const push=(170-d)/170*0.6;
+        n.x+=(n.x-fx)/d*push;
+        n.y+=(n.y-fy)/d*push;
+      }
+      n.y+=(n.ay-n.y)*0.02;
+      n.el.style.transform='translate(-50%,-50%) translate('+((n.x-n.ax)*0.35)+'px,'+((n.y-n.ay)*0.35)+'px) scale('+n.scale.toFixed(3)+')';
+      n.el.style.opacity=(0.26+0.74*att).toFixed(3);
+      n.el.style.zIndex=Math.round(att*50);
+      n.el.style.filter='blur('+(n.blur/4)+'px)';
+    });
+
+    const e=energy/nodes.length;
+    document.getElementById('enfill').style.width=(e*100)+'%';
+    document.getElementById('enval').textContent=Math.round(e*100)+'%';
+    document.getElementById('pAtt').textContent=Math.round((pinned?pinned.att:e)*100)+'%';
+
+    if(showHeat){
+      ctx.clearRect(0,0,W,H);
+      const g=ctx.createRadialGradient(fx,fy,10,fx,fy,360);
+      g.addColorStop(0,'rgba(255,143,158,'+Math.min(0.5,0.2+e*0.5)+')');
+      g.addColorStop(1,'rgba(255,143,158,0)');
+      ctx.fillStyle=g;
+      ctx.fillRect(0,0,W,H);
+    }else{
+      ctx.clearRect(0,0,W,H);
+    }
+    requestAnimationFrame(loop);
+  })();
+</script>
+</body>
+</html>

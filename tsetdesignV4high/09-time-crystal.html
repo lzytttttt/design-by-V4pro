@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>09 · 时间晶体 / Time Crystal</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --ink: #f2eaff; --dim: #9a86c0; --accent: #b78bff; }
+  body {
+    background: #0a0712; color: var(--ink); overflow: hidden;
+    font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #crystal { position: fixed; inset: 0; }
+  .hud {
+    position: fixed; inset: 0; z-index: 5; pointer-events: none;
+    display: flex; flex-direction: column; justify-content: space-between; padding: 3vh 4vw;
+  }
+  .top { display: flex; justify-content: space-between; }
+  .lab { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.35em; color: var(--dim); text-transform: uppercase; }
+  .caption { text-align: center; max-width: 60ch; margin: 0 auto; }
+  .caption .state { font-size: clamp(1.6rem, 4vw, 3rem); font-weight: 200; letter-spacing: 0.04em; }
+  .caption .sub { color: var(--dim); font-size: 0.8rem; letter-spacing: 0.08em; margin-top: 0.4rem; font-family: ui-monospace, monospace; }
+  .caption .d { color: var(--dim); font-size: 0.85rem; line-height: 1.8; margin-top: 0.8rem; }
+  .timeline { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; pointer-events: auto; }
+  .t {
+    font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.12em;
+    padding: 0.5rem 0.8rem; border: 1px solid rgba(154,134,192,0.3); border-radius: 3px;
+    color: var(--dim); background: transparent; cursor: pointer; transition: 0.25s;
+  }
+  .t:hover, .t.on { color: var(--ink); border-color: var(--accent); box-shadow: 0 0 16px rgba(183,139,255,0.3); }
+</style>
+</head>
+<body>
+<canvas id="crystal"></canvas>
+<div class="hud">
+  <div class="top"><span class="lab">AI-NATIVE · 09 / 10</span><span class="lab">TIME CRYSTAL · 非线性的时间</span></div>
+  <div class="caption" id="caption"></div>
+  <div class="timeline" id="timeline"></div>
+</div>
+
+<script>
+  const cv = document.getElementById('crystal'), ctx = cv.getContext('2d');
+  let W, H, D = devicePixelRatio;
+  let rot = 0, target = null, dragging = false, lastX = 0, idleT = 0;
+
+  const STATES = [
+    { n: '过去', en: 'PAST · MEMORY', d: '已经发生的一切，被折叠进晶格，永远在场。' },
+    { n: '现在', en: 'PRESENT · NOW', d: '唯一被照亮的切面，稍纵即逝，无法保存。' },
+    { n: '未来', en: 'FUTURE · POSSIBLE', d: '尚未采样的可能性，在晶面下无限分叉。' },
+    { n: '回放', en: 'REPLAY', d: '你可以随时回到任何一个过去，重来一次。' },
+    { n: '推演', en: 'SIMULATE', d: '在它真正发生之前，先演算一千遍。' },
+    { n: '循环', en: 'RECUR', d: '时间不是线，是晶体的呼吸，首尾相接。' },
+  ];
+
+  let verts = [], faces = [];
+  const SIDES = 6, R = 1, HH = 1.9;
+
+  function build() {
+    verts = []; faces = [];
+    for (let i = 0; i < SIDES; i++) {
+      const a = (i / SIDES) * Math.PI * 2;
+      verts.push({ x: R * Math.cos(a), y: HH, z: R * Math.sin(a) });
+    }
+    for (let i = 0; i < SIDES; i++) {
+      const a = (i / SIDES) * Math.PI * 2;
+      verts.push({ x: R * Math.cos(a), y: -HH, z: R * Math.sin(a) });
+    }
+    for (let i = 0; i < SIDES; i++) {
+      const j = (i + 1) % SIDES;
+      faces.push({
+        idx: i, verts: [i, j, SIDES + j, SIDES + i], // top[i], top[j], bottom[j], bottom[i]
+      });
+    }
+  }
+
+  function project(p, theta) {
+    const c = Math.cos(theta), s = Math.sin(theta);
+    const x = p.x * c + p.z * s;
+    const z = -p.x * s + p.z * c;
+    return { x, y: p.y, z };
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    const g = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H)*0.7);
+    g.addColorStop(0, '#120a20'); g.addColorStop(1, '#060409');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    const scale = Math.min(W, H) * 0.32;
+    const cx = W/2, cy = H*0.46;
+    const f = 3.2;
+
+    const pv = verts.map(v => project(v, rot));
+    // face centers in view space for depth sort + front detection
+    const fc = faces.map(fa => {
+      const m = fa.verts.map(i => pv[i]);
+      return { fa, x: m.reduce((a, b) => a + b.x, 0)/4, y: m.reduce((a, b) => a + b.y, 0)/4, z: m.reduce((a, b) => a + b.z, 0)/4 };
+    });
+    fc.sort((a, b) => b.z - a.z); // far first
+
+    let frontIdx = -1, frontZ = -1e9;
+    faces.forEach((fa, i) => { if (fc[i].z > frontZ) { frontZ = fc[i].z; frontIdx = fa.idx; } });
+
+    for (const fce of fc) {
+      const fa = fce.fa;
+      const depth = (fce.z + 2) / 4; // 0..1
+      const isFront = fa.idx === frontIdx;
+      const pts = fa.verts.map(i => {
+        const v = pv[i];
+        return [cx + v.x * scale * f / (f + v.z), cy + v.y * scale * f / (f + v.z)];
+      });
+      const alpha = isFront ? 0.34 : 0.10 + depth * 0.08;
+      ctx.fillStyle = `rgba(183,139,255,${alpha})`;
+      ctx.strokeStyle = isFront ? 'rgba(210,190,255,0.9)' : 'rgba(154,134,192,0.35)';
+      ctx.lineWidth = isFront ? 1.6 * D : D;
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let k = 1; k < 4; k++) ctx.lineTo(pts[k][0], pts[k][1]);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+
+    // labels
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const fce of fc) {
+      const fa = fce.fa;
+      const isFront = fa.idx === frontIdx;
+      const mx = cx + fce.x * scale * f / (f + fce.z);
+      const my = cy + fce.y * scale * f / (f + fce.z);
+      ctx.fillStyle = isFront ? '#f2eaff' : `rgba(154,134,192,${0.4 + (fce.z+2)/4 * 0.3})`;
+      ctx.font = `${(isFront ? 15 : 11) * D}px "PingFang SC","Microsoft YaHei",sans-serif`;
+      ctx.fillText(STATES[fa.idx].n, mx, my);
+    }
+
+    // update caption with front state
+    const st = STATES[frontIdx];
+    document.getElementById('caption').innerHTML =
+      `<div class="state">${st.n}</div><div class="sub">${st.en}</div><div class="d">${st.d}</div>`;
+  }
+
+  function resize() {
+    W = cv.width = innerWidth * D; H = cv.height = innerHeight * D;
+    cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+  }
+
+  // timeline
+  const tl = document.getElementById('timeline');
+  STATES.forEach((s, i) => {
+    const b = document.createElement('button'); b.className = 't'; b.textContent = s.n;
+    b.addEventListener('click', () => {
+      target = -(i / SIDES) * Math.PI * 2 - Math.PI / SIDES;
+      tl.querySelectorAll('.t').forEach((x, j) => x.classList.toggle('on', j === i));
+    });
+    tl.appendChild(b);
+  });
+
+  addEventListener('resize', resize);
+  addEventListener('pointerdown', e => { dragging = true; lastX = e.clientX; target = null; });
+  addEventListener('pointermove', e => { if (dragging) { rot += (e.clientX - lastX) * 0.008; lastX = e.clientX; } });
+  addEventListener('pointerup', () => { dragging = false; });
+
+  function loop() {
+    if (target != null) {
+      let d = target - rot;
+      d = ((d % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+      if (d > Math.PI) d -= Math.PI*2;
+      rot += d * 0.08;
+      if (Math.abs(d) < 0.01) target = null;
+    } else if (!dragging) {
+      rot += 0.0022;
+    }
+    render();
+    requestAnimationFrame(loop);
+  }
+  resize(); build(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>

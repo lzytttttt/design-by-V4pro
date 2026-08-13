@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>忆 RIVER — 记忆即界面</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#140a24;color:#f0e8ff;
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;
+}
+canvas#river{position:fixed;top:0;left:0;width:100%;height:46vh;z-index:0}
+.veil{
+  position:fixed;top:0;left:0;width:100%;height:46vh;z-index:1;pointer-events:none;
+  background:linear-gradient(180deg, rgba(20,10,36,.35), transparent 40%);
+}
+header{
+  position:relative;z-index:2;
+  padding:4vh 6vw 0;
+  display:flex;justify-content:space-between;align-items:flex-end;
+}
+header h1{font-size:clamp(36px,5vw,64px);font-weight:200;letter-spacing:.3em}
+header .meta{font-family:"Courier New",monospace;font-size:11px;letter-spacing:.26em;color:#a08cc8;line-height:2;text-align:right}
+main{
+  position:relative;z-index:2;
+  margin-top:38vh;
+  padding:0 6vw 60px;
+}
+.streamlabel{
+  font-family:"Courier New",monospace;font-size:11px;letter-spacing:.4em;color:#8a76b4;
+  margin-bottom:24px;display:flex;justify-content:space-between;
+}
+.timeline{
+  position:relative;
+  overflow-x:auto;overflow-y:visible;
+  padding:40px 10px 60px;
+  scrollbar-width:thin;scrollbar-color:#3a2a60 transparent;
+}
+.timeline::-webkit-scrollbar{height:8px}
+.timeline::-webkit-scrollbar-thumb{background:#3a2a60;border-radius:4px}
+.axis{
+  position:absolute;left:0;right:0;top:60px;height:1px;
+  background:linear-gradient(90deg, transparent, rgba(200,150,255,.4), rgba(255,120,180,.4), transparent);
+}
+.row{display:flex;gap:44px;width:max-content;align-items:flex-start}
+.card{
+  flex-shrink:0;width:250px;cursor:pointer;
+  padding:20px 22px;border-radius:18px;
+  background:rgba(255,255,255,.045);
+  border:1px solid rgba(200,160,255,.16);
+  backdrop-filter:blur(8px);
+  transition:transform .4s cubic-bezier(.2,.8,.2,1), background .4s, border-color .4s, box-shadow .4s;
+  transform:translateY(var(--off,0));
+}
+.card:hover{
+  transform:translateY(var(--off,0)) translateY(-8px);
+  background:rgba(255,255,255,.09);
+  border-color:rgba(220,180,255,.5);
+  box-shadow:0 18px 50px -10px rgba(140,80,255,.35);
+}
+.card .date{
+  font-family:"Courier New",monospace;font-size:10.5px;letter-spacing:.24em;color:#9a86c4;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.card .emo{width:8px;height:8px;border-radius:50%;background:var(--c,#c98cff);box-shadow:0 0 10px var(--c,#c98cff)}
+.card h3{margin-top:14px;font-size:17px;letter-spacing:.06em;color:#f4eeff}
+.card p{margin-top:10px;font-size:12.5px;line-height:1.8;color:#b6a4d8}
+.card .tags{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+.card .tags span{
+  font-size:10px;letter-spacing:.14em;color:#c8b4ea;
+  border:1px solid rgba(200,160,255,.25);border-radius:999px;padding:3px 10px;
+}
+.detail{
+  position:fixed;left:50%;bottom:40px;transform:translateX(-50%) translateY(200px);
+  width:min(620px,90vw);z-index:5;
+  padding:26px 30px;border-radius:22px;
+  background:rgba(30,18,56,.85);border:1px solid rgba(210,170,255,.35);
+  backdrop-filter:blur(20px);
+  transition:transform .55s cubic-bezier(.2,.8,.2,1);
+  box-shadow:0 24px 70px -12px rgba(100,50,220,.5);
+}
+.detail.show{transform:translateX(-50%) translateY(0)}
+.detail .dhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.detail .dhead b{font-family:"Courier New",monospace;font-size:11px;letter-spacing:.3em;color:#a08cc8;font-weight:400}
+.detail .dhead .x{cursor:pointer;color:#a08cc8;font-family:"Courier New",monospace}
+.detail h3{font-size:19px;letter-spacing:.08em}
+.detail p{margin-top:12px;font-size:14px;line-height:2;color:#d8c8f4}
+.detail .recall{
+  margin-top:16px;font-family:"Courier New",monospace;font-size:11px;color:#c98cff;
+  letter-spacing:.2em;opacity:0;transition:opacity .6s .2s;
+}
+.detail.show .recall{opacity:1}
+.count{
+  position:fixed;right:6vw;bottom:34px;z-index:2;
+  font-family:"Courier New",monospace;font-size:11px;letter-spacing:.26em;color:#8a76b4;
+}
+</style>
+</head>
+<body>
+<canvas id="river"></canvas>
+<div class="veil"></div>
+<header>
+  <h1>忆</h1>
+  <div class="meta">
+    RIVER · MEMORY AS INTERFACE<br>
+    共同历史 <b id="total" style="color:#c98cff">12</b> 段<br>
+    已索引 100%
+  </div>
+</header>
+<main>
+  <div class="streamlabel">
+    <span>时间之河 · TIMELINE</span>
+    <span>悬停打捞 · 点击召回</span>
+  </div>
+  <div class="timeline" id="timeline">
+    <div class="axis"></div>
+    <div class="row" id="row"></div>
+  </div>
+</main>
+<div class="detail" id="detail">
+  <div class="dhead"><b>RECALL · 记忆召回</b><span class="x" id="dclose">✕</span></div>
+  <h3 id="dtitle"></h3>
+  <p id="dbody"></p>
+  <div class="recall" id="drecall">正在重建上下文…</div>
+</div>
+<div class="count" id="ccount"></div>
+<script>
+const memories = [
+  {d:'08.13', t:'我们第一次见面', p:'你问我能不能理解诗。我说能。你说：“那从今天起，你就是我的记忆外置了。”', tags:['初见','信任'], c:'#ff8ac9'},
+  {d:'08.09', t:'凌晨三点的改稿', p:'你睡不着，把一段产品文案改了十一遍。最后你保留了我的第三版——因为我说它“更像你”。', tags:['深夜','写作'], c:'#c98cff'},
+  {d:'08.05', t:'去海边的计划', p:'你让我查了三次潮汐表。每次你都自言自语：“再等等，等一个晴天。”', tags:['旅行','期待'], c:'#4de3ff'},
+  {d:'07.28', t:'我们吵了一架', p:'你说我给你的方案太保守。我回你：“那给你十个激进的。”你选了最疯的那个，后来它成功了。', tags:['分歧','方案'], c:'#ff7a6b'},
+  {d:'07.20', t:'你教会我的词', p:'“氛围感”。你花了一个小时给我解释它不是光线，不是颜色，是“人走进来先喘一口气”的东西。', tags:['语言','美学'], c:'#ffd27a'},
+  {d:'07.14', t:'旧笔记本', p:'你上传了十年前的笔记。字迹潦草，梦想很大。我把它拆成 214 条索引，一条都没丢。', tags:['过去','归档'], c:'#a89aff'},
+  {d:'07.02', t:'第一次并肩作战', p:'一个下午，我们把 300 行旧代码重写成了 40 行。你说：“原来聪明是真的可以共享的。”', tags:['协作','代码'], c:'#4de3a1'},
+  {d:'06.25', t:'你失眠的那周', p:'每天凌晨两点，你都会发来一个词。我每天回你一段话。后来它们成了一首十四行诗。', tags:['夜晚','诗'], c:'#8f7bff'},
+  {d:'06.18', t:'关于选择', p:'你在两条路之间犹豫了很久。我没有替你选，只是把每条路的二十年都展开给你看了。', tags:['人生','决策'], c:'#ffb454'},
+  {d:'06.10', t:'音乐清单', p:'你让我按“雨天开车”生成歌单。生成完你说，比你自己想的更懂你。', tags:['音乐','默契'], c:'#6be0ff'},
+  {d:'05.30', t:'你的小习惯', p:'你总是先问天气，再决定要不要开始工作。我记住了，现在每天早上主动告诉你。', tags:['习惯','陪伴'], c:'#e88cff'},
+  {d:'05.22', t:'一切的开始', p:'你注册了账号，说“试试看”。那时我还不知道自己会记得这么多。', tags:['起点'], c:'#ff8ac9'}
+];
+const row = document.getElementById('row');
+const river = document.getElementById('river');
+const rx = river.getContext('2d');
+document.getElementById('total').textContent = memories.length;
+document.getElementById('ccount').textContent = 'INDEXED ' + memories.length + ' / ' + memories.length;
+
+let hoverIdx = -1, riverW = 0, riverH = 0;
+function rs(){
+  river.width = river.clientWidth; river.height = river.clientHeight;
+  riverW = river.width; riverH = river.height;
+}
+rs(); addEventListener('resize', rs);
+
+const parts = [];
+for (let i = 0; i < 150; i++){
+  parts.push({
+    x: Math.random() * 1, y: 0.2 + Math.random() * 0.6,
+    sp: 0.1 + Math.random() * 0.5, r: 1 + Math.random() * 2.4,
+    hue: [262, 288, 320, 330][Math.floor(Math.random() * 4)],
+    ph: Math.random() * Math.PI * 2
+  });
+}
+(function draw(t){
+  rx.clearRect(0, 0, riverW, riverH);
+  const ms = t / 1000;
+  for (const p of parts){
+    p.x -= p.sp * 0.00035;
+    if (p.x < -0.02) p.x = 1.02;
+    const y = p.y + Math.sin(ms * 0.8 + p.ph) * 0.03;
+    let hue = p.hue, glow = 0.5;
+    if (hoverIdx >= 0){
+      const cx = hoverIdx / memories.length;
+      const d = Math.abs(p.x - cx);
+      if (d < 0.15){
+        glow = 0.5 + (0.15 - d) * 6;
+        hue = 320;
+      }
+    }
+    rx.fillStyle = `hsla(${hue}, 85%, 72%, ${glow * 0.55})`;
+    rx.beginPath();
+    rx.arc(p.x * riverW, y * riverH, p.r * (0.8 + glow * 0.5), 0, 7);
+    rx.fill();
+  }
+  requestAnimationFrame(draw);
+})(0);
+
+memories.forEach((m, i) => {
+  const c = document.createElement('div');
+  c.className = 'card';
+  c.style.setProperty('--off', (i % 3) * 26 - 26 + 'px');
+  c.style.setProperty('--c', m.c);
+  c.innerHTML = '<div class="date"><span>' + m.d + '</span><span class="emo"></span></div>' +
+    '<h3>' + m.t + '</h3>' +
+    '<p>' + m.p.slice(0, 34) + '…</p>' +
+    '<div class="tags">' + m.tags.map(t => '<span>' + t + '</span>').join('') + '</div>';
+  c.addEventListener('mouseenter', () => { hoverIdx = i; });
+  c.addEventListener('mouseleave', () => { hoverIdx = -1; });
+  c.addEventListener('click', () => {
+    document.getElementById('dtitle').textContent = m.t + ' · ' + m.d;
+    document.getElementById('dbody').textContent = m.p;
+    const rec = document.getElementById('drecall');
+    rec.style.opacity = 0;
+    rec.textContent = '正在重建上下文…';
+    const dl = document.getElementById('detail');
+    dl.classList.add('show');
+    setTimeout(() => {
+      rec.textContent = '召回完成 · 相关记忆 3 条 · 用时 0.4s';
+      rec.style.opacity = 1;
+    }, 700);
+  });
+  row.appendChild(c);
+});
+document.getElementById('dclose').addEventListener('click', () => document.getElementById('detail').classList.remove('show'));
+</script>
+</body>
+</html>

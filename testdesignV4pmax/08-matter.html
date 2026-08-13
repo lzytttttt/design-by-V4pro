@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>物 MATTER — 智能应当有重量</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:
+    radial-gradient(120% 80% at 30% 0%, #f6f2e9, #e3ddd0 70%);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  overflow:hidden;-webkit-font-smoothing:antialiased;
+  user-select:none;
+}
+.stage{position:fixed;inset:0}
+.title{
+  position:absolute;top:7%;left:50%;transform:translateX(-50%);
+  text-align:center;pointer-events:none;
+}
+.title h1{font-size:clamp(40px,5.4vw,72px);font-weight:200;letter-spacing:.4em;color:#3a362e}
+.title p{
+  margin-top:16px;font-family:"Courier New",monospace;font-size:11px;
+  letter-spacing:.4em;color:#8a8272;
+}
+.shelf{
+  position:absolute;left:50%;top:56%;
+  transform:translateX(-50%);
+  width:min(680px,86vw);height:26px;
+  border-radius:13px;
+  background:linear-gradient(180deg, #ffffff, #cfc8b8);
+  box-shadow:0 2px 3px rgba(0,0,0,.14), 0 22px 40px -12px rgba(60,50,30,.35), inset 0 2px 2px rgba(255,255,255,.9);
+}
+.shelf::after{
+  content:"";position:absolute;left:10%;right:10%;top:-6px;height:6px;
+  background:rgba(0,0,0,.07);border-radius:6px;filter:blur(2px);
+}
+.orb{
+  position:absolute;width:110px;height:110px;border-radius:50%;
+  left:50%;top:30%;
+  cursor:grab;touch-action:none;z-index:5;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255,255,255,.98) 0%, rgba(255,255,255,.4) 14%, transparent 30%),
+    radial-gradient(circle at 68% 78%, rgba(90,60,255,.28), transparent 45%),
+    radial-gradient(circle at 50% 50%, #8d86d8, #3d3a72 68%, #1d1b3a);
+  box-shadow:
+    inset -14px -18px 40px rgba(0,0,0,.45),
+    inset 8px 10px 24px rgba(255,255,255,.28),
+    0 30px 50px -14px rgba(30,25,60,.5);
+  transition:box-shadow .2s;
+}
+.orb.drag{cursor:grabbing;box-shadow:
+    inset -14px -18px 40px rgba(0,0,0,.45),
+    inset 8px 10px 24px rgba(255,255,255,.28),
+    0 60px 90px -20px rgba(30,25,60,.65);}
+.shadow{
+  position:absolute;width:110px;height:26px;border-radius:50%;
+  background:rgba(50,40,20,.32);
+  filter:blur(9px);
+  pointer-events:none;z-index:1;
+}
+.ripple{
+  position:absolute;width:14px;height:14px;border-radius:50%;
+  border:2px solid rgba(120,90,200,.5);
+  pointer-events:none;z-index:6;
+  animation:rip .7s ease-out forwards;
+}
+@keyframes rip{to{width:120px;height:120px;opacity:0;transform:translate(-53px,-53px)}}
+.glass{
+  position:absolute;padding:20px 26px;border-radius:20px;
+  background:rgba(255,255,255,.42);
+  border:1px solid rgba(255,255,255,.7);
+  backdrop-filter:blur(16px);
+  box-shadow:0 18px 44px -16px rgba(60,50,30,.3);
+}
+.glass h3{font-size:14px;color:#3a362e;letter-spacing:.2em;margin-bottom:8px}
+.glass p{font-size:12px;color:#7a7262;line-height:1.8}
+.g1{left:6%;top:20%;transform:rotate(-2deg)}
+.g2{right:6%;bottom:16%;transform:rotate(2deg)}
+.g3{right:8%;top:22%;transform:rotate(1.5deg)}
+.controls{
+  position:absolute;right:24px;top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:18px;
+}
+.controls label{
+  font-family:"Courier New",monospace;font-size:10px;letter-spacing:.28em;color:#8a8272;
+  writing-mode:vertical-rl;text-orientation:mixed;
+}
+.controls input[type=range]{
+  writing-mode:vertical-rl;direction:rtl;width:120px;accent-color:#6a5bd0;
+}
+.controls .val{font-family:"Courier New",monospace;font-size:12px;color:#4a4438}
+.controls .reset{
+  border:1px solid rgba(90,80,60,.35);background:rgba(255,255,255,.5);
+  padding:8px 12px;border-radius:10px;cursor:pointer;font-size:11px;color:#4a4438;
+  letter-spacing:.2em;font-family:inherit;
+}
+.controls .reset:hover{background:rgba(255,255,255,.8)}
+.hint{
+  position:absolute;bottom:8%;left:50%;transform:translateX(-50%);
+  font-family:"Courier New",monospace;font-size:11px;letter-spacing:.34em;color:#8a8272;
+  pointer-events:none;
+}
+.counter{
+  position:absolute;top:7%;right:7%;
+  font-family:"Courier New",monospace;font-size:11px;letter-spacing:.24em;color:#8a8272;
+  text-align:right;line-height:2;
+}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="title">
+    <h1>物</h1>
+    <p>MATTER · AGENT WITH WEIGHT</p>
+  </div>
+  <div class="glass g1">
+    <h3>智能应当有重量</h3>
+    <p>它不是对话框里的幽灵，<br>而是一个可触碰的实体。<br>抓住它，抛出去，<br>看它落下、反弹、静止。</p>
+  </div>
+  <div class="glass g3">
+    <h3>物理即信任</h3>
+    <p>惯性、重力、碰撞——<br>都符合你身体的直觉。</p>
+  </div>
+  <div class="glass g2">
+    <h3>HAPTIC v1.0</h3>
+    <p>拖动速度越快，抛得越远。<br>撞到搁板会有涟漪。</p>
+  </div>
+  <div class="shelf" id="shelf"></div>
+  <div class="shadow" id="shadow"></div>
+  <div class="orb" id="orb"></div>
+  <div class="counter">
+    接触 <span id="touches">0</span> 次<br>
+    反弹 <span id="bounces">0</span> 次
+  </div>
+  <div class="controls">
+    <label>GRAVITY</label>
+    <input type="range" id="grav" min="0" max="2.4" step="0.05" value="0.9">
+    <span class="val" id="gravv">0.90 g</span>
+    <button class="reset" id="reset">归位</button>
+  </div>
+  <div class="hint">抓住它 · 扔出去 · 搁板会接住</div>
+</div>
+<script>
+const orb = document.getElementById('orb');
+const shadow = document.getElementById('shadow');
+const shelf = document.getElementById('shelf');
+const stage = document.getElementById('stage');
+let x = innerWidth / 2 - 55, y = innerHeight * .3;
+let vx = 0, vy = 0;
+let gravity = 0.9;
+let dragging = false, lastX = 0, lastY = 0, lastT = 0;
+let touches = 0, bounces = 0;
+const R = 55;
+
+function shelfRect(){
+  const r = shelf.getBoundingClientRect();
+  return {x: r.left, y: r.top, w: r.width};
+}
+function floorY(){ return innerHeight - 40; }
+
+function physics(dt){
+  vy += gravity * 1400 * dt;
+  x += vx * dt;
+  y += vy * dt;
+  const sr = shelfRect();
+  if (y + R * 2 > sr.y && y + R * 2 < sr.y + 26 && vx > -1 && x + R > sr.x - 8 && x < sr.x + sr.w + 8 - R && vy > 0){
+    y = sr.y - R * 2;
+    vy = -vy * 0.42;
+    vx *= 0.88;
+    bounces++;
+    document.getElementById('bounces').textContent = bounces;
+    ripple(x + R, sr.y);
+    if (Math.abs(vy) < 40) vy = 0;
+  }
+  if (y + R * 2 > floorY()){
+    y = floorY() - R * 2;
+    if (Math.abs(vy) > 60){ bounces++; document.getElementById('bounces').textContent = bounces; ripple(x + R, y + R * 2); }
+    vy = -vy * 0.5;
+    vx *= 0.86;
+    if (Math.abs(vy) < 40) vy = 0;
+  }
+  if (x < 0){ x = 0; vx = -vx * .6; }
+  if (x > innerWidth - R * 2){ x = innerWidth - R * 2; vx = -vx * .6; }
+  if (y < 0){ y = 0; vy = -vy * .6; }
+  vx *= (1 - 0.35 * dt);
+  if (!dragging && Math.abs(vx) < 2) vx = 0;
+  orb.style.left = x + 'px';
+  orb.style.top = y + 'px';
+  const ox = x + R, oy = y + R * 2;
+  const aboveShelf = oy < shelfRect().y + 2;
+  const dist = Math.max(0, oy - shelfRect().y);
+  shadow.style.left = (x + dist * 0.25) + 'px';
+  shadow.style.top = (aboveShelf ? shelfRect().y - 6 : floorY() - 4) + 'px';
+  shadow.style.width = (110 - dist * 0.9) + 'px';
+  shadow.style.height = (26 - dist * 0.2) + 'px';
+  shadow.style.opacity = 1 - Math.min(1, dist / 300);
+}
+function ripple(cx, cy){
+  const r = document.createElement('div');
+  r.className = 'ripple';
+  r.style.left = cx + 'px';
+  r.style.top = cy + 'px';
+  stage.appendChild(r);
+  setTimeout(() => r.remove(), 750);
+}
+orb.addEventListener('pointerdown', e => {
+  dragging = true; orb.classList.add('drag');
+  orb.setPointerCapture(e.pointerId);
+  lastX = e.clientX; lastY = e.clientY; lastT = performance.now();
+  vx = 0; vy = 0;
+  touches++;
+  document.getElementById('touches').textContent = touches;
+});
+orb.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const t = performance.now();
+  const dt = Math.max(8, t - lastT);
+  vx = (e.clientX - lastX) / dt * 1000 * 0.9;
+  vy = (e.clientY - lastY) / dt * 1000 * 0.9;
+  x += e.clientX - lastX;
+  y += e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY; lastT = t;
+  orb.style.left = x + 'px';
+  orb.style.top = y + 'px';
+});
+orb.addEventListener('pointerup', () => { dragging = false; orb.classList.remove('drag'); });
+document.getElementById('grav').addEventListener('input', e => {
+  gravity = parseFloat(e.target.value);
+  document.getElementById('gravv').textContent = gravity.toFixed(2) + ' g';
+});
+document.getElementById('reset').addEventListener('click', () => {
+  x = innerWidth / 2 - R; y = innerHeight * .3; vx = 0; vy = 0;
+});
+let last = performance.now();
+(function loop(t){
+  const dt = Math.min(0.033, (t - last) / 1000);
+  last = t;
+  if (!dragging) physics(dt);
+  requestAnimationFrame(loop);
+})(last);
+</script>
+</body>
+</html>

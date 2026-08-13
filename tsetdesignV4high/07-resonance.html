@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>07 · 共振频率 / Resonance</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --ink: #eaf6ff; --dim: #7fa3c0; --accent: #4dd2ff; }
+  body {
+    background: #04070d; color: var(--ink); overflow: hidden;
+    font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #reso { position: fixed; inset: 0; }
+  .hud {
+    position: fixed; inset: 0; z-index: 5; pointer-events: none;
+    display: flex; flex-direction: column; justify-content: space-between; padding: 3vh 4vw;
+  }
+  .top { display: flex; justify-content: space-between; }
+  .lab { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.35em; color: var(--dim); text-transform: uppercase; }
+  .center { text-align: center; pointer-events: none; }
+  .freq { font-family: ui-monospace, monospace; font-size: clamp(2rem, 6vw, 5rem); font-weight: 200; letter-spacing: 0.05em; }
+  .freq small { font-size: 0.3em; color: var(--dim); letter-spacing: 0.2em; }
+  .center p { color: var(--dim); font-size: 0.8rem; letter-spacing: 0.1em; margin-top: 0.5rem; }
+  .harmonics { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; pointer-events: auto; }
+  .harm {
+    font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.15em;
+    padding: 0.5rem 0.9rem; border: 1px solid rgba(127,163,192,0.3); border-radius: 999px;
+    color: var(--dim); cursor: pointer; transition: 0.25s; background: transparent;
+  }
+  .harm:hover, .harm.on { color: var(--ink); border-color: var(--accent); box-shadow: 0 0 18px rgba(77,210,255,0.25); }
+  .sound {
+    position: fixed; top: 3vh; right: 4vw; z-index: 6; pointer-events: auto;
+    font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.2em; color: var(--dim);
+    border: 1px solid rgba(127,163,192,0.3); background: transparent; padding: 0.5rem 0.9rem; cursor: pointer; transition: 0.25s;
+  }
+  .sound:hover { color: var(--ink); }
+  .sound.on { color: var(--accent); border-color: var(--accent); }
+  .note { text-align: center; font-size: 0.78rem; color: var(--dim); letter-spacing: 0.05em; min-height: 1.4em; }
+</style>
+</head>
+<body>
+<canvas id="reso"></canvas>
+<div class="hud">
+  <div class="top"><span class="lab">AI-NATIVE · 07 / 10</span><span class="lab" style="visibility:hidden">RESONANCE</span></div>
+  <div class="center">
+    <div class="freq" id="freq">440<small> HZ</small></div>
+    <p>移动手指 · 调校这件乐器</p>
+  </div>
+  <div>
+    <div class="harmonics" id="harmonics"></div>
+    <div class="note" id="note"></div>
+  </div>
+</div>
+<button class="sound" id="sound" onclick="toggleSound()">◉ 声音 OFF</button>
+
+<script>
+  const cv = document.getElementById('reso'), ctx = cv.getContext('2d');
+  let W, H, D = devicePixelRatio;
+  const mouse = { x: 0.5, y: 0.5, active: false };
+  let time = 0, targetHarm = 1;
+
+  const HARM = [
+    { f: 1, n: '基频', d: '最稳的那一声 —— 理解' },
+    { f: 2, n: '二泛音', d: '两倍频率 —— 生成' },
+    { f: 3, n: '三泛音', d: '三倍频率 —— 规划' },
+    { f: 5, n: '五泛音', d: '五倍频率 —— 检索' },
+    { f: 7, n: '七泛音', d: '七倍频率 —— 自主' },
+    { f: 11, n: '十一泛音', d: '不和谐音 —— 自我修正' },
+  ];
+
+  let baseHz = 220, vol = 0, audioCtx = null, osc = null, gain = null, soundOn = false;
+
+  function resize() {
+    W = cv.width = innerWidth * D; H = cv.height = innerHeight * D;
+    cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+  }
+
+  function draw(t) {
+    time = t;
+    ctx.clearRect(0, 0, W, H);
+    const bg = ctx.createRadialGradient(W/2, H*0.42, 0, W/2, H*0.42, Math.max(W,H)*0.75);
+    bg.addColorStop(0, '#081220'); bg.addColorStop(1, '#030509');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    const freq = baseHz;
+    const cx = W/2, cy = H*0.42;
+    const amp = H * 0.16 * (0.5 + mouse.y * 0.7);
+
+    // waveform
+    ctx.strokeStyle = 'rgba(77,210,255,0.85)';
+    ctx.lineWidth = 1.6 * D;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 2 * D) {
+      const ph = (x / W) * Math.PI * 2 * freq / 4;
+      let y = 0;
+      // sum a few harmonics
+      y += Math.sin(ph) * 1.0;
+      y += Math.sin(ph * 2) * 0.5;
+      y += Math.sin(ph * 3) * 0.33;
+      y += Math.sin(ph * 5) * 0.2;
+      const yy = cy + y * amp * (1 - 0.2 * Math.sin(t/2000));
+      x === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+    }
+    ctx.stroke();
+
+    // glow copy
+    ctx.globalAlpha = 0.25; ctx.strokeStyle = '#4dd2ff';
+    ctx.lineWidth = 6 * D; ctx.stroke(); ctx.globalAlpha = 1;
+
+    // central orb
+    const pulse = 1 + Math.sin(t / 500) * 0.06;
+    const orb = 40 * D * pulse;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, orb * 2.6);
+    g.addColorStop(0, 'rgba(77,210,255,0.9)');
+    g.addColorStop(0.4, 'rgba(77,210,255,0.25)');
+    g.addColorStop(1, 'rgba(77,210,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx, cy, orb * 2.6, 0, Math.PI*2); ctx.fill();
+
+    // rings
+    for (let i = 1; i <= 3; i++) {
+      const rr = orb * 2.6 + i * 26 * D * Math.sin(t/900 + i);
+      ctx.strokeStyle = `rgba(77,210,255,${0.25 - i * 0.06})`;
+      ctx.lineWidth = D;
+      ctx.beginPath(); ctx.arc(cx, cy, Math.max(1, rr), 0, Math.PI*2); ctx.stroke();
+    }
+  }
+
+  function setHz() {
+    baseHz = 30 + (mouse.x * 0.5 + 0.5) * 520;
+    baseHz = Math.round(baseHz * targetHarm);
+    document.getElementById('freq').innerHTML = baseHz + '<small> HZ</small>';
+    if (soundOn && osc) { osc.frequency.setTargetAtTime(baseHz, audioCtx.currentTime, 0.05); }
+  }
+
+  function toggleSound() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      osc = audioCtx.createOscillator();
+      gain = audioCtx.createGain();
+      gain.gain.value = 0;
+      osc.type = 'sine';
+      osc.frequency.value = baseHz;
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start();
+    }
+    soundOn = !soundOn;
+    gain.gain.setTargetAtTime(soundOn ? 0.05 : 0, audioCtx.currentTime, 0.05);
+    document.getElementById('sound').textContent = '◉ 声音 ' + (soundOn ? 'ON' : 'OFF');
+    document.getElementById('sound').classList.toggle('on', soundOn);
+  }
+
+  // harmonics
+  const hc = document.getElementById('harmonics');
+  HARM.forEach((h, i) => {
+    const b = document.createElement('button'); b.className = 'harm'; b.textContent = h.n;
+    b.addEventListener('click', () => {
+      targetHarm = h.f;
+      hc.querySelectorAll('.harm').forEach((x, j) => x.classList.toggle('on', j === i));
+      document.getElementById('note').textContent = h.d;
+      setHz();
+    });
+    hc.appendChild(b);
+  });
+
+  addEventListener('resize', resize);
+  addEventListener('pointermove', e => {
+    mouse.x = e.clientX / innerWidth; mouse.y = e.clientY / innerHeight;
+    mouse.active = true; setHz();
+  });
+  addEventListener('pointerleave', () => { mouse.active = false; });
+
+  function loop(t) { draw(t); requestAnimationFrame(loop); }
+  resize(); requestAnimationFrame(loop);
+  // init freq display
+  setHz();
+</script>
+</body>
+</html>

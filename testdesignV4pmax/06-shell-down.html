@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>指令 SHELL — 命令行原生</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  --bg:#070d09;--fg:#7dffa0;--dim:#3f7a52;--accent:#ffd27a;
+  background:var(--bg);color:var(--fg);
+  font-family:"JetBrains Mono",Consolas,"Courier New",monospace;
+  overflow:hidden;cursor:text;
+  transition:background .6s, color .6s;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:9;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px);
+}
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:9;
+  background:radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,.5));
+  animation:flicker 4s infinite;
+}
+@keyframes flicker{0%,100%{opacity:.92}3%{opacity:.82}6%{opacity:.95}9%{opacity:.86}60%{opacity:.9}}
+.term{
+  position:fixed;inset:0;z-index:1;
+  padding:26px 30px 60px;
+  overflow-y:auto;
+  font-size:14px;line-height:1.75;
+  text-shadow:0 0 8px currentColor;
+}
+.term::-webkit-scrollbar{width:8px}
+.term::-webkit-scrollbar-thumb{background:var(--dim);border-radius:4px}
+.line{white-space:pre-wrap;word-break:break-all}
+.dim{color:var(--dim)}
+.accent{color:var(--accent)}
+.ascii{line-height:1.15;color:var(--fg);font-size:11px}
+.promptline{display:flex;align-items:baseline}
+.promptline .ps1{white-space:pre}
+.inputwrap{position:relative;display:inline-block}
+.promptline input{
+  position:relative;z-index:1;
+  background:none;border:none;outline:none;color:inherit;
+  font:inherit;text-shadow:inherit;caret-color:transparent;
+  width:4ch;padding:0;
+}
+.cursor{
+  display:inline-block;width:.6em;height:1.2em;background:var(--fg);
+  margin-left:1px;vertical-align:text-bottom;
+  animation:cb 1s steps(1) infinite;
+  box-shadow:0 0 10px currentColor;
+}
+@keyframes cb{50%{opacity:0}}
+.ghost{
+  position:absolute;left:0;top:0;pointer-events:none;color:var(--dim);
+  white-space:pre;z-index:0;
+}
+.statusbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:5;
+  display:flex;justify-content:space-between;
+  background:var(--bg);border-top:1px solid var(--dim);
+  font-size:11px;padding:8px 16px;letter-spacing:.12em;
+  transition:background .6s;
+}
+.statusbar b{color:var(--accent);font-weight:400}
+.helpbox{margin:6px 0 2px}
+</style>
+</head>
+<body>
+<div class="term" id="term"></div>
+<div class="statusbar">
+  <span id="sb1">[CPU <b>12%</b>] [MEM <b>3.4G</b>]</span>
+  <span>AGENT <b>●</b> 在线 · 会话 0x7F3C</span>
+  <span id="sb3">线程 <b>7</b> · 已运行 <b>00:00</b></span>
+</div>
+<script>
+const term = document.getElementById('term');
+let prompt, input, ghost;
+const themes = [
+  {bg:'#070d09', fg:'#7dffa0', dim:'#3f7a52', accent:'#ffd27a'},
+  {bg:'#0d0a14', fg:'#c98cff', dim:'#5c4a7a', accent:'#ff8ac9'},
+  {bg:'#0a0f16', fg:'#5cc8ff', dim:'#3a5a70', accent:'#ffe08a'}
+];
+let theme = 0;
+function setTheme(i){
+  theme = i; const t = themes[i];
+  document.body.style.setProperty('--bg', t.bg);
+  document.body.style.setProperty('--fg', t.fg);
+  document.body.style.setProperty('--dim', t.dim);
+  document.body.style.setProperty('--accent', t.accent);
+}
+function out(html){
+  const d = document.createElement('div');
+  d.className = 'line'; d.innerHTML = html;
+  term.insertBefore(d, prompt.parentNode);
+  term.scrollTop = term.scrollHeight;
+}
+const boot = [
+  '<span class="dim">agent-kernel v4.2.0 — booting…</span>',
+  '<span class="dim">mounting memory …… </span><span class="accent">OK</span>',
+  '<span class="dim">loading tools: search · code · browse · calc …… </span><span class="accent">12 ready</span>',
+  '<span class="dim">establishing context stream …… </span><span class="accent">OK</span>',
+  '<pre class="ascii dim">   ____  _  _  ____  _     _    \n  / ___|| || ||  _ \\| |   | |   \n  \\___ \\| || || |_) | |   | |   \n   ___) |____|  __/| |___| |___\n  |____/      |_|   |_____|_____|</pre>',
+  '<span class="accent">AGENT ONLINE.</span> 输入 <span class="accent">help</span> 查看指令。'
+];
+function newPrompt(){
+  const wrap = document.createElement('div');
+  wrap.className = 'promptline';
+  prompt = document.createElement('span');
+  prompt.className = 'ps1';
+  prompt.textContent = 'you@agent:~$ ';
+  const iw = document.createElement('span');
+  iw.className = 'inputwrap';
+  ghost = document.createElement('span');
+  ghost.className = 'ghost';
+  input = document.createElement('input');
+  input.autocomplete = 'off'; input.spellcheck = false;
+  iw.appendChild(ghost);
+  iw.appendChild(input);
+  const cur = document.createElement('span');
+  cur.className = 'cursor';
+  wrap.appendChild(prompt);
+  wrap.appendChild(iw);
+  wrap.appendChild(cur);
+  term.appendChild(wrap);
+  input.focus();
+  input.addEventListener('input', () => autocomplete());
+  input.addEventListener('keydown', onKey);
+  term.scrollTop = term.scrollHeight;
+}
+const commands = ['help','whoami','tasks','theme','time','clear','echo','exit','memory','top'];
+function autocomplete(){
+  const v = input.value;
+  ghost.textContent = v;
+  input.style.width = Math.max(ghost.offsetWidth + 8, 16) + 'px';
+  const m = v ? commands.find(c => c.startsWith(v) && c !== v) : null;
+  ghost.textContent = m || v;
+}
+function onKey(e){
+  if (e.key === 'Tab'){
+    e.preventDefault();
+    const m = commands.find(c => c.startsWith(input.value));
+    if (m) input.value = m + ' ';
+    autocomplete();
+  } else if (e.key === 'Enter'){
+    const v = input.value;
+    prompt.textContent = 'you@agent:~$ ' + v;
+    input.style.display = 'none';
+    ghost.style.display = 'none';
+    prompt.parentNode.querySelector('.cursor').style.display = 'none';
+    run(v);
+  }
+}
+function run(v){
+  const cmd = v.trim().split(/\s+/)[0].toLowerCase();
+  const arg = v.trim().slice(cmd.length).trim();
+  switch (cmd){
+    case '': break;
+    case 'help':
+      out('<div class="helpbox"><span class="accent">可用指令</span><br>' +
+        '<span class="dim">help</span>     显示帮助<br>' +
+        '<span class="dim">whoami</span>   我是谁<br>' +
+        '<span class="dim">tasks</span>    查看当前任务<br>' +
+        '<span class="dim">memory</span>   记忆占用与最近写入<br>' +
+        '<span class="dim">top</span>      运行状态快照<br>' +
+        '<span class="dim">theme</span>    切换配色<br>' +
+        '<span class="dim">time</span>     系统时间<br>' +
+        '<span class="dim">echo &lt;x&gt;</span>   原样返回<br>' +
+        '<span class="dim">clear</span>    清屏<br>' +
+        '<span class="dim">exit</span>     结束会话</div>');
+      break;
+    case 'whoami':
+      out('AGENT-7F · <span class="dim">命令式智能体 · 生于终端 · 面向高密度操作</span>');
+      break;
+    case 'tasks':
+      out('<span class="accent">进行中</span><br>' +
+          '  ▸ 整理会议纪要 <span class="dim">(reasoning…)</span><br>' +
+          '  ▸ 代码审查 PR#482 <span class="dim">(tool_call…)</span><br>' +
+          '<span class="dim">队列</span><br>' +
+          '  ○ 周报草稿 · 下午 4 点前<br>  ○ 数据清洗脚本 v2');
+      break;
+    case 'memory':
+      out('记忆占用 <span class="accent">1.2G / 8G</span><br>' +
+          '<span class="dim">最近写入:</span><br>' +
+          '  17:02 · 你偏好命令行式交互<br>' +
+          '  16:41 · 项目 deadline 周五<br>' +
+          '  16:30 · 你讨厌多余的按钮');
+      break;
+    case 'top':
+      out('CPU <span class="accent">12%</span> · MEM <span class="accent">3.4G</span> · 线程 <span class="accent">7</span><br>' +
+          '<span class="dim">PID</span>  <span class="dim">NAME</span>          <span class="dim">STATE</span><br>' +
+          '  1   orchestrator   running<br>' +
+          '  2   reasoner       thinking<br>' +
+          '  3   retriever      idle<br>' +
+          '  4   composer       writing');
+      break;
+    case 'theme':
+      setTheme((theme + 1) % themes.length);
+      out('theme → <span class="accent">' + ['green','violet','blue'][theme] + '</span>');
+      break;
+    case 'time':
+      out(new Date().toLocaleString('zh-CN', {hour12: false}));
+      break;
+    case 'echo':
+      out(arg || 'echo');
+      break;
+    case 'clear':
+      term.innerHTML = '';
+      break;
+    case 'exit':
+      out('<span class="dim">session closed. 刷新页面可重启。</span>');
+      input.disabled = true;
+      return;
+    default:
+      out('<span class="accent">unknown command:</span> ' + cmd + ' <span class="dim">— 试试 help</span>');
+  }
+  newPrompt();
+}
+boot.forEach((l, i) => setTimeout(() => out(l), i * 320));
+setTimeout(newPrompt, boot.length * 320 + 400);
+term.addEventListener('click', () => { if (input && !input.disabled) input.focus(); });
+
+setInterval(() => {
+  document.getElementById('sb1').innerHTML = '[CPU <b>' + (8 + Math.floor(Math.random() * 20)) + '%</b>] [MEM <b>' + (3 + Math.random()).toFixed(1) + 'G</b>]';
+  document.getElementById('sb3').innerHTML = '线程 <b>' + (5 + Math.floor(Math.random() * 4)) + '</b> · 已运行 <b>' + new Date().toTimeString().slice(0, 8) + '</b>';
+}, 1200);
+</script>
+</body>
+</html>

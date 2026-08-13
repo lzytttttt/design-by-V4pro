@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>08 · 粒子场 / Swarm</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --ink: #f0f4ff; --dim: #8b93b5; }
+  body {
+    background: #05060f; color: var(--ink); overflow: hidden;
+    font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #swarm { position: fixed; inset: 0; }
+  .hud {
+    position: fixed; inset: 0; z-index: 5; pointer-events: none;
+    display: flex; flex-direction: column; justify-content: space-between; padding: 3vh 4vw;
+  }
+  .top { display: flex; justify-content: space-between; }
+  .lab { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.35em; color: var(--dim); text-transform: uppercase; }
+  .title h1 { font-weight: 200; font-size: clamp(1.6rem, 3.4vw, 3rem); }
+  .title h1 .it { font-family: Georgia, serif; font-style: italic; }
+  .title p { color: var(--dim); font-size: 0.8rem; letter-spacing: 0.08em; margin-top: 0.4rem; }
+  .words { display: flex; gap: 0.6rem; flex-wrap: wrap; pointer-events: auto; }
+  .w {
+    font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: 0.15em;
+    padding: 0.55rem 1rem; border: 1px solid rgba(139,147,181,0.3); border-radius: 999px;
+    color: var(--dim); background: transparent; cursor: pointer; transition: 0.25s;
+  }
+  .w:hover, .w.on { color: var(--ink); border-color: #7c9cff; box-shadow: 0 0 16px rgba(124,156,255,0.3); }
+  .status { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.3em; color: var(--dim); }
+</style>
+</head>
+<body>
+<canvas id="swarm"></canvas>
+<div class="hud">
+  <div class="top"><span class="lab">AI-NATIVE · 08 / 10</span><span class="lab">SWARM · 群智涌现</span></div>
+  <div class="title">
+    <h1>上千个微小单元<br>在<span class="it">秩序与混沌</span>之间</h1>
+    <p>选择一个字词，看群智如何自行凝聚成它 · 移动鼠标扰动这群</p>
+  </div>
+  <div class="words" id="words"></div>
+</div>
+<div class="status" id="status" style="position:fixed;left:4vw;top:14vh;z-index:6"></div>
+
+<script>
+  const cv = document.getElementById('swarm'), ctx = cv.getContext('2d');
+  let W, H, D = devicePixelRatio;
+  const mouse = { x: -1e4, y: -1e4, active: false };
+
+  const WORDS = ['涌现', '智能', '自主', '生成', '记忆', '共鸣', 'S W A R M'];
+  let particles = [];
+  const N = 700;
+
+  function samplePoints(text) {
+    const off = document.createElement('canvas');
+    off.width = W; off.height = H;
+    const c = off.getContext('2d');
+    const fs = Math.min(W / (text.length * 0.72), H * 0.6);
+    c.fillStyle = '#fff';
+    c.font = `200 ${fs}px "PingFang SC","Microsoft YaHei","Inter",sans-serif`;
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(text, W/2, H*0.45);
+    const data = c.getImageData(0, 0, W, H).data;
+    const pts = [];
+    const step = 4;
+    for (let y = 0; y < H; y += step) {
+      for (let x = 0; x < W; x += step) {
+        if (data[(y * W + x) * 4 + 3] > 128) pts.push({ x, y });
+      }
+    }
+    return pts;
+  }
+
+  function setTargets(text) {
+    const pts = samplePoints(text);
+    if (!pts.length) return;
+    // shuffle assignment
+    const idxs = new Array(N).fill(0).map((_, i) => i % pts.length);
+    for (let i = N - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [idxs[i], idxs[j]] = [idxs[j], idxs[i]]; }
+    particles.forEach((p, i) => {
+      const t = pts[idxs[i]];
+      p.tx = t.x; p.ty = t.y;
+      p.hue = 210 + (i / N) * 60;
+    });
+  }
+
+  function spawn() {
+    particles = [];
+    for (let i = 0; i < N; i++) {
+      particles.push({
+        x: Math.random() * W, y: Math.random() * H,
+        vx: 0, vy: 0, tx: W/2, ty: H/2, hue: 210 + Math.random() * 60
+      });
+    }
+    setTargets('涌现');
+  }
+
+  function step() {
+    for (const p of particles) {
+      // target attraction
+      const dx = p.tx - p.x, dy = p.ty - p.y;
+      let ax = dx * 0.012, ay = dy * 0.012;
+      // separation (cheap: sample neighbors)
+      for (const q of particles) {
+        const ddx = p.x - q.x, ddy = p.y - q.y;
+        const d2 = ddx*ddx + ddy*ddy;
+        if (d2 < 900 && d2 > 0.01) { ax += (ddx / d2) * 40; ay += (ddy / d2) * 40; }
+      }
+      // mouse repulsion
+      const mdx = p.x - mouse.x, mdy = p.y - mouse.y;
+      const md2 = mdx*mdx + mdy*mdy;
+      if (mouse.active && md2 < 30000 && md2 > 0.01) { ax += (mdx / md2) * 1200; ay += (mdy / md2) * 1200; }
+      p.vx = (p.vx + ax) * 0.8; p.vy = (p.vy + ay) * 0.8;
+      p.x += p.vx; p.y += p.vy;
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#05060f'; ctx.fillRect(0, 0, W, H);
+    for (const p of particles) {
+      ctx.fillStyle = `hsla(${p.hue}, 90%, 70%, 0.85)`;
+      ctx.fillRect(p.x, p.y, 2, 2);
+    }
+  }
+
+  function resize() {
+    W = cv.width = innerWidth * D; H = cv.height = innerHeight * D;
+    cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+    if (particles.length) {
+      const current = document.querySelector('.w.on');
+      setTargets(current ? current.dataset.w : '涌现');
+    }
+  }
+
+  const wordsEl = document.getElementById('words');
+  WORDS.forEach((w, i) => {
+    const b = document.createElement('button'); b.className = 'w'; b.textContent = w; b.dataset.w = w;
+    if (i === 0) b.classList.add('on');
+    b.addEventListener('click', () => {
+      wordsEl.querySelectorAll('.w').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      setTargets(w);
+    });
+    wordsEl.appendChild(b);
+  });
+
+  addEventListener('resize', resize);
+  addEventListener('pointermove', e => { mouse.x = e.clientX * D; mouse.y = e.clientY * D; mouse.active = true; });
+  addEventListener('pointerleave', () => { mouse.active = false; });
+
+  function loop() { step(); draw(); requestAnimationFrame(loop); }
+  resize(); spawn(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>

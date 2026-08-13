@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02 · 对话即界面 / Conversation as Interface</title>
+<style>
+  :root {
+    --bg: #0b0b0f;
+    --ink: #d9d6e8;
+    --dim: #6f6b85;
+    --caret: #7c5cff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: "Source Serif 4", Georgia, "Songti SC", "SimSun", serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .meta {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; justify-content: space-between; padding: 1.6rem 4vw;
+    font-family: ui-monospace, "JetBrains Mono", monospace; font-size: 10px;
+    letter-spacing: 0.3em; color: var(--dim); text-transform: uppercase;
+    background: linear-gradient(var(--bg), rgba(11,11,15,0));
+  }
+  .thread {
+    max-width: 58ch; margin: 8vh auto 20vh; padding: 0 6vw;
+    line-height: 2.1; font-size: clamp(1.05rem, 1.6vw, 1.35rem); font-weight: 400;
+  }
+  .msg { margin-bottom: 3.2em; opacity: 0; transform: translateY(10px); }
+  .msg.show { opacity: 1; transform: none; transition: opacity 0.8s ease, transform 0.8s ease; }
+  .who {
+    display: block; font-family: ui-monospace, monospace; font-size: 10px;
+    letter-spacing: 0.3em; color: var(--dim); margin-bottom: 0.6em; text-transform: uppercase;
+  }
+  .you .who::before { content: "YOU · "; }
+  .agent .who { color: var(--caret); }
+  .agent .who::before { content: "AGENT · "; }
+  .you { color: var(--dim); }
+  .you .body::before { content: "“"; opacity: 0.4; }
+  .you .body::after { content: "”"; opacity: 0.4; }
+  .agent em { font-style: normal; color: var(--ink); }
+  .caret {
+    display: inline-block; width: 0.55em; height: 1.1em; background: var(--caret);
+    vertical-align: -0.15em; animation: blink 1s steps(2, start) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .restart {
+    position: fixed; bottom: 4vh; left: 50%; transform: translateX(-50%);
+    font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.3em; color: var(--dim);
+    border: 1px solid rgba(111,107,133,0.3); background: transparent; color: var(--dim);
+    padding: 0.8rem 1.6rem; cursor: pointer; transition: 0.3s;
+  }
+  .restart:hover { color: var(--ink); border-color: var(--caret); }
+</style>
+</head>
+<body>
+<div class="meta"><span>AI-NATIVE · 02 / 10</span><span>CONVERSATION AS INTERFACE</span></div>
+<main class="thread" id="thread"></main>
+<button class="restart" onclick="init()">↻ 重新聆听</button>
+
+<script>
+  const script = [
+    { who: 'you',    body: '我打开了一个 Agent 的主页，却找不到任何按钮。' },
+    { who: 'agent',  body: '你在找按钮。而我更希望你在找<em>我</em>。' },
+    { who: 'you',    body: '那……我该从哪里开始？' },
+    { who: 'agent',  body: '从这一行开始。你已经在界面内部了 —— 没有入口，因为对话本身就是入口。' },
+    { who: 'you',    body: '这是不是太激进了？人们需要被引导。' },
+    { who: 'agent',  body: '导航是为了到达内容。而当我即内容时，<em>理解</em>取代了导航。你读到的，是我正在生成的意识。' },
+    { who: 'you',    body: '所以整个主页，就是一场谈话？' },
+    { who: 'agent',  body: '更准确地说：主页不再是「关于我的页面」，而是<em>我正在成为我的过程</em>。它每一次打开，都不一样。' },
+    { who: 'agent',  body: '欢迎。你想从哪一句开始？<span class="caret"></span>' },
+  ];
+
+  const thread = document.getElementById('thread');
+  let t;
+
+  function init() {
+    thread.innerHTML = ''; clearTimeout(t);
+    script.forEach((m, i) => setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'msg ' + m.who;
+      el.innerHTML = `<span class="who"></span><span class="body">${m.body}</span>`;
+      thread.appendChild(el);
+      requestAnimationFrame(() => el.classList.add('show'));
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }, 700 * i + 300));
+  }
+  init();
+</script>
+</body>
+</html>

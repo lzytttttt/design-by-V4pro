@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原生流体 FLOWFORM — 界面是活的</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:#05060f;
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+canvas{
+  position:fixed;inset:0;
+  filter:blur(46px) saturate(1.35) contrast(1.08);
+  transform:scale(1.06);
+}
+.hud{
+  position:fixed;inset:0;pointer-events:none;z-index:2;
+}
+.top{
+  position:absolute;top:34px;left:40px;
+  font-family:"Courier New",monospace;
+  font-size:11px;letter-spacing:.34em;color:rgba(220,225,255,.55);
+}
+.top b{color:rgba(255,255,255,.9);font-weight:400}
+.center{
+  position:absolute;left:50%;top:46%;
+  transform:translate(-50%,-50%);
+  text-align:center;
+}
+.center h1{
+  font-size:clamp(40px,6vw,76px);
+  font-weight:800;letter-spacing:.06em;
+  color:rgba(255,255,255,.92);
+  text-shadow:0 0 60px rgba(120,140,255,.35);
+}
+.center .en{
+  font-family:"Courier New",monospace;
+  font-size:12px;letter-spacing:.5em;margin-top:14px;
+  color:rgba(200,210,255,.5);
+}
+.status{
+  margin-top:34px;display:inline-flex;align-items:center;gap:10px;
+  padding:10px 22px;border-radius:999px;
+  background:rgba(20,24,50,.4);
+  border:1px solid rgba(140,160,255,.25);
+  backdrop-filter:blur(14px);
+  font-size:13px;color:rgba(210,220,255,.85);
+  transition:.5s;
+}
+.status .dot{
+  width:8px;height:8px;border-radius:50%;
+  background:#7dffc4;box-shadow:0 0 14px #7dffc4;
+  animation:pulse 2.4s ease-in-out infinite;
+}
+@keyframes pulse{50%{transform:scale(1.7);opacity:.6}}
+.chips{
+  position:absolute;left:50%;bottom:150px;
+  transform:translateX(-50%);
+  display:flex;flex-direction:column;gap:12px;align-items:center;
+}
+.chip{
+  pointer-events:auto;cursor:default;
+  padding:10px 20px;border-radius:16px;
+  font-size:14px;color:rgba(230,235,255,.92);
+  background:rgba(24,28,60,.55);
+  border:1px solid rgba(140,160,255,.3);
+  backdrop-filter:blur(12px);
+  animation:chipIn .7s cubic-bezier(.2,.8,.2,1) both, chipOut .8s ease 6s forwards;
+}
+@keyframes chipIn{from{opacity:0;transform:translateY(16px) scale(.9)}}
+@keyframes chipOut{to{opacity:0;transform:translateY(-24px)}}
+.inputbar{
+  position:absolute;left:50%;bottom:56px;
+  transform:translateX(-50%);
+  width:min(560px,88vw);
+  pointer-events:auto;
+}
+.inputbar form{display:flex;gap:0;position:relative}
+.inputbar input{
+  width:100%;
+  padding:18px 24px;border-radius:999px;
+  border:1px solid rgba(150,165,255,.35);
+  background:rgba(14,17,38,.72);
+  color:#fff;font-size:15px;outline:none;
+  backdrop-filter:blur(16px);
+  transition:border-color .3s, box-shadow .3s;
+  font-family:inherit;
+}
+.inputbar input::placeholder{color:rgba(180,190,230,.4)}
+.inputbar input:focus{
+  border-color:rgba(140,220,255,.8);
+  box-shadow:0 0 0 4px rgba(100,160,255,.15), 0 0 40px rgba(90,140,255,.25);
+}
+.float{
+  position:absolute;
+  font-family:"Courier New",monospace;
+  font-size:11px;letter-spacing:.26em;
+  color:rgba(190,200,255,.4);
+  white-space:nowrap;
+  animation:drift 9s ease-in-out infinite alternate;
+}
+.float.f1{top:22%;left:14%;animation-delay:-2s}
+.float.f2{top:64%;left:8%;animation-delay:-5s}
+.float.f3{top:30%;right:12%;animation-delay:-7s}
+.float.f4{top:70%;right:16%;animation-delay:-3.5s}
+@keyframes drift{from{transform:translateY(-8px)}to{transform:translateY(10px)}}
+.hint{
+  position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  font-size:11px;letter-spacing:.2em;color:rgba(160,170,220,.35);
+  font-family:"Courier New",monospace;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud">
+  <div class="top"><b>FLOWFORM</b>&nbsp;·&nbsp;原生一号&nbsp;·&nbsp;形态流 v2.4</div>
+  <div class="center">
+    <h1>原生流体</h1>
+    <div class="en">THE INTERFACE IS ALIVE</div>
+    <div class="status"><span class="dot"></span><span id="status">正在呼吸</span></div>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="float f1">ENTROPY 0.618</div>
+  <div class="float f2">MORPHING…</div>
+  <div class="float f3">FIELD STABLE</div>
+  <div class="float f4">SIGNAL 98.2%</div>
+  <div class="inputbar">
+    <form id="form">
+      <input id="inp" placeholder="对流体说点什么，注入一点能量…" autocomplete="off">
+    </form>
+  </div>
+  <div class="hint">移动鼠标扰动 · 输入注入能量</div>
+</div>
+<script>
+const c = document.getElementById('c'), x = c.getContext('2d');
+let W, H;
+function rs(){
+  W = c.width = innerWidth; H = c.height = innerHeight;
+  home();
+}
+rs(); addEventListener('resize', rs);
+
+const N = 110;
+const ps = [];
+for (let i = 0; i < N; i++){
+  const a = Math.random() * Math.PI * 2;
+  const r = 60 + Math.random() * 120;
+  ps.push({
+    ang: a, hr: r,
+    hx: 0, hy: 0,
+    x: W/2 + Math.cos(a) * r * 1.6,
+    y: H/2 + Math.sin(a) * r,
+    vx: 0, vy: 0, rad: 14 + Math.random() * 26,
+    hue: 200 + Math.random() * 120
+  });
+}
+function home(){
+  if (typeof ps === 'undefined') return;
+  for (const p of ps){
+    p.hx = W/2 + Math.cos(p.ang) * p.hr * 1.6;
+    p.hy = H/2 + Math.sin(p.ang) * p.hr;
+  }
+}
+home();
+const mouse = {x: W/2, y: H/2, on: false};
+addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.on = true; });
+addEventListener('mouseleave', () => mouse.on = false);
+
+let boost = 0, boostX = 0, boostY = 0;
+const statusEl = document.getElementById('status');
+const chipsEl = document.getElementById('chips');
+const statuses = ['正在呼吸','感受到扰动','形态流动中','场稳定 · 98.2%','能量注入'];
+let si = 0, lastMsg = 0;
+
+function say(t){
+  const d = document.createElement('div');
+  d.className = 'chip'; d.textContent = t;
+  chipsEl.appendChild(d);
+  setTimeout(() => d.remove(), 7000);
+  statusEl.textContent = t;
+}
+
+const form = document.getElementById('form');
+const inp = document.getElementById('inp');
+form.addEventListener('submit', e => {
+  e.preventDefault();
+  const v = inp.value.trim(); if (!v) return;
+  inp.value = '';
+  boost = 14; boostX = Math.random() * 400 - 200; boostY = Math.random() * 300 - 150;
+  const replies = [
+    '能量已收到 · 形态在重组', '你让它更清醒了', '波动传导至全场',
+    '它在用形状回应你', '新的形态正在生成', '共鸣强度 +12%'
+  ];
+  say(replies[Math.floor(Math.random() * replies.length)]);
+});
+
+setInterval(() => {
+  if (Date.now() - lastMsg > 8000){
+    si = (si + 1) % statuses.length;
+    statusEl.textContent = statuses[si];
+    lastMsg = Date.now();
+  }
+}, 2000);
+
+function step(){
+  x.clearRect(0, 0, W, H);
+  x.globalCompositeOperation = 'lighter';
+  const t = Date.now() / 1000;
+  for (const p of ps){
+    const dx = p.hx - p.x, dy = p.hy - p.y;
+    p.vx += dx * 0.0006; p.vy += dy * 0.0006;
+    if (mouse.on){
+      const mdx = mouse.x - p.x, mdy = mouse.y - p.y;
+      const d2 = mdx*mdx + mdy*mdy + 40;
+      const f = 2600 / d2;
+      p.vx -= mdx * f * 0.00012; p.vy -= mdy * f * 0.00012;
+    }
+    if (boost > 0.5){
+      p.vx += (boostX + (Math.random()-.5)*300) * 0.002;
+      p.vy += (boostY + (Math.random()-.5)*300) * 0.002;
+    }
+    p.vx *= 0.92; p.vy *= 0.92;
+    p.vx += Math.sin(t * 0.8 + p.hue) * 0.05;
+    p.vy += Math.cos(t * 0.7 + p.hue) * 0.05;
+    p.x += p.vx; p.y += p.vy;
+    const h = (p.hue + t * 6) % 360;
+    const g = x.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.rad * 2.4);
+    g.addColorStop(0, `hsla(${h}, 85%, ${boost > 1 ? 72 : 62}%, .9)`);
+    g.addColorStop(1, 'hsla(240, 60%, 30%, 0)');
+    x.fillStyle = g;
+    x.beginPath(); x.arc(p.x, p.y, p.rad * 2.4, 0, Math.PI * 2); x.fill();
+  }
+  boost *= 0.94;
+  requestAnimationFrame(step);
+}
+step();
+</script>
+</body>
+</html>

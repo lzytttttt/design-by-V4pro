@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>空 KONG — 对话即界面</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#faf8f3;
+  color:#16130e;
+  font-family:"Songti SC","Noto Serif SC","SimSun",serif;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity:.5;mix-blend-mode:multiply;
+}
+main{
+  max-width:760px;margin:0 auto;
+  padding:10vh 28px 200px;
+  display:flex;flex-direction:column;gap:11vh;
+}
+.msg{
+  opacity:0;animation:rise .9s cubic-bezier(.2,.7,.2,1) forwards;
+}
+@keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+.msg .who{
+  font-family:"Courier New",monospace;
+  font-size:11px;letter-spacing:.3em;color:#a09a8c;
+  margin-bottom:14px;text-transform:uppercase;
+}
+.msg .txt{
+  font-size:clamp(26px,3.6vw,44px);
+  line-height:1.65;letter-spacing:.04em;font-weight:500;
+}
+.msg.user{align-self:flex-end;text-align:right;max-width:85%}
+.msg.user .txt{font-weight:600}
+.msg .dash{color:#c8c1b0}
+.suggest{
+  display:flex;gap:34px;flex-wrap:wrap;
+  animation:rise .9s .3s both;
+}
+.suggest button{
+  background:none;border:none;cursor:pointer;
+  font-family:inherit;font-size:17px;color:#8a8371;
+  border-bottom:1px solid #bdb6a4;padding:4px 2px;
+  transition:color .25s;
+}
+.suggest button:hover{color:#16130e}
+.inputline{
+  position:fixed;left:0;right:0;bottom:0;
+  background:linear-gradient(transparent, #faf8f3 46%);
+  padding:60px 28px 40px;
+  display:flex;justify-content:center;
+}
+.inputline form{
+  width:min(760px,100%);
+  display:flex;align-items:baseline;gap:14px;
+}
+.inputline .prompt{
+  font-size:clamp(20px,2.4vw,28px);color:#16130e;flex-shrink:0;
+}
+.inputline input{
+  width:100%;border:none;background:transparent;outline:none;
+  font-family:inherit;font-size:clamp(20px,2.4vw,28px);
+  color:#16130e;caret-color:#e04a2f;
+}
+.inputline input::placeholder{color:#c8c1b0}
+.blink{animation:blink 1.1s steps(1) infinite;color:#e04a2f}
+@keyframes blink{50%{opacity:0}}
+.counter{
+  position:fixed;top:26px;right:30px;
+  font-family:"Courier New",monospace;
+  font-size:11px;letter-spacing:.24em;color:#a09a8c;
+}
+</style>
+</head>
+<body>
+<main id="main"></main>
+<div class="counter" id="counter">0 个按钮 · 0 个菜单</div>
+<div class="inputline">
+  <form id="form">
+    <span class="prompt">我说：</span>
+    <input id="inp" placeholder="随便说什么…" autocomplete="off">
+    <span class="blink" id="blink">|</span>
+  </form>
+</div>
+<script>
+const main = document.getElementById('main');
+const counter = document.getElementById('counter');
+const form = document.getElementById('form');
+const inp = document.getElementById('inp');
+const blink = document.getElementById('blink');
+
+let msgs = 0;
+function add(who, text, delay){
+  const d = document.createElement('div');
+  d.className = 'msg ' + who;
+  d.style.animationDelay = delay + 's';
+  d.innerHTML = '<div class="who">' + (who === 'user' ? '你' : '空') + '</div><div class="txt">' + text + '</div>';
+  main.appendChild(d);
+  msgs++;
+  counter.textContent = msgs + ' 条对话 · 0 个按钮 · 0 个菜单';
+  window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});
+  return d;
+}
+
+const intro = [
+  ['agent', '你好。'],
+  ['agent', '我是<span class="dash">空</span>。<br>这里没有菜单，没有按钮，没有导航。'],
+  ['agent', '页面本身就是对话。<br>你想先聊点什么？']
+];
+setTimeout(() => {
+  intro.forEach((m, i) => add(m[0], m[1], i * 1.1));
+  setTimeout(addSuggest, intro.length * 1100 + 600);
+}, 500);
+function addSuggest(){
+  const s = document.createElement('div');
+  s.className = 'suggest';
+  ['继续聊聊', '你能做什么', '给我写点什么'].forEach(t => {
+    const b = document.createElement('button');
+    b.textContent = t;
+    b.onclick = () => send(b.textContent);
+    s.appendChild(b);
+  });
+  main.appendChild(s);
+}
+
+const replies = [
+  '这没有正确答案，但我们可以一起想。',
+  '有意思。你继续说。',
+  '我理解的你，又清晰了一点。',
+  '这件事，我可以帮你。',
+  '记忆已经存下。下次接着聊。'
+];
+function send(v){
+  add('user', v, 0);
+  setTimeout(() => {
+    add('agent', replies[Math.floor(Math.random() * replies.length)], 0);
+    addSuggest();
+  }, 700);
+}
+form.addEventListener('submit', e => {
+  e.preventDefault();
+  const v = inp.value.trim();
+  if (!v) return;
+  inp.value = '';
+  send(v);
+});
+</script>
+</body>
+</html>

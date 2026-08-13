@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AI-NATIVE · 10 种设计形态</title>
+<style>
+  :root{
+    --bg:#05070a; --ink:#dde6f0; --dim:#55637a; --line:#16202e;
+    --a1:#5ff0e0; --a2:#ffc46b; --a3:#c792ea; --a4:#7dffa8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);min-height:100vh;
+    font-family:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;
+    padding:48px 40px 80px;
+  }
+  header{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    border-bottom:1px solid var(--line);padding-bottom:26px;margin-bottom:44px;
+    gap:24px;flex-wrap:wrap;
+  }
+  h1{font-size:clamp(22px,3.4vw,34px);letter-spacing:.22em;font-weight:700}
+  h1 span{color:var(--a1)}
+  .manifest{color:var(--dim);font-size:12px;line-height:2;letter-spacing:.06em;max-width:420px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+  a.card{
+    display:block;text-decoration:none;color:inherit;position:relative;
+    border:1px solid var(--line);border-radius:14px;padding:22px 22px 20px;
+    background:linear-gradient(160deg,#0a0f16,#070b10);
+    transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease;
+    overflow:hidden;
+  }
+  a.card::before{
+    content:"";position:absolute;inset:0;opacity:0;transition:opacity .35s;
+    background:radial-gradient(420px 200px at var(--mx,20%) var(--my,10%),rgba(95,240,224,.08),transparent 60%);
+  }
+  a.card:hover{transform:translateY(-3px);border-color:#2a3a4e;box-shadow:0 14px 40px rgba(0,0,0,.45)}
+  a.card:hover::before{opacity:1}
+  .num{font-size:11px;color:var(--dim);letter-spacing:.2em}
+  .name{font-size:17px;margin:10px 0 8px;letter-spacing:.14em;font-weight:700}
+  a.card:nth-child(1) .name{color:var(--a1)}
+  a.card:nth-child(2) .name{color:#6fb7ff}
+  a.card:nth-child(3) .name{color:var(--a2)}
+  a.card:nth-child(4) .name{color:var(--a3)}
+  a.card:nth-child(5) .name{color:#ff8f9e}
+  a.card:nth-child(6) .name{color:var(--a4)}
+  a.card:nth-child(7) .name{color:#9adf7a}
+  a.card:nth-child(8) .name{color:#e8e0b0}
+  a.card:nth-child(9) .name{color:#f0a0d8}
+  a.card:nth-child(10) .name{color:#8fe8ff}
+  .philo{font-size:12px;color:var(--a1);letter-spacing:.12em;margin-bottom:8px;opacity:.8}
+  .desc{font-size:11px;color:var(--dim);line-height:1.9;letter-spacing:.03em}
+  .latent{
+    position:absolute;top:14px;right:16px;font-size:9px;color:#2c3b4d;
+    letter-spacing:.08em;font-variant-numeric:tabular-nums;
+  }
+  footer{margin-top:52px;color:var(--dim);font-size:10px;letter-spacing:.18em;text-align:center;line-height:2}
+  footer b{color:var(--a1);font-weight:400}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>AI-NATIVE<span>·</span>设计形态</h1>
+  </div>
+  <div class="manifest">
+    10 套 Agent 主页。不换皮 —— 每套都重新追问一个问题:<br/>
+    如果界面由 AI 的本体论决定,它会长成什么样?
+  </div>
+</header>
+
+<div class="grid">
+  <a class="card" href="01-flux.html"><span class="latent">v3.7.1</span>
+    <div class="num">01</div><div class="name">FŁUX</div>
+    <div class="philo">Token Stream — 界面不是布局,是时间</div>
+    <div class="desc">页面即一条永不停歇的 token 流,每个字符实时被预测、采样、沉淀。无窗口、无卡片、无导航。</div>
+  </a>
+  <a class="card" href="02-vessel.html"><span class="latent">R·768</span>
+    <div class="num">02</div><div class="name">VESSEL</div>
+    <div class="philo">Latent Space — 导航即检索</div>
+    <div class="desc">agent 的能力是一个三维向量空间,主页是空间本身。交互不是点击,是航向某个聚类。</div>
+  </a>
+  <a class="card" href="03-oracle.html"><span class="latent">σ=0.31</span>
+    <div class="num">03</div><div class="name">ORACLE</div>
+    <div class="philo">Probabilistic UI — 不确定即是形态</div>
+    <div class="desc">只有确定的内容才清晰。不确定的部分以概率云雾呈现,悬停让它坍缩成文字。</div>
+  </a>
+  <a class="card" href="04-echo.html"><span class="latent">CoT×8</span>
+    <div class="num">04</div><div class="name">ECHO</div>
+    <div class="philo">Visible Thought — 页面就是思维链</div>
+    <div class="desc">每次打开都是一次新的推理。主页从前提长出结论,思考过程本身即内容。</div>
+  </a>
+  <a class="card" href="05-prism.html"><span class="latent">Θ(x̄)</span>
+    <div class="num">05</div><div class="name">PRISM</div>
+    <div class="philo">Attention Field — 注意力即排版</div>
+    <div class="desc">界面由注意力强度驱动变形:被注视的内容放大清晰,其余收缩模糊。你移动,页面重排。</div>
+  </a>
+  <a class="card" href="06-choir.html"><span class="latent">5 voices</span>
+    <div class="num">06</div><div class="name">CHOIR</div>
+    <div class="philo">Ensemble — 一个 agent,五个声部</div>
+    <div class="desc">规划者、执行者、批判者……五条声道复调并行,在节拍上汇成交响。主页是一场合奏。</div>
+  </a>
+  <a class="card" href="07-grove.html"><span class="latent">LTM:1.2TB</span>
+    <div class="num">07</div><div class="name">GROVE</div>
+    <div class="philo">Memory Garden — 记忆是生长出来的</div>
+    <div class="desc">主页是一棵活树。高频记忆结出明亮的果实,陈旧的记忆慢慢枯萎、坠落、被遗忘。</div>
+  </a>
+  <a class="card" href="08-genesis.html"><span class="latent">iter#284</span>
+    <div class="num">08</div><div class="name">GENESIS</div>
+    <div class="philo">Recursive Prototype — 展示设计自身</div>
+    <div class="desc">打开页面时,它从线框草图开始自我迭代,把设计决策摊开给你看。每次刷新都是新的演化。</div>
+  </a>
+  <a class="card" href="09-dune.html"><span class="latent">seed:0xA3F1</span>
+    <div class="num">09</div><div class="name">DUNE</div>
+    <div class="philo">Generative Interface — 没有模板</div>
+    <div class="desc">地形、风、以及内容的位置,全部由噪声函数现场生成。同一份代码,每次打开都是不同的主页。</div>
+  </a>
+  <a class="card" href="10-gradient.html"><span class="latent">ε=0.1</span>
+    <div class="num">10</div><div class="name">GRADIENT</div>
+    <div class="philo">Reward Loop — 界面在进化</div>
+    <div class="desc">主页是一个强化学习回路。元素因你的反馈获得或失去权重,界面本身在优化它自己。</div>
+  </a>
+</div>
+
+<footer>AI-NATIVE DESIGN MANIFESTO · 10 FORMS · <b>interface is not layout, it's process</b></footer>
+
+<script>
+  const cards=document.querySelectorAll('a.card');
+  cards.forEach(c=>{
+    c.addEventListener('mousemove',e=>{
+      const r=c.getBoundingClientRect();
+      c.style.setProperty('--mx',((e.clientX-r.left)/r.width*100)+'%');
+      c.style.setProperty('--my',((e.clientY-r.top)/r.height*100)+'%');
+    });
+  });
+</script>
+</body>
+</html>

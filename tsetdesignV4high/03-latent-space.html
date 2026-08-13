@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03 · 潜在空间 / Latent Space</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --ink: #e8f4ff; --dim: #6d84a0; --accent: #4fc3f7; }
+  html, body { height: 100%; }
+  body {
+    background: #05070c; color: var(--ink); overflow: hidden;
+    font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #space { position: fixed; inset: 0; }
+  .hud {
+    position: fixed; inset: 0; pointer-events: none; z-index: 5;
+    display: flex; flex-direction: column; justify-content: space-between; padding: 3vh 4vw;
+  }
+  .top, .bot { display: flex; justify-content: space-between; }
+  .lab { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.3em; color: var(--dim); text-transform: uppercase; }
+  .bloom {
+    position: fixed; z-index: 8; pointer-events: none;
+    max-width: 320px; padding: 1.1rem 1.3rem;
+    background: rgba(8, 12, 20, 0.82); backdrop-filter: blur(8px);
+    border: 1px solid rgba(79,195,247,0.3); border-radius: 2px;
+    opacity: 0; transform: translate(-50%, -120%) scale(0.9);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .bloom.on { opacity: 1; transform: translate(-50%, -120%) scale(1); }
+  .bloom .t { font-size: 0.95rem; font-weight: 500; margin-bottom: 0.35rem; color: var(--ink); }
+  .bloom .d { font-size: 0.78rem; line-height: 1.6; color: var(--dim); }
+  .bloom .v { margin-top: 0.6rem; font-family: ui-monospace, monospace; font-size: 9px; letter-spacing: 0.2em; color: var(--accent); }
+</style>
+</head>
+<body>
+<canvas id="space"></canvas>
+<div class="hud">
+  <div class="top"><span class="lab">AI-NATIVE · 03 / 10</span><span class="lab">LATENT SPACE · 语义的拓扑</span></div>
+  <div class="bot"><span class="lab">靠近一个想法 · 让它绽放</span><span class="lab" id="coord">z = 0.00</span></div>
+</div>
+<div class="bloom" id="bloom"><div class="t"></div><div class="d"></div><div class="v"></div></div>
+
+<script>
+  const cv = document.getElementById('space'), ctx = cv.getContext('2d');
+  const bloom = document.getElementById('bloom');
+  let W, H, D = devicePixelRatio;
+  const mouse = { x: -1e4, y: -1e4 };
+
+  const IDEAS = [
+    { name: '推理', en: 'REASON', d: '多步演绎与反事实推演，在矛盾中寻找一致性。', vec: [0.15, 0.20] },
+    { name: '记忆', en: 'MEMORY', d: '跨越会话的持久上下文，像被折叠的时间。', vec: [0.42, 0.12] },
+    { name: '工具', en: 'TOOLS', d: '把世界当作可调用的接口：搜索、代码、终端。', vec: [0.72, 0.22] },
+    { name: '生成', en: 'GENERATE', d: '从噪声到结构，采样出尚未存在的文本与图像。', vec: [0.30, 0.55] },
+    { name: '规划', en: 'PLAN', d: '把模糊意图分解为可执行的步骤序列。', vec: [0.58, 0.58] },
+    { name: '共情', en: 'EMPATHY', d: '对齐你的语气与目标，而非仅仅对齐答案。', vec: [0.80, 0.48] },
+    { name: '检索', en: 'RETRIEVE', d: '在知识的浩瀚里，捞出最相关的那一页。', vec: [0.18, 0.78] },
+    { name: '自我修正', en: 'REFINE', d: '怀疑自己的输出，并再次推演直至收敛。', vec: [0.50, 0.82] },
+    { name: '多模态', en: 'MULTIMODAL', d: '在文本、图像与声音之间自由平移。', vec: [0.85, 0.72] },
+    { name: '自主', en: 'AGENCY', d: '在无人盯守时，依然朝着目标推进。', vec: [0.70, 0.90] },
+  ];
+
+  let points = [];
+  function seed() {
+    points = [];
+    IDEAS.forEach((idea, i) => {
+      const cluster = Math.floor(i / 2);
+      const cx = (0.12 + (cluster % 5) * 0.19) * W;
+      const cy = (0.2 + Math.floor(cluster / 5) * 0.4) * H;
+      points.push({
+        idea,
+        x: cx + (Math.random() - 0.5) * 120 * D,
+        y: cy + (Math.random() - 0.5) * 120 * D,
+        vx: 0, vy: 0, r: 2.2 * D
+      });
+    });
+  }
+
+  function step() {
+    // attraction to home + repulsion between points + mouse repulsion
+    const k = 0.004, repel = 9000 * D * D, mrepel = 14000 * D * D;
+    for (const p of points) {
+      let ax = 0, ay = 0;
+      const hx = p.x, hy = p.y;
+      for (const q of points) {
+        if (q === p) continue;
+        let dx = p.x - q.x, dy = p.y - q.y;
+        let d2 = dx*dx + dy*dy + 1;
+        if (d2 > 0) { let f = repel / d2; ax += dx * f; ay += dy * f; }
+      }
+      let dx = p.x - mouse.x, dy = p.y - mouse.y;
+      let d2 = dx*dx + dy*dy + 1;
+      let f = mrepel / d2; ax += dx * f; ay += dy * f;
+      p.vx = (p.vx + ax * k) * 0.86;
+      p.vy = (p.vy + ay * k) * 0.86;
+      p.x += p.vx; p.y += p.vy;
+      // soft spring back to home
+      p.x += (p.x - hx) * -0.002; p.y += (p.y - hy) * -0.002;
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    // faint grid
+    ctx.strokeStyle = 'rgba(79,195,247,0.04)'; ctx.lineWidth = D;
+    for (let x = 0; x < W; x += 90 * D) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 90 * D) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+    // links between close points
+    for (let i = 0; i < points.length; i++) for (let j = i + 1; j < points.length; j++) {
+      const a = points[i], b = points[j];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d < 160 * D) {
+        ctx.strokeStyle = `rgba(79,195,247,${0.25 * (1 - d / (160 * D))})`;
+        ctx.lineWidth = D; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+    }
+
+    for (const p of points) {
+      const d = Math.hypot(p.x - mouse.x, p.y - mouse.y);
+      const glow = Math.max(0, 1 - d / (120 * D));
+      ctx.fillStyle = '#4fc3f7';
+      ctx.globalAlpha = 0.5 + glow * 0.5;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      if (glow > 0) {
+        ctx.globalAlpha = glow * 0.5;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (1 + glow * 4), 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function hover() {
+    let best = null, bd = 1e9;
+    for (const p of points) {
+      const d = Math.hypot(p.x - mouse.x, p.y - mouse.y);
+      if (d < bd) { bd = d; best = p; }
+    }
+    if (best && bd < 60 * D) {
+      bloom.querySelector('.t').textContent = best.idea.name + ' · ' + best.idea.en;
+      bloom.querySelector('.d').textContent = best.idea.d;
+      bloom.querySelector('.v').textContent = 'z = ' + (bd / (D * 60)).toFixed(2) + ' · 语义距离';
+      bloom.style.left = mouse.x / D + 'px';
+      bloom.style.top = mouse.y / D + 'px';
+      bloom.classList.add('on');
+      document.getElementById('coord').textContent = 'z = ' + (bd / (D * 60)).toFixed(2);
+    } else {
+      bloom.classList.remove('on');
+      document.getElementById('coord').textContent = 'z = 0.00';
+    }
+  }
+
+  function resize() {
+    W = cv.width = innerWidth * D; H = cv.height = innerHeight * D;
+    cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+    seed();
+  }
+  function loop() { step(); draw(); hover(); requestAnimationFrame(loop); }
+
+  addEventListener('resize', resize);
+  addEventListener('pointermove', e => { mouse.x = e.clientX * D; mouse.y = e.clientY * D; });
+  addEventListener('pointerleave', () => { mouse.x = mouse.y = -1e4; });
+  resize(); loop();
+</script>
+</body>
+</html>

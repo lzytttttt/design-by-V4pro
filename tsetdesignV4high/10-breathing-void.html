@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10 · 呼吸的空 / Breathing Void</title>
+<style>
+  :root { --ink: rgba(240, 240, 245, 0.85); --dim: rgba(240, 240, 245, 0.32); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #050506; color: var(--ink);
+    font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    overflow: hidden; -webkit-font-smoothing: antialiased; cursor: crosshair;
+  }
+  .meta {
+    position: fixed; top: 3vh; left: 0; right: 0; z-index: 5;
+    display: flex; justify-content: space-between; padding: 0 4vw;
+    font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.4em;
+    color: var(--dim); text-transform: uppercase;
+  }
+  .void { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+
+  .dot {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #f0f0f5;
+    box-shadow: 0 0 40px rgba(240, 240, 245, 0.35);
+    animation: breath 9s ease-in-out infinite;
+  }
+  @keyframes breath {
+    0%, 100% { transform: scale(1); opacity: 0.55; }
+    50% { transform: scale(1.9); opacity: 1; }
+  }
+  .ring {
+    position: absolute; width: 34vmin; height: 34vmin; border-radius: 50%;
+    border: 1px solid rgba(240, 240, 245, 0.10);
+    animation: ringBreath 9s ease-in-out infinite;
+  }
+  @keyframes ringBreath {
+    0%, 100% { transform: scale(0.92); opacity: 0.35; }
+    50% { transform: scale(1); opacity: 0.12; }
+  }
+  .ring.r2 { width: 56vmin; height: 56vmin; animation-delay: -4.5s; }
+
+  .word {
+    position: fixed; left: 50%; top: 24vh; transform: translateX(-50%);
+    font-weight: 200; font-size: clamp(1.2rem, 2.4vw, 2rem); letter-spacing: 0.3em;
+    color: var(--dim); text-align: center; white-space: nowrap;
+  }
+  .phrase {
+    position: fixed; left: 50%; bottom: 18vh; transform: translateX(-50%);
+    font-weight: 200; font-size: clamp(0.85rem, 1.4vw, 1.05rem); letter-spacing: 0.2em;
+    color: var(--dim); opacity: 0; transition: opacity 2.4s ease; text-align: center;
+  }
+  .phrase.on { opacity: 0.85; }
+  .foot {
+    position: fixed; bottom: 3vh; left: 50%; transform: translateX(-50%);
+    font-family: ui-monospace, monospace; font-size: 9px; letter-spacing: 0.35em; color: var(--dim);
+  }
+  .ripple {
+    position: fixed; border: 1px solid rgba(240,240,245,0.35); border-radius: 50%;
+    width: 10px; height: 10px; pointer-events: none; z-index: 3;
+    animation: rip 2.6s ease-out forwards;
+  }
+  @keyframes rip {
+    from { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+    to { transform: translate(-50%, -50%) scale(90); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="meta"><span>AI-NATIVE · 10 / 10</span><span>BREATHING VOID</span></div>
+<div class="word">呼吸的空</div>
+<div class="void">
+  <div class="ring"></div>
+  <div class="ring r2"></div>
+  <div class="dot" id="dot"></div>
+</div>
+<div class="phrase" id="phrase"></div>
+<div class="foot">点击虚空 · 听见它吐纳</div>
+
+<script>
+  const phrases = [
+    '空，也是有重量的。',
+    'Agent 不是功能，而是一种在场。',
+    '少一点，反而更接近。',
+    '留白是尚未被说出的那一句。',
+    '呼吸之间，什么都没有，也什么都有。',
+    '界面退去，剩下的是陪伴。',
+  ];
+  let i = 0;
+  const phrase = document.getElementById('phrase');
+  const dot = document.getElementById('dot');
+
+  addEventListener('click', e => {
+    // ripple
+    const r = document.createElement('div');
+    r.className = 'ripple';
+    r.style.left = e.clientX + 'px';
+    r.style.top = e.clientY + 'px';
+    document.body.appendChild(r);
+    setTimeout(() => r.remove(), 2700);
+
+    // phrase
+    phrase.textContent = phrases[i % phrases.length];
+    phrase.classList.add('on');
+    i++;
+    // deeper breath on click
+    dot.style.animation = 'none';
+    void dot.offsetWidth;
+    dot.style.animation = 'breath 9s ease-in-out infinite';
+  });
+
+  // subtle mouse parallax on the dot
+  addEventListener('pointermove', e => {
+    const dx = (e.clientX - innerWidth/2) / innerWidth;
+    const dy = (e.clientY - innerHeight/2) / innerHeight;
+    document.querySelector('.void').style.transform = `translate(${dx * 18}px, ${dy * 18}px)`;
+  });
+</script>
+</body>
+</html>

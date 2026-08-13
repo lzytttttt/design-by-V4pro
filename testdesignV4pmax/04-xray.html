@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>内视 X-RAY — 它不藏</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#06090d;color:#a9c8d8;
+  font-family:"Courier New",Consolas,monospace;
+  min-height:100vh;-webkit-font-smoothing:antialiased;
+  background-image:
+    linear-gradient(rgba(60,120,160,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(60,120,160,.05) 1px, transparent 1px);
+  background-size:44px 44px;
+}
+header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:22px 34px;
+  border-bottom:1px solid #12232e;
+  font-size:12px;letter-spacing:.22em;
+}
+header .brand{color:#e8f6ff}
+header .brand b{color:#4de3a1}
+header .live{display:flex;align-items:center;gap:10px;color:#5c7c8c}
+header .live .pulse{width:8px;height:8px;border-radius:50%;background:#4de3a1;box-shadow:0 0 10px #4de3a1;animation:pp 1.6s infinite}
+@keyframes pp{50%{opacity:.3}}
+.layout{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:0;min-height:calc(100vh - 66px)}
+.col{padding:26px 28px;border-right:1px solid #12232e;overflow:hidden;display:flex;flex-direction:column}
+.col:last-child{border-right:none}
+.col h2{
+  font-size:11px;letter-spacing:.34em;color:#4a6a7c;
+  padding-bottom:12px;border-bottom:1px dashed #12232e;margin-bottom:16px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.col h2 .rate{color:#4de3a1;font-size:11px}
+#stream{flex:1;overflow:hidden;font-size:13px;line-height:1.9;position:relative}
+#stream::after{content:"";position:absolute;left:0;right:0;bottom:0;height:60px;background:linear-gradient(transparent,#06090d)}
+.tok{animation:tin .3s ease both}
+@keyframes tin{from{opacity:0;transform:translateY(6px)}}
+.tok .w-word{color:#d8ecf6}
+.tok .w-ent{color:#ffb454}
+.tok .w-reason{color:#7fb8d8;font-style:italic}
+.tok .w-fn{color:#4de3a1}
+.tok .w-num{color:#c98cff}
+
+#corewrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px}
+.core{position:relative;width:190px;height:190px}
+.ring{position:absolute;inset:0;border-radius:50%;border:1px solid #16405a}
+.ring.r1{animation:spin 9s linear infinite;border-top-color:#4de3a1;border-right-color:transparent;border-bottom-color:transparent;border-left-color:transparent}
+.ring.r2{inset:16px;animation:spin 14s linear infinite reverse;border-right-color:#ffb454;border-top-color:transparent;border-bottom-color:transparent;border-left-color:transparent}
+.ring.r3{inset:32px;animation:spin 20s linear infinite;border-bottom-color:#c98cff;border-top-color:transparent;border-right-color:transparent;border-left-color:transparent}
+@keyframes spin{to{transform:rotate(360deg)}}
+.thought{
+  position:absolute;inset:52px;display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:#e8f6ff;text-align:center;line-height:1.7;
+  animation:th .8s ease both;
+}
+@keyframes th{from{opacity:0;transform:scale(.92)}}
+.conf{width:230px}
+.conf .row{display:flex;justify-content:space-between;font-size:11px;color:#5c7c8c;margin-bottom:6px;letter-spacing:.16em}
+.bar{height:6px;background:#0e1a22;border-radius:3px;overflow:hidden;margin-bottom:16px}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#2a8a5c,#4de3a1);border-radius:3px;transition:width .8s cubic-bezier(.2,.8,.2,1);box-shadow:0 0 12px rgba(77,227,161,.4)}
+
+#mem svg{width:100%;height:280px}
+.mn{fill:#12232e;stroke:#3a6a8a;stroke-width:1}
+.mn.hot{fill:#1d4a38;stroke:#4de3a1}
+.ml{stroke:#2a4a5e;stroke-width:1;stroke-dasharray:3 4}
+.tools{margin-top:14px;font-size:12px;line-height:2}
+.tools .t{color:#7fb8d8}
+.tools .ok{color:#4de3a1;float:right}
+.heat{display:flex;gap:3px;margin-top:20px;height:44px;align-items:flex-end}
+.heat span{flex:1;background:#12232e;border-radius:2px 2px 0 0;transition:height .4s, background .4s}
+.heat span.on{background:linear-gradient(#ffb454,#a3552a);box-shadow:0 0 8px rgba(255,180,84,.35)}
+footer{
+  padding:20px 34px;border-top:1px solid #12232e;
+  display:flex;justify-content:space-between;align-items:baseline;font-size:11px;letter-spacing:.3em;color:#4a6a7c;
+}
+footer .slogan{font-size:15px;color:#e8f6ff;letter-spacing:.5em}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">X-RAY · <b>内视</b> AGENT COGNITION EXPOSED</div>
+  <div class="live"><span class="pulse"></span>推理中 · 会话 0x8F2A · <span id="clock">00:00:00</span></div>
+</header>
+<div class="layout">
+  <div class="col">
+    <h2>TOKEN 流 <span class="rate" id="tps">312 tok/s</span></h2>
+    <div id="stream"></div>
+  </div>
+  <div class="col">
+    <h2>认知核心 <span class="rate">ATTN 12 头</span></h2>
+    <div id="corewrap">
+      <div class="core">
+        <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+        <div class="thought" id="thought">正在组织<br>回答结构…</div>
+      </div>
+      <div class="conf">
+        <div class="row"><span>置信度 CONFIDENCE</span><span id="confv">72%</span></div>
+        <div class="bar"><i id="confb"></i></div>
+        <div class="row"><span>信息完整度 COVERAGE</span><span id="covv">58%</span></div>
+        <div class="bar"><i id="covb" style="background:linear-gradient(90deg,#8a5a2a,#ffb454);box-shadow:0 0 12px rgba(255,180,84,.4)"></i></div>
+      </div>
+      <div class="heat" id="heat"></div>
+    </div>
+  </div>
+  <div class="col">
+    <h2>记忆图谱 · 召回 <span class="rate" id="memv">3 条</span></h2>
+    <div id="mem"></div>
+    <div class="tools" id="tools"></div>
+  </div>
+</div>
+<footer>
+  <span>INFERENCE TRANSPARENCY PROTOCOL</span>
+  <span class="slogan">它不藏。</span>
+  <span id="uptime"></span>
+</footer>
+<script>
+const stream = document.getElementById('stream');
+const word = ['我们','理解','用户','意图','上下文','约束','目标','方案','评估','优化','结果','问题','可能','需要','考虑','生成','调用','分析','综合','回答','建议','路径','语义','检索','记忆'];
+const ent = ['北京','GPT-5','量子计算','多模态','向量库','RLHF','Agent','2026','产品需求','Docker','K8s','数据集'];
+const fn = ['search()','retrieve()','reason()','plan()','tool_call()','verify()','compose()','memory_write()'];
+function rand(a){return a[Math.floor(Math.random()*a.length)]}
+function tok(){
+  const r = Math.random();
+  if (r < .62) return ['w-word', rand(word) + ' '];
+  if (r < .78) return ['w-ent', '「' + rand(ent) + '」'];
+  if (r < .88) return ['w-fn', rand(fn) + ' '];
+  if (r < .94) return ['w-num', String(Math.floor(Math.random()*9000)).padStart(4,'0') + ' '];
+  return ['w-reason', '因此 '];
+}
+setInterval(() => {
+  const s = document.createElement('span');
+  const [cls, txt] = tok();
+  s.className = 'tok ' + cls; s.textContent = txt;
+  stream.appendChild(s);
+  while (stream.children.length > 260) stream.removeChild(stream.firstChild);
+}, 38);
+setInterval(() => {
+  document.getElementById('tps').textContent = (280 + Math.floor(Math.random()*90)) + ' tok/s';
+}, 1500);
+
+const thoughts = [
+  '正在组织<br>回答结构…','检索相关记忆<br>命中 3 条','调用 search()<br>验证事实','评估候选方案<br>剩余 2 个','综合证据链<br>准备输出…','写入长期记忆<br>#sess-0421'
+];
+let ti = 0;
+setInterval(() => {
+  const t = document.getElementById('thought');
+  t.style.animation = 'none'; void t.offsetWidth;
+  t.innerHTML = thoughts[ti % thoughts.length]; ti++;
+  t.style.animation = 'th .8s ease both';
+}, 2600);
+
+let conf = 62, cov = 40;
+setInterval(() => {
+  conf = Math.min(97, Math.max(48, conf + (Math.random() - .42) * 9));
+  cov = Math.min(96, Math.max(30, cov + (Math.random() - .4) * 8));
+  document.getElementById('confv').textContent = Math.round(conf) + '%';
+  document.getElementById('confb').style.width = conf + '%';
+  document.getElementById('covv').textContent = Math.round(cov) + '%';
+  document.getElementById('covb').style.width = cov + '%';
+}, 1300);
+
+const heat = document.getElementById('heat');
+for (let i = 0; i < 26; i++){
+  const s = document.createElement('span');
+  heat.appendChild(s);
+}
+setInterval(() => {
+  [...heat.children].forEach(s => {
+    const on = Math.random() < .35;
+    s.classList.toggle('on', on);
+    s.style.height = on ? (20 + Math.random() * 22) + 'px' : (4 + Math.random() * 8) + 'px';
+  });
+}, 900);
+
+const memNames = ['偏好','项目A','上次会话','旅行计划','写作风格','健康','会议纪要','阅读列表','灵感库','待办','联系人','习惯'];
+const mem = document.getElementById('mem');
+let hot = [];
+function renderMem(){
+  const w = mem.clientWidth, h = 280, cx = w/2, cy = h/2;
+  const pts = memNames.map((n, i) => {
+    const a = i / memNames.length * Math.PI * 2;
+    return {x: cx + Math.cos(a) * (w * .34), y: cy + Math.sin(a) * 105, n};
+  });
+  let svg = '';
+  hot.forEach(i => {
+    const o = pts[i];
+    for (const p of pts){
+      svg += `<line class="ml" x1="${o.x}" y1="${o.y}" x2="${p.x}" y2="${p.y}"/>`;
+    }
+  });
+  pts.forEach((p, i) => {
+    svg += `<circle class="mn ${hot.includes(i) ? 'hot' : ''}" cx="${p.x}" cy="${p.y}" r="${hot.includes(i) ? 13 : 7}"/>`;
+  });
+  mem.innerHTML = `<svg>${svg}</svg>`;
+  document.getElementById('memv').textContent = hot.length + ' 条';
+}
+setInterval(() => {
+  const n = 2 + Math.floor(Math.random() * 3);
+  hot = [];
+  while (hot.length < n){
+    const i = Math.floor(Math.random() * memNames.length);
+    if (!hot.includes(i)) hot.push(i);
+  }
+  renderMem();
+}, 3000);
+renderMem();
+addEventListener('resize', renderMem);
+
+const toolNames = ['search','retrieve','vector_query','calc','web_fetch','compose','verify','memory_write'];
+const tools = document.getElementById('tools');
+setInterval(() => {
+  const d = document.createElement('div');
+  d.innerHTML = `<span class="t">→ ${rand(toolNames)}("${rand(word)}", ${Math.floor(Math.random()*90+10)}ms)</span><span class="ok">✓</span>`;
+  tools.prepend(d);
+  while (tools.children.length > 9) tools.removeChild(tools.lastChild);
+}, 2100);
+
+setInterval(() => {
+  document.getElementById('clock').textContent = new Date().toTimeString().slice(0, 8);
+  const t = Math.floor(performance.now() / 1000);
+  document.getElementById('uptime').textContent = 'UPTIME ' + String(Math.floor(t / 3600)).padStart(2, '0') + ':' + String(Math.floor(t / 60) % 60).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+}, 1000);
+</script>
+</body>
+</html>

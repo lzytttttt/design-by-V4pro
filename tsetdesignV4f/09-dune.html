@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>DUNE · Generative Interface Agent</title>
+<style>
+  :root{
+    --bg:#05060a; --ink:#e8e4d8; --dim:#5d5b52; --acc:#f0a0d8; --acc2:#ffd98a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--ink);font-family:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace}
+  #c{position:fixed;inset:0;display:block}
+  #hud{
+    position:fixed;top:0;left:0;right:0;height:58px;z-index:40;
+    display:flex;align-items:center;gap:22px;padding:0 26px;
+    background:linear-gradient(rgba(5,6,10,.92),rgba(5,6,10,.4));
+    border-bottom:1px solid rgba(240,160,216,.12);backdrop-filter:blur(8px);
+  }
+  #hud .logo{font-size:15px;letter-spacing:.2em;color:var(--acc);font-weight:700}
+  #hud .philo{font-size:9px;color:var(--dim);letter-spacing:.16em;text-transform:uppercase}
+  #hud .spacer{flex:1}
+  #hud .seed{font-size:10px;color:var(--acc2);letter-spacing:.1em;font-variant-numeric:tabular-nums}
+  #hud label{font-size:9px;color:var(--dim);letter-spacing:.12em;display:flex;align-items:center;gap:8px}
+  #hud input[type=range]{width:70px;accent-color:#f0a0d8}
+  #hud button{
+    background:transparent;border:1px solid rgba(240,160,216,.4);color:var(--acc);
+    padding:6px 16px;border-radius:5px;cursor:pointer;font-size:10px;letter-spacing:.14em;
+  }
+  #hud button:hover{background:rgba(240,160,216,.08)}
+  .sec{
+    position:absolute;z-index:10;border:1px solid rgba(240,160,216,.22);
+    background:rgba(10,12,18,.72);backdrop-filter:blur(3px);
+    border-radius:10px;padding:18px 22px;transition:all .8s ease;
+  }
+  .sec h1{font-size:clamp(18px,2.4vw,26px);letter-spacing:.2em;color:var(--ink)}
+  .sec h1 span{color:var(--acc)}
+  .sec .tag{font-size:10px;color:var(--dim);letter-spacing:.12em;line-height:2.1;margin-top:10px}
+  .sec .tag b{color:var(--acc2);font-weight:400}
+  .sec h3{font-size:11px;letter-spacing:.26em;color:var(--acc);margin-bottom:8px}
+  .sec p{font-size:9px;color:#9a978c;line-height:2;letter-spacing:.06em}
+  #caption{
+    position:fixed;left:26px;bottom:20px;z-index:30;font-size:9px;color:var(--dim);
+    letter-spacing:.16em;line-height:2.1;pointer-events:none;
+  }
+  #caption b{color:var(--acc);font-weight:400}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div class="logo">DUNE</div>
+  <div class="philo">generative-interface · nothing is templated</div>
+  <div class="spacer"></div>
+  <span class="seed" id="seedEl">seed 0x0000</span>
+  <label>起伏 <input type="range" id="amp" min="0" max="30" value="15"/></label>
+  <label>风 <input type="range" id="wind" min="0" max="80" value="30"/></label>
+  <button id="reroll">⟳ 新种子</button>
+</div>
+
+<div id="sections"></div>
+<div id="caption">拖动鼠标 → 侵蚀地形<br/>本页没有模板 —— 每一处位置都由 <b>噪声函数</b> 当场决定</div>
+
+<script>
+  const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+  let W,H,DPR;
+  function resize(){
+    DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
+    cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  resize();addEventListener('resize',resize);
+
+  let seed=Math.floor(Math.random()*65536);
+  let amp=0.15,wind=0.03;
+  const carve=new Float32Array(400);
+
+  function hash(x){x=Math.sin(x*127.1+seed*0.007)*43758.5453;return x-Math.floor(x)}
+  function ht(x){return Math.sin(x*0.9+seed)*0.5+Math.sin(x*0.37+seed*1.7)*0.3+Math.sin(x*0.13+seed*3.1)*0.2}
+
+  const CHARS=' .·:;+=*%#@';
+  const cols=200,rows=34;
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const grad=ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0,'#04050a');grad.addColorStop(0.55,'#070812');grad.addColorStop(1,'#0b0a0e');
+    ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+
+    const cw=W/cols;
+    const time=performance.now()*0.001;
+    ctx.font='10px ui-monospace,Cascadia Code,Consolas,monospace';
+    ctx.textAlign='center';
+    for(let r=0;r<rows;r++){
+      const y=r*H/rows;
+      const fog=r/rows;
+      for(let cc=0;cc<cols;cc++){
+        const xw=cc*cw;
+        const par=ht(cc*0.09+r*0.55+time*wind*10)+ht(cc*0.05+r*0.22)*0.6;
+        const h=(par+1)*0.5+r/rows*0.9-0.25-carve[Math.floor(cc/2)%carve.length]*0.5;
+        const ci=Math.max(0,Math.min(CHARS.length-1,Math.floor(h*(CHARS.length-1))));
+        const ch=CHARS[ci];
+        const lum=0.35+fog*0.5+Math.max(0,h-0.9)*1.5;
+        const heat=Math.max(0,h-0.92);
+        ctx.fillStyle='rgba('+Math.round(150*lum)+','+Math.round(150*lum+60*heat)+','+Math.round(180*lum)+','+Math.min(0.95,0.25+fog*0.75)+')';
+        ctx.fillText(ch,xw,y);
+      }
+    }
+    for(let i=0;i<carve.length;i++)carve[i]=Math.max(0,carve[i]-0.0012);
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  let dragging=false;
+  cv.addEventListener('mousedown',e=>{dragging=true});
+  addEventListener('mouseup',()=>dragging=false);
+  cv.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    const idx=Math.floor(e.clientX/W*carve.length*2);
+    carve[idx]=Math.min(1,carve[idx]+0.25);
+  });
+
+  const sections=[
+    {html:'<h1>DUNE<span>_</span></h1><div class="tag">无模板的界面<br/>本页由 <b>噪声</b> 生成 —— 你正在看一次随机数展开</div>',big:true},
+    {html:'<h3>地形</h3><p>起伏 = 注意力的隐喻。你拖拽的地方会凹陷，就像沙丘记得脚步。</p>'},
+    {html:'<h3>风</h3><p>风的参数决定字符漂移的速度。没有两阵相同的风。</p>'},
+    {html:'<h3>种子</h3><p>一颗种子 = 一整个主页。同样的代码，十次打开，十个 DUNE。</p>'},
+    {html:'<h3>接入</h3><p>与 DUNE 对话前，先选择一个种子。每次会话都是对一片新地形提问。</p>'}
+  ];
+
+  function place(){
+    const box=document.getElementById('sections');
+    box.innerHTML='';
+    const placed=[];
+    sections.forEach((s,i)=>{
+      const el=document.createElement('div');
+      el.className='sec';
+      el.innerHTML=s.html;
+      let x,y,w,ok;
+      for(let t=0;t<60;t++){
+        w=s.big?36+hash(i*3+t)*14:17+hash(i*7+t)*16;
+        x=6+hash(i*13+t*2+1)*88;
+        y=12+hash(i*5+t*3+2)*72;
+        ok=true;
+        for(const p of placed){
+          if(Math.hypot((p.x+p.w/2)-(x+w/2),(p.y+14)-(y+10))<28){ok=false;break}
+        }
+        if(ok)break;
+      }
+      el.style.left=x+'%';el.style.top=y+'%';el.style.width=w+'%';
+      placed.push({x,y,w});
+      el.style.transitionDelay=(i*60)+'ms';
+      el.style.opacity='0';
+      box.appendChild(el);
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        el.style.opacity='1';
+      }));
+    });
+  }
+  place();
+
+  document.getElementById('reroll').addEventListener('click',()=>{
+    seed=Math.floor(Math.random()*65536);
+    document.getElementById('seedEl').textContent='seed 0x'+seed.toString(16).toUpperCase().padStart(4,'0');
+    place();
+  });
+  document.getElementById('amp').addEventListener('input',e=>{amp=+e.target.value/100});
+  document.getElementById('wind').addEventListener('input',e=>{wind=+e.target.value/100});
+  document.getElementById('seedEl').textContent='seed 0x'+seed.toString(16).toUpperCase().padStart(4,'0');
+</script>
+</body>
+</html>

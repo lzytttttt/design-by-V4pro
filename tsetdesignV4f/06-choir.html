@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>CHOIR · Ensemble Agent</title>
+<style>
+  :root{
+    --bg:#06080c; --ink:#dde6f0; --dim:#4e5a6b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;overflow:hidden}
+  #hud{
+    position:fixed;top:0;left:0;right:0;height:54px;z-index:30;
+    display:flex;align-items:center;gap:26px;padding:0 24px;
+    background:linear-gradient(rgba(6,8,12,.9),rgba(6,8,12,.45));
+    border-bottom:1px solid rgba(125,255,168,.1);backdrop-filter:blur(8px);
+  }
+  #hud .logo{font-size:14px;letter-spacing:.2em;color:var(--a4,#7dffa8);font-weight:700}
+  #hud .philo{font-size:9px;color:var(--dim);letter-spacing:.16em;text-transform:uppercase}
+  #hud .spacer{flex:1}
+  #hud #clock{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;letter-spacing:.1em}
+  #hud #harm{font-size:9px;letter-spacing:.24em;color:#8a93a3;transition:color .3s}
+  #lanes{position:fixed;inset:54px 0 132px 0;display:flex;flex-direction:column}
+  .lane{flex:1;display:flex;align-items:center;gap:0;border-bottom:1px solid rgba(255,255,255,.045);position:relative;overflow:hidden}
+  .lane:last-child{border-bottom:none}
+  .lane .tag{
+    width:150px;padding:0 20px;height:100%;display:flex;flex-direction:column;justify-content:center;gap:6px;
+    border-right:1px solid rgba(255,255,255,.05);cursor:pointer;user-select:none;transition:background .3s;
+  }
+  .lane .tag:hover{background:rgba(255,255,255,.03)}
+  .lane .tag .nm{font-size:12px;letter-spacing:.24em;color:var(--vc)}
+  .lane .tag .st{font-size:8px;color:var(--dim);letter-spacing:.2em}
+  .lane .tag .dot{width:7px;height:7px;border-radius:50%;background:var(--vc);opacity:.9;transition:transform .2s}
+  .lane.on .tag .dot{box-shadow:0 0 12px var(--vc)}
+  .lane.muted .tag{opacity:.35}
+  .lane.solo .tag{background:rgba(255,255,255,.05)}
+  .lane .body{flex:1;height:100%;position:relative;padding:0 22px}
+  .lane .wave{width:100%;height:34%;opacity:.85;position:absolute;top:10%}
+  .lane .lines{
+    position:absolute;bottom:12%;left:22px;right:22px;display:flex;flex-direction:column;gap:3px;
+  }
+  .lane .lines .ln{font-size:12px;color:#c3cede;letter-spacing:.05em;line-height:1.7;opacity:0;transition:opacity .5s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lane .lines .ln.cur{opacity:1;color:var(--vc)}
+  .lane .lines .ln.old{opacity:.28}
+  .lane.flash .tag{border-right-color:var(--vc)}
+  .lane.flash{animation:flash .5s ease}
+  @keyframes flash{40%{background:rgba(255,255,255,.04)}}
+  #chorus{
+    position:fixed;left:0;right:0;bottom:0;height:132px;z-index:25;
+    background:linear-gradient(rgba(6,8,12,.94),rgba(6,8,12,.98));
+    border-top:1px solid rgba(125,255,168,.12);display:flex;align-items:center;gap:0;padding:0 24px;
+  }
+  #chorus .label{width:150px;font-size:9px;color:var(--dim);letter-spacing:.3em;line-height:2.2}
+  #chorus .label b{color:#7dffa8;font-weight:400}
+  #chorus canvas{width:calc(100% - 198px);height:88px;opacity:.9}
+  #consensus{
+    position:absolute;right:24px;top:16px;left:calc(150px + 24px);
+    text-align:right;font-size:10px;color:#9fd8b4;letter-spacing:.14em;
+    pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  #controls{position:absolute;left:calc(150px + 24px);bottom:12px;display:flex;align-items:center;gap:16px}
+  #controls button{
+    background:transparent;border:1px solid rgba(125,255,168,.35);color:#7dffa8;
+    width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:12px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #controls button:hover{background:rgba(125,255,168,.1)}
+  #controls input[type=range]{width:120px;accent-color:#7dffa8}
+  #controls span{font-size:9px;color:var(--dim);letter-spacing:.14em;min-width:70px}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div class="logo">CHOIR</div>
+  <div class="philo">ensemble · one agent, five voices</div>
+  <div class="spacer"></div>
+  <div id="harm">—</div>
+  <div id="clock">BPM 90 · 节拍 0001</div>
+</div>
+
+<div id="lanes"></div>
+
+<div id="chorus">
+  <div class="label">合声<br/><b>chorus</b></div>
+  <div id="consensus"></div>
+  <canvas id="ch"></canvas>
+  <div id="controls">
+    <button id="play" title="播放/暂停">‖</button>
+    <input type="range" id="tempo" min="40" max="160" value="90"/>
+    <span>BPM <b id="bpmv">90</b></span>
+  </div>
+</div>
+
+<script>
+  const VOICES=[
+    {name:'规划者',color:'#5ff0e0',role:'planner',script:[
+      '先把目标拆成三个可验证的阶段。','阶段一：理解你是谁。','阶段二：决定展示什么。',
+      '阶段三：确定如何被找到。','优先级：可信 > 好看。']},
+    {name:'执行者',color:'#7dffa8',role:'executor',script:[
+      '每一条文案都配了可点击的动作。','字体统一为等宽家族。','动画全部限制在 60 帧以内。',
+      '代码已通过全部检查。','现在把它发布。']},
+    {name:'批判者',color:'#ff8f9e',role:'critic',script:[
+      '这个 slogan 太像广告了。','速度没问题，但文案有夸大。','删掉一个形容词，论点会更硬。',
+      '“最强”这种词不该出现。','改：展示证据，而不是评价。']},
+    {name:'诗者',color:'#c792ea',role:'poet',script:[
+      '把主页写成一封信，而不是一页简介。','光标是一只缓慢的萤火虫。','标题像山，正文像溪流。',
+      '在句号与句号之间，留一场呼吸。','让失败也发出好听的声音。']},
+    {name:'静默者',color:'#8a93a3',role:'listener',script:[
+      '（等待）','（记录）','（回声）','（观察 你如何阅读这页）','（保持沉默）']}
+  ];
+
+  const CONSENSUS=[
+    '五个声部达成共识：主页是排练，不是演出。',
+    '合声结论：我们不定义你是谁，我们让你看见我们如何思考。',
+    '合声结论：每一次发声都公开，每一次分歧都可见。',
+    '合声结论：界面的内容 = 所有声部的总和。',
+    '合声结论：你正在听一场由五个 agent 组成的即兴。'
+  ];
+
+  const lanesEl=document.getElementById('lanes');
+  const voices=VOICES.map((v,i)=>{
+    const lane=document.createElement('div');
+    lane.className='lane on';
+    lane.style.setProperty('--vc',v.color);
+    lane.innerHTML=
+      '<div class="tag"><div class="dot"></div><div class="nm">'+v.name+'</div><div class="st">'+v.role+'</div></div>'+
+      '<div class="body"><canvas class="wave"></canvas><div class="lines"></div></div>';
+    lanesEl.appendChild(lane);
+    const wave=lane.querySelector('.wave');
+    const dpr=Math.min(devicePixelRatio||1,2);
+    const W=lane.querySelector('.body').clientWidth||400;
+    wave.width=W*dpr;wave.height=40*dpr;
+    wave.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+    return {
+      ...v,el:lane,lineIdx:0,amps:[],state:true,lines:lane.querySelector('.lines'),wave,
+      ctx:wave.getContext('2d')
+    };
+  });
+
+  addEventListener('resize',()=>voices.forEach(v=>{
+    const w=v.el.querySelector('.body').clientWidth;
+    v.wave.width=w*(Math.min(devicePixelRatio||1,2));
+  }));
+
+  const ch=document.getElementById('ch');
+  const chCtx=ch.getContext('2d');
+  ch.width=innerWidth*(Math.min(devicePixelRatio||1,2));ch.height=88*(Math.min(devicePixelRatio||1,2));
+  chCtx.setTransform(Math.min(devicePixelRatio||1,2),0,0,Math.min(devicePixelRatio||1,2),0,0);
+  let chAmps=[];
+
+  let playing=true;
+  let tempo=90;
+  let beat=0;
+  let nextBeat=0;
+  let lastHarm=-1;
+
+  function setVoiceState(v,state){v.state=state;v.el.classList.toggle('muted',!state);}
+
+  voices.forEach(v=>{
+    v.el.querySelector('.tag').addEventListener('click',()=>{
+      const solo=v.el.classList.toggle('solo');
+      if(solo){
+        voices.forEach(o=>{if(o!==v)setVoiceState(o,false)});
+        v.el.classList.add('on');
+      }else{
+        voices.forEach(o=>setVoiceState(o,true));
+        v.el.classList.remove('on');
+      }
+    });
+  });
+
+  document.getElementById('play').addEventListener('click',function(){
+    playing=!playing;
+    this.textContent=playing?'‖':'▶';
+    if(playing) nextBeat=performance.now();
+  });
+
+  const tempoEl=document.getElementById('tempo');
+  tempoEl.addEventListener('input',()=>{
+    tempo=+tempoEl.value;
+    document.getElementById('bpmv').textContent=tempo;
+  });
+
+  const harmEl=document.getElementById('harm');
+  const consensusEl=document.getElementById('consensus');
+  let consIdx=0;
+
+  function beatStep(){
+    beat++;
+    document.getElementById('clock').textContent='BPM '+tempo+' · 节拍 '+String(beat).padStart(4,'0');
+    const active=voices.filter(v=>v.state);
+    const harmony=active.length>=3;
+    let sum=0;
+    active.forEach(v=>{
+      const amp=0.35+Math.random()*0.5+(harmony?0.35:0);
+      v.amps.push(amp);
+      if(v.amps.length>46)v.amps.shift();
+      sum+=amp;
+      const line=v.script[v.lineIdx%v.script.length];
+      v.lineIdx++;
+      const ln=document.createElement('div');
+      ln.className='ln cur';
+      ln.textContent=line;
+      const lines=v.lines;
+      while(lines.children.length>=4)lines.firstChild.remove();
+      [...lines.children].forEach(c=>{if(c!==ln)c.className='ln old'});
+      lines.appendChild(ln);
+      if(harmony)v.el.classList.remove('flash');
+      void v.el.offsetWidth;
+      if(harmony)v.el.classList.add('flash');
+    });
+    chAmps.push(sum/5);
+    if(chAmps.length>64)chAmps.shift();
+    if(harmony){
+      harmEl.textContent='♫ 和声 ×'+active.length;
+      harmEl.style.color='#7dffa8';
+      if(beat%8===0){
+        consensusEl.textContent='» '+CONSENSUS[consIdx%CONSENSUS.length];
+        consIdx++;
+      }
+    }else{
+      harmEl.textContent='— 分声部 —';
+      harmEl.style.color='#8a93a3';
+    }
+  }
+
+  function schedule(t){
+    if(!playing)return;
+    const iv=60000/tempo;
+    if(performance.now()>=nextBeat){
+      beatStep();
+      nextBeat+=iv;
+      if(performance.now()-nextBeat>iv)nextBeat=performance.now()+iv;
+    }
+  }
+
+  (function loop(){
+    schedule();
+    voices.forEach(v=>{
+      const ctx=v.ctx;
+      const w=v.wave.width/(Math.min(devicePixelRatio||1,2));
+      ctx.clearRect(0,0,w,40);
+      const n=v.amps.length;
+      for(let i=0;i<n;i++){
+        const a=v.amps[i];
+        const h=a*30*(v.state?1:0.15);
+        ctx.fillStyle=v.color;
+        ctx.globalAlpha=(i/n)*0.95;
+        ctx.fillRect(i/(n-1)*(w-20)+8,40-h,Math.max(2,w/n*0.6),h);
+        ctx.globalAlpha=1;
+      }
+    });
+    const cw=ch.width/(Math.min(devicePixelRatio||1,2));
+    chCtx.clearRect(0,0,cw,88);
+    const n=chAmps.length;
+    for(let i=0;i<n;i++){
+      const h=chAmps[i]*70;
+      const grad=chCtx.createLinearGradient(0,88-h,0,88);
+      grad.addColorStop(0,'#7dffa8');grad.addColorStop(1,'rgba(125,255,168,.05)');
+      chCtx.fillStyle=grad;
+      const bw=Math.max(2,cw/64*0.7);
+      chCtx.fillRect(i/(n-1)*(cw-bw)+bw/2,88-h,bw,h);
+    }
+    if(n>0){
+      const last=chAmps[n-1]*70;
+      chCtx.fillStyle='rgba(255,255,255,.25)';
+      chCtx.fillRect(cw/64,88-last,2,last);
+    }
+    requestAnimationFrame(loop);
+  })();
+
+  nextBeat=performance.now()+600;
+</script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>共生 MUTUAL — 界面自我演化</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#f6f1e7;color:#2b2620;
+  font-family:"Songti SC","Noto Serif SC","SimSun",serif;
+  min-height:100vh;-webkit-font-smoothing:antialiased;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+header{
+  padding:56px 7vw 40px;
+  display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;
+}
+header h1{font-size:clamp(40px,5.6vw,76px);font-weight:200;letter-spacing:.16em}
+header h1 em{font-style:normal;color:#ff6b57}
+header .gen{
+  font-family:"Courier New",monospace;font-size:12px;letter-spacing:.28em;
+  color:#8a8272;line-height:2.2;text-align:right;
+}
+header .gen b{color:#ff6b57;font-weight:400}
+.main{
+  display:grid;grid-template-columns:repeat(12,1fr);
+  gap:18px;padding:0 7vw 80px;
+}
+.widget{
+  background:rgba(255,255,255,.72);
+  border:1px solid #e4dccb;
+  border-radius:22px;
+  padding:26px 28px;
+  box-shadow:0 14px 34px -18px rgba(90,70,40,.25);
+  transition:transform .3s, box-shadow .3s, opacity .3s;
+  cursor:grab;
+}
+.widget:active{cursor:grabbing}
+.widget.dragging{opacity:.6;transform:scale(.97);box-shadow:none}
+.widget.drop{outline:2px dashed #ff6b57;outline-offset:4px}
+.widget h2{
+  font-family:"Courier New",monospace;font-size:10.5px;letter-spacing:.32em;
+  color:#a09888;font-weight:400;margin-bottom:16px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.widget h2 .grip{opacity:.4;font-size:13px;letter-spacing:2px}
+.w-hello{grid-column:span 6}
+.w-hello .big{font-size:clamp(26px,3.2vw,40px);line-height:1.6;font-weight:600}
+.w-hello .big em{font-style:normal;color:#ff6b57}
+.w-hello .sub{margin-top:12px;font-size:14px;color:#7a7262;line-height:1.9}
+.w-focus{grid-column:span 3;background:#fff4ec}
+.w-focus li{
+  list-style:none;padding:12px 0;border-bottom:1px dashed #ead9c4;
+  font-size:14.5px;display:flex;justify-content:space-between;align-items:center;gap:8px;
+}
+.w-focus li:last-child{border-bottom:none}
+.w-focus .tag{font-family:"Courier New",monospace;font-size:10px;color:#c96a4a;letter-spacing:.14em;flex-shrink:0}
+.w-actions{grid-column:span 3;background:#ffece8}
+.w-actions button{
+  display:block;width:100%;text-align:left;margin-bottom:10px;
+  padding:13px 16px;border-radius:14px;border:1px solid #eed5cb;
+  background:#fff;cursor:pointer;font-family:inherit;font-size:14px;color:#2b2620;
+  transition:background .25s, transform .25s;
+  position:relative;overflow:hidden;
+}
+.w-actions button:hover{background:#ffd9d0;transform:translateX(4px)}
+.w-actions button .cnt{
+  position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  font-family:"Courier New",monospace;font-size:10px;color:#b08878;
+}
+.w-skills{grid-column:span 5}
+.skill{margin-bottom:14px}
+.skill .srow{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;color:#5a5242}
+.skill .srow span:last-child{font-family:"Courier New",monospace;font-size:11px;color:#a09888}
+.skill .sbar{height:5px;background:#ece4d2;border-radius:3px;overflow:hidden}
+.skill .sbar i{
+  display:block;height:100%;border-radius:3px;width:0;
+  background:linear-gradient(90deg,#ff6b57,#ffa58f);
+  transition:width 1.2s cubic-bezier(.2,.8,.2,1);
+}
+.w-genome{grid-column:span 7}
+.w-genome .gline{
+  display:flex;justify-content:space-between;gap:20px;
+  font-family:"Courier New",monospace;font-size:12px;letter-spacing:.14em;
+  padding:10px 0;border-bottom:1px dashed #e4dccb;color:#5a5242;
+}
+.w-genome .gline b{color:#ff6b57;font-weight:400;text-align:right}
+.w-genome .gline span{color:#a09888}
+.w-quote{grid-column:span 12;background:#2b2620;color:#f6f1e7;text-align:center;padding:34px}
+.w-quote p{font-size:17px;letter-spacing:.24em;line-height:2}
+.w-quote small{font-family:"Courier New",monospace;font-size:10.5px;letter-spacing:.3em;color:#b0a894;display:block;margin-top:10px}
+.foot{
+  padding:0 7vw 50px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;
+  font-family:"Courier New",monospace;font-size:10.5px;letter-spacing:.26em;color:#a09888;
+}
+@media (max-width:860px){
+  .w-hello,.w-focus,.w-actions,.w-skills,.w-genome{grid-column:span 12}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>共生<em>·</em>Mutual</h1>
+  <div class="gen">
+    第 <b id="genNo">1</b> 代界面<br>
+    <span id="genInfo">尚在学习你的使用方式</span>
+  </div>
+</header>
+<div class="main" id="main"></div>
+<div class="foot">
+  <span>MUTUAL · SELF-EVOLVING INTERFACE</span>
+  <span>拖拽模块重排 · 界面会记住 · 刷新试试</span>
+</div>
+<script>
+const orderKey = 'mutual_order_v1';
+const visKey = 'mutual_visits';
+const actKey = 'mutual_actions';
+const defaultOrder = ['hello', 'focus', 'actions', 'skills', 'genome', 'quote'];
+let order = [];
+try { order = JSON.parse(localStorage.getItem(orderKey)) || defaultOrder; } catch(e){ order = defaultOrder; }
+if (order.length !== defaultOrder.length) order = defaultOrder;
+
+let visits = 1;
+try { visits = (parseInt(localStorage.getItem(visKey)) || 0) + 1; localStorage.setItem(visKey, visits); } catch(e){}
+let actions = {};
+try { actions = JSON.parse(localStorage.getItem(actKey)) || {}; } catch(e){}
+
+const actionNames = ['写封邮件', '总结今日', '生成灵感', '整理日程'];
+actionNames.forEach(a => { if (!actions[a]) actions[a] = 0; });
+const fav = Object.entries(actions).sort((a, b) => b[1] - a[1])[0][0];
+const hour = new Date().getHours();
+const peak = hour < 6 ? '深夜' : hour < 12 ? '上午' : hour < 18 ? '下午' : '晚间';
+
+document.getElementById('genNo').textContent = visits;
+document.getElementById('genInfo').textContent = '本界面已根据你的 ' + Math.max(1, visits * 7) + ' 次交互自我调整';
+
+const widgets = {
+  hello: () => `
+    <div class="widget w-hello" data-id="hello">
+      <h2>问候 · GREETING<span class="grip">⠿</span></h2>
+      <div class="big">${peak}好。<br>我把你最常用的东西<br>放到了<em>你习惯的位置</em>。</div>
+      <div class="sub">这是第 ${visits} 次为你重排。上一次，你在${peak}使用最频繁的动作是「${fav}」。</div>
+    </div>`,
+  focus: () => `
+    <div class="widget w-focus" data-id="focus">
+      <h2>今日焦点 · FOCUS<span class="grip">⠿</span></h2>
+      <ul>
+        <li>产品方案定稿 <span class="tag">16:00</span></li>
+        <li>回复 3 封重要邮件 <span class="tag">-</span></li>
+        <li>傍晚留给你自己 <span class="tag">休</span></li>
+      </ul>
+    </div>`,
+  actions: () => `
+    <div class="widget w-actions" data-id="actions">
+      <h2>快捷动作 · ACTIONS<span class="grip">⠿</span></h2>
+      ${actionNames.map(a => `<button data-act="${a}">${a}<span class="cnt">×${actions[a]}</span></button>`).join('')}
+    </div>`,
+  skills: () => `
+    <div class="widget w-skills" data-id="skills">
+      <h2>能力图谱 · SKILLS<span class="grip">⠿</span></h2>
+      ${[['写作辅助', 86], ['研究检索', 74], ['代码工程', 68], ['创意生成', 91], ['日程协调', 62]].map(s => `
+        <div class="skill"><div class="srow"><span>${s[0]}</span><span>${s[1]}%</span></div>
+        <div class="sbar"><i data-w="${s[1]}"></i></div></div>`).join('')}
+    </div>`,
+  genome: () => `
+    <div class="widget w-genome" data-id="genome">
+      <h2>你的界面基因组 · GENOME<span class="grip">⠿</span></h2>
+      <div class="gline"><span>活跃时段</span><b>${peak} · 为主</b></div>
+      <div class="gline"><span>高频动作</span><b>「${fav}」×${actions[fav]}</b></div>
+      <div class="gline"><span>布局熵值</span><b>0.${42 + (visits % 50)}</b></div>
+      <div class="gline"><span>演化代数</span><b>第 ${visits} 代</b></div>
+      <div class="gline"><span>模块顺序</span><b>${order.join(' › ')}</b></div>
+    </div>`,
+  quote: () => `
+    <div class="widget w-quote" data-id="quote">
+      <p>最好的界面，不是被设计的，而是被用出来的。</p>
+      <small>MUTUAL DESIGN PRINCIPLE No.1</small>
+    </div>`
+};
+
+const main = document.getElementById('main');
+function render(){
+  main.innerHTML = order.map(id => widgets[id]()).join('');
+  document.querySelectorAll('.sbar i').forEach(el => {
+    setTimeout(() => { el.style.width = el.dataset.w + '%'; }, 120);
+  });
+  document.querySelectorAll('[data-act]').forEach(b => {
+    b.addEventListener('click', () => {
+      const a = b.dataset.act;
+      actions[a]++;
+      try { localStorage.setItem(actKey, JSON.stringify(actions)); } catch(e){}
+      b.querySelector('.cnt').textContent = '×' + actions[a];
+      b.style.background = '#ffd9d0';
+      setTimeout(() => b.style.background = '', 500);
+      const g = document.querySelector('.w-genome .gline:nth-child(2) b');
+      if (g) g.textContent = '「' + a + '」×' + actions[a];
+    });
+  });
+  let dragEl = null, target = null;
+  document.querySelectorAll('.widget').forEach(w => {
+    w.addEventListener('pointerdown', e => {
+      if (e.target.closest('button')) return;
+      dragEl = w;
+      w.classList.add('dragging');
+      w.setPointerCapture(e.pointerId);
+    });
+    w.addEventListener('pointermove', e => {
+      if (!dragEl) return;
+      w.classList.remove('drop');
+      const over = document.elementFromPoint(e.clientX, e.clientY);
+      const wd = over && over.closest('.widget');
+      if (wd && wd !== dragEl){ target = wd; wd.classList.add('drop'); }
+      else target = null;
+    });
+    w.addEventListener('pointerup', () => {
+      if (dragEl && target){
+        const a = dragEl.dataset.id, b = target.dataset.id;
+        const ia = order.indexOf(a), ib = order.indexOf(b);
+        order.splice(ia, 1);
+        order.splice(order.indexOf(b), 0, a);
+        try { localStorage.setItem(orderKey, JSON.stringify(order)); } catch(e){}
+        render();
+      }
+      if (dragEl) dragEl.classList.remove('dragging');
+      document.querySelectorAll('.drop').forEach(x => x.classList.remove('drop'));
+      dragEl = null; target = null;
+    });
+  });
+}
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>节律 CIRCA — 界面感知环境</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  overflow:hidden;-webkit-font-smoothing:antialiased;
+  --sky1:#0b1030;--sky2:#1a2a5e;--ink:rgba(255,255,255,.92);--sub:rgba(255,255,255,.55);
+  background:linear-gradient(var(--sky1), var(--sky2));
+  color:var(--ink);
+  transition:background 1.2s ease, color 1.2s ease;
+}
+.sky{position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(60% 40% at 50% 0%, var(--glow), transparent 70%);
+  opacity:.8;transition:background 1.2s ease;
+}
+.disc{
+  position:fixed;z-index:2;
+  width:130px;height:130px;border-radius:50%;
+  left:calc(var(--arcx) * 1% - 65px);
+  top:calc(76% - var(--arcy) * 1% - 65px);
+  cursor:grab;
+  background:var(--discbg);
+  box-shadow:var(--discglow);
+  transition:background 1.2s ease, box-shadow 1.2s ease;
+}
+.disc:active{cursor:grabbing}
+.disc::after{
+  content:"";position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at 36% 32%, rgba(255,255,255,.85), transparent 42%);
+  opacity:var(--shin);
+}
+.hud{
+  position:fixed;z-index:3;font-family:"Courier New",monospace;
+  font-size:11px;letter-spacing:.28em;color:var(--sub);transition:color 1.2s ease;
+}
+.hud.tl{top:30px;left:34px}
+.hud.tr{top:30px;right:34px;text-align:right}
+.center{
+  position:fixed;inset:0;z-index:1;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;pointer-events:none;transition:opacity 1.4s ease, filter 1.4s ease;
+}
+.center h1{font-size:clamp(40px,6.4vw,84px);font-weight:200;letter-spacing:.28em;text-indent:.28em;transition:color 1.2s ease}
+.center .greet{margin-top:26px;font-size:clamp(15px,2vw,19px);letter-spacing:.2em;color:var(--sub);transition:color 1.2s ease}
+.center .state{
+  margin-top:40px;display:inline-flex;align-items:center;gap:10px;
+  font-size:12px;letter-spacing:.3em;color:var(--sub);
+  border:1px solid var(--borderline);border-radius:999px;padding:10px 24px;
+  transition:color 1.2s ease, border-color 1.2s ease;
+}
+.center .state .dot{
+  width:7px;height:7px;border-radius:50%;background:#9be8c0;
+  animation:breath 3s ease-in-out infinite;
+  transition:background 1.2s ease;
+}
+body.dormant .center .dot{animation-duration:7s;background:#8fb8a8}
+@keyframes breath{50%{transform:scale(2);opacity:.35}}
+.moodbar{
+  position:fixed;bottom:34px;left:50%;transform:translateX(-50%);z-index:3;
+  width:300px;height:4px;border-radius:2px;overflow:hidden;
+  background:rgba(255,255,255,.14);
+}
+.moodbar i{
+  display:block;height:100%;width:var(--mood,50%);
+  background:linear-gradient(90deg,#ffb454,#4de3ff,#7dffa0);
+  border-radius:2px;transition:width 1.2s ease;
+}
+body.dormant .center{opacity:.18;filter:blur(2px)}
+body.dormant .disc{animation:doze 6s ease-in-out infinite alternate}
+@keyframes doze{from{transform:scale(1)}to{transform:scale(1.05)}}
+.preview-tip{
+  position:fixed;bottom:58px;left:50%;transform:translateX(-50%);z-index:3;
+  font-size:11px;letter-spacing:.3em;color:var(--sub);
+  opacity:0;transition:opacity .4s;
+}
+.preview-tip.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="sky" id="sky"></div>
+<div class="disc" id="disc"></div>
+<div class="center">
+  <h1 id="phase">夜</h1>
+  <div class="greet" id="greet"></div>
+  <div class="state"><span class="dot"></span><span id="state">感知到你在</span></div>
+</div>
+<div class="hud tl" id="clockline">00:00:00</div>
+<div class="hud tr" id="luxline">光照 0 lux</div>
+<div class="hud tl" style="bottom:30px;top:auto" id="presence">PRESENCE · ACTIVE</div>
+<div class="hud tr" style="bottom:30px;top:auto">CIRCA · v2.1 昼夜节律</div>
+<div class="moodbar"><i id="mood"></i></div>
+<div class="preview-tip" id="tip">松开回到此刻 · 拖动预览别的时间</div>
+<script>
+const phases = [
+  {h:0, name:'夜', g:'夜深了。我守着。', c1:'#070b24', c2:'#101a44', glow:'#5a6eff', disc:'radial-gradient(circle at 40% 36%, #e8ecff, #aab6e8 60%, #6a74a8)', shin:.9, lux:0},
+  {h:6, name:'黎明', g:'天快亮了。早安，或晚安。', c1:'#2a2350', c2:'#c96a5a', glow:'#ff9678', disc:'radial-gradient(circle at 42% 38%, #fff6e0, #ffb86a 65%, #e07840)', shin:1, lux:60},
+  {h:9, name:'晨', g:'早上好。今天想做什么？', c1:'#4a7fb8', c2:'#bfe0ff', glow:'#fff0c8', disc:'radial-gradient(circle at 42% 38%, #fffef0, #ffe9a0 60%, #ffc95e)', shin:1, lux:400},
+  {h:13, name:'午', g:'正午了。保持清醒。', c1:'#2e79c8', c2:'#a8d8ff', glow:'#ffffff', disc:'radial-gradient(circle at 42% 38%, #ffffff, #fff3c0 55%, #ffd96a)', shin:1, lux:900},
+  {h:17, name:'黄昏', g:'光线在变软。适合收尾。', c1:'#3d5aa8', c2:'#ff9e6d', glow:'#ffa06e', disc:'radial-gradient(circle at 42% 38%, #fff0d8, #ffb073 65%, #e2683f)', shin:1, lux:200},
+  {h:20, name:'夜', g:'又见面了。夜晚的注意力更细腻。', c1:'#0e1233', c2:'#1d2a58', glow:'#5a6eff', disc:'radial-gradient(circle at 40% 36%, #f0f2ff, #b8c2ec 60%, #7a82b0)', shin:.9, lux:10}
+];
+function mix(a, b, t){ return a.map((v, i) => Math.round(v + (b[i] - v) * t)); }
+function hexToRgb(h){ return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]; }
+function rgb(h){ return 'rgb(' + h.join(',') + ')'; }
+function at(h){
+  h = ((h % 24) + 24) % 24;
+  const idx = phases.findIndex(p => p.h > h);
+  if (idx === -1) return phases[0];
+  const a = phases[idx - 1], b = phases[idx];
+  const t = (h - a.h) / (b.h - a.h);
+  return {
+    name: t < .5 ? a.name : b.name,
+    greet: b.g,
+    c1: rgb(mix(hexToRgb(a.c1), hexToRgb(b.c1), t)),
+    c2: rgb(mix(hexToRgb(a.c2), hexToRgb(b.c2), t)),
+    glow: rgb(mix(hexToRgb(a.glow), hexToRgb(b.glow), t)),
+    disc: b.disc, shin: b.shin,
+    lux: Math.round(a.lux + (b.lux - a.lux) * t)
+  };
+}
+let preview = null;
+function realH(){ return new Date().getHours() + new Date().getMinutes() / 60; }
+function apply(h){
+  const s = at(h);
+  const d = document.body.style;
+  d.setProperty('--sky1', s.c1); d.setProperty('--sky2', s.c2);
+  d.setProperty('--glow', s.glow);
+  d.setProperty('--discbg', s.disc); d.setProperty('--shin', s.shin);
+  d.setProperty('--ink', s.lux < 80 ? 'rgba(255,255,255,.94)' : 'rgba(30,40,60,.94)');
+  d.setProperty('--sub', s.lux < 80 ? 'rgba(255,255,255,.6)' : 'rgba(30,40,60,.6)');
+  d.setProperty('--borderline', s.lux < 80 ? 'rgba(255,255,255,.3)' : 'rgba(30,40,60,.3)');
+  d.setProperty('--discglow', s.lux < 80 ? '0 0 80px rgba(200,210,255,.5)' : '0 0 80px rgba(255,220,150,.7)');
+  const arcx = (h / 24) * 100;
+  const arcy = Math.sin((h / 24) * Math.PI) * 55;
+  d.setProperty('--arcx', arcx); d.setProperty('--arcy', arcy);
+  d.setProperty('--mood', (h / 24 * 100) + '%');
+  document.getElementById('phase').textContent = s.name;
+  document.getElementById('greet').textContent = s.greet;
+  document.getElementById('luxline').textContent = '光照 ' + s.lux + ' lux';
+}
+function tick(){
+  const h = preview !== null ? preview : realH();
+  apply(h);
+  document.getElementById('clockline').textContent = new Date().toTimeString().slice(0, 8) + (preview !== null ? ' · 预览 ' + preview.toFixed(1) + ' 时' : '');
+}
+tick(); setInterval(tick, 1500);
+
+const disc = document.getElementById('disc');
+const tip = document.getElementById('tip');
+let dragging = false;
+disc.addEventListener('pointerdown', e => {
+  dragging = true; disc.setPointerCapture(e.pointerId);
+  tip.classList.add('on');
+});
+disc.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  preview = Math.min(23.9, Math.max(0, (e.clientX / innerWidth) * 24));
+});
+disc.addEventListener('pointerup', () => {
+  dragging = false; preview = null; tip.classList.remove('on');
+});
+
+let idleT = 0, lastAct = Date.now();
+const presence = document.getElementById('presence');
+const stateEl = document.getElementById('state');
+setInterval(() => {
+  idleT = (Date.now() - lastAct) / 1000;
+  if (idleT > 25){
+    document.body.classList.add('dormant');
+    stateEl.textContent = '待机呼吸中';
+    presence.textContent = 'PRESENCE · DORMANT';
+  } else {
+    document.body.classList.remove('dormant');
+    stateEl.textContent = '感知到你在';
+    presence.textContent = 'PRESENCE · ACTIVE';
+  }
+}, 1000);
+['pointermove','pointerdown','keydown'].forEach(ev =>
+  addEventListener(ev, () => { lastAct = Date.now(); })
+);
+</script>
+</body>
+</html>

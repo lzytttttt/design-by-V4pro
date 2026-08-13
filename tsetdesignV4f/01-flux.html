@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>FŁUX · Token Stream Agent</title>
+<style>
+  :root{
+    --bg:#06080b; --ink:#d7e0ea;
+    --subj:#eaf2ff; --act:#ffc46b; --obj:#c792ea; --mod:#7a8aa0; --punc:#33404e;
+    --cyan:#5ff0e0; --dim:#556370;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;overflow:hidden}
+  #hud{
+    position:fixed;top:0;left:0;right:0;height:58px;z-index:60;
+    display:flex;align-items:center;gap:28px;padding:0 26px;
+    border-bottom:1px solid rgba(120,150,190,.12);
+    background:linear-gradient(rgba(6,8,11,.92),rgba(6,8,11,.5));
+    backdrop-filter:blur(10px);
+  }
+  #hud .logo{font-size:15px;letter-spacing:.18em;color:var(--cyan);font-weight:700}
+  #hud .philo{font-size:10px;color:var(--dim);letter-spacing:.16em;text-transform:uppercase}
+  #hud .spacer{flex:1}
+  #ctxbar{display:flex;align-items:center;gap:10px;font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums}
+  #ctxbar .bar{width:120px;height:5px;border:1px solid #22303e;border-radius:3px;overflow:hidden}
+  #ctxbar .fill{height:100%;width:0;background:linear-gradient(90deg,#5ff0e0,#ffc46b);transition:width .3s}
+  #speed{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--dim)}
+  #speed button{background:#101824;border:1px solid #22303e;color:var(--dim);padding:4px 12px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:.1em}
+  #speed button.on{color:var(--cyan);border-color:rgba(95,240,224,.5)}
+  #stream{
+    position:absolute;inset:58px 0 0 0;overflow-y:auto;padding:30px 10vw 45vh;
+    font-size:15px;line-height:2.1;color:var(--ink);white-space:pre-wrap;word-break:break-all;
+  }
+  #stream::-webkit-scrollbar{width:0}
+  .tok{display:inline;cursor:default;transition:opacity .5s}
+  .tok:hover{background:rgba(95,240,224,.09)}
+  .tok.subj{color:var(--subj)} .tok.act{color:var(--act)} .tok.obj{color:var(--obj)}
+  .tok.mod{color:var(--mod)} .tok.punc{color:var(--punc)} .tok.stop{color:var(--punc)}
+  .tok.title{color:var(--cyan);font-size:22px;letter-spacing:.28em;margin:46px 8px 18px 0;font-weight:700;display:inline-block}
+  .tok.glow{animation:tokglow 1.4s ease-out}
+  @keyframes tokglow{0%{text-shadow:0 0 20px rgba(95,240,224,.95)}100%{text-shadow:0 0 0 transparent}}
+  .tok.old{opacity:.22}
+  #hint{
+    position:fixed;pointer-events:none;z-index:90;display:none;max-width:300px;
+    background:#0d131c;border:1px solid #22303e;border-radius:8px;padding:10px 14px;
+    font-size:10px;color:var(--dim);line-height:1.9;letter-spacing:.05em;
+  }
+  #hint b{color:var(--cyan);font-weight:400}
+  #pausebar{position:fixed;left:0;right:0;bottom:0;height:4px;background:#0d141d;z-index:50}
+  #pausebar .flow{height:100%;background:linear-gradient(90deg,var(--cyan),var(--act));transform-origin:left;animation:flow 2.4s linear infinite}
+  #pausebar.paused .flow{animation-play-state:paused;opacity:.25}
+  @keyframes flow{to{transform:scaleX(0)}}
+  #modal{
+    position:fixed;inset:0;background:rgba(3,5,8,.66);backdrop-filter:blur(7px);
+    display:none;align-items:center;justify-content:center;z-index:100;
+  }
+  #modal .card{
+    background:#0c121b;border:1px solid #22303e;border-radius:14px;padding:32px 38px;
+    max-width:430px;text-align:center;
+  }
+  #modal h2{color:var(--cyan);font-size:14px;letter-spacing:.24em;margin-bottom:16px}
+  #modal p{color:var(--dim);font-size:11px;line-height:2.1;letter-spacing:.04em;margin-bottom:22px}
+  #modal .big{color:var(--ink);font-size:26px;letter-spacing:.1em;margin-bottom:6px}
+  #modal button{
+    background:transparent;border:1px solid var(--cyan);color:var(--cyan);
+    padding:9px 26px;border-radius:6px;cursor:pointer;font-size:11px;letter-spacing:.18em;
+  }
+  #modal button:hover{background:rgba(95,240,224,.08)}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div class="logo">FŁUX</div>
+  <div class="philo">token-stream · interface is time</div>
+  <div class="spacer"></div>
+  <div id="ctxbar"><span id="ctxval">CTX 0%</span><div class="bar"><div class="fill" id="ctxfill"></div></div></div>
+  <div id="speed">
+    <button data-s="0.4">静流</button>
+    <button data-s="2" class="on">常流</button>
+    <button data-s="6">湍流</button>
+  </div>
+</div>
+
+<div id="stream"></div>
+<div id="pausebar"><div class="flow"></div></div>
+<div id="hint"></div>
+
+<div id="modal">
+  <div class="card">
+    <div class="big" id="mTok"></div>
+    <h2>TOKEN 采样记录</h2>
+    <p id="mBody"></p>
+    <button id="mResume">继续流动</button>
+  </div>
+</div>
+
+<script>
+  const VERBS=new Set('是 有 提供 支持 使用 计算 生成 输出 接收 推理 检索 写作 翻译 编码 迭代 适应 探索 聚焦 对话 理解 规划 校验 遗忘 涌现 读取 写入 回答 提问 寻找 确认 怀疑 验证 反驳 排序 连接 学习 相信 进入 停止 继续 流动 沉淀 保持 推 沉 重演 生长 需要 成为 不会 只 让 把 被 在 与 而 并 了 着'.split(' '));
+  const PUNCT=new Set('。 ， 、 ： ； ！ ？ “ ” 「 」 （ ） — - … · % /'.split(' '));
+
+  const CHAPTERS=[
+    {t:'关于 FŁUX', body:'FŁUX 没有固定的界面。它的主页不是被设计出来的，而是被一条永不停歇的 token 流，实时书写出来的。每一个字符，都在此刻被预测、采样、并沉淀为历史。'},
+    {t:'能力', body:'FŁUX 支持流式推理、增量记忆、以及无限上下文的分层压缩。它擅长在信息洪流中保持注意力，把重要的 token 推向亮处，把次要的 token 沉入幽暗的底部。'},
+    {t:'接入', body:'使用 FŁUX 不需要窗口、卡片、或导航。你只需要进入这条河流，把目光交给它。停止阅读时，河流会暂时冻结；重新注视时，它将继续流动。'},
+    {t:'循环', body:'这一切会不断重演。每一条句子都从上一章的尾部生长出来。FŁUX 相信：真正的接口不是布局，而是时间本身。'}
+  ];
+
+  const stream=document.getElementById('stream');
+  const hint=document.getElementById('hint');
+  const modal=document.getElementById('modal');
+  const pb=document.getElementById('pausebar');
+
+  let queue=[];
+  let emitted=0;
+  let playing=true;
+  let chapterIdx=0;
+  let speed=2;
+  let hash=1;
+
+  function roleOf(ch){
+    if(PUNCT.has(ch)){
+      if(ch==='。'||ch==='…') return 'stop';
+      return 'punc';
+    }
+    if(VERBS.has(ch)) return 'act';
+    if(ch===' '||ch==='\n') return 'punc';
+    hash=(hash*31+ch.charCodeAt(0))>>>0;
+    return (hash%3===0)?'mod':'subj';
+  }
+
+  function buildChapter(i){
+    const c=CHAPTERS[i];
+    for(const ch of c.t) queue.push({ch,cls:'title',glow:true,chp:c.t});
+    for(const ch of c.body) queue.push({ch,cls:roleOf(ch),glow:false,chp:c.t});
+  }
+
+  for(let i=0;i<CHAPTERS.length;i++) buildChapter(i);
+
+  function spawn(t){
+    const s=document.createElement('span');
+    s.className='tok '+t.cls;
+    s.dataset.role=t.cls;
+    s.dataset.ch=t.ch;
+    s.dataset.chp=t.chp;
+    s.textContent=t.ch;
+    if(t.glow) s.classList.add('glow');
+    stream.appendChild(s);
+    emitted++;
+    while(stream.children.length>3600){
+      const old=stream.children[0];
+      old.style.opacity='0';
+      setTimeout(()=>{try{old.remove()}catch(e){}},600);
+    }
+    if(emitted%256===0){
+      const p=(emitted%8192)/8192*100;
+      document.getElementById('ctxfill').style.width=p+'%';
+      document.getElementById('ctxval').textContent='CTX '+p.toFixed(1)+'%';
+    }
+  }
+
+  let rewindT=null;
+
+  function tick(){
+    requestAnimationFrame(tick);
+    if(!playing) return;
+    let n=speed;
+    while(n>0&&queue.length>0){
+      spawn(queue.shift());
+      n--;
+    }
+    if(queue.length===0){
+      if(!rewindT){
+        rewindT=setTimeout(()=>{
+          const s=document.createElement('span');
+          s.className='tok stop glow';
+          s.textContent='‖ 循环完成，河流回卷 ——';
+          stream.appendChild(s);
+          setTimeout(()=>{
+            while(stream.firstChild) stream.removeChild(stream.firstChild);
+            hash=(Date.now()%9999)+1;
+            for(let i=0;i<CHAPTERS.length;i++) buildChapter(i);
+            document.getElementById('ctxfill').style.width='0%';
+            document.getElementById('ctxval').textContent='CTX 0%';
+            rewindT=null;
+          },900);
+        },2200);
+      }
+    } else if(rewindT){clearTimeout(rewindT);rewindT=null;}
+    if(follow) stream.scrollTop=stream.scrollHeight;
+  }
+  let follow=true;
+  setInterval(tick,16);
+
+  const ROLE_NAME={subj:'主体 · subject',act:'动作 · action',obj:'客体 · object',mod:'修饰 · modifier',punc:'标点 · punct',stop:'终止 · stop',title:'章节 · title'};
+  const PROB_HUE={subj:0.87,act:0.64,obj:0.71,mod:0.33,punc:0.99,stop:0.99,title:1.0};
+
+  stream.addEventListener('mousemove',e=>{
+    const el=document.elementFromPoint(e.clientX,e.clientY);
+    if(el&&el.classList&&el.classList.contains('tok')&&!el.classList.contains('title')){
+      hint.style.display='block';
+      hint.style.left=(e.clientX+16)+'px';
+      hint.style.top=(e.clientY+14)+'px';
+      const p=((PROB_HUE[el.dataset.role]||0.5)*100).toFixed(1);
+      hint.innerHTML='<b>'+el.dataset.ch+'</b> · '+(ROLE_NAME[el.dataset.role]||'token')+
+        '<br/>预测概率 '+p+'% · 上下文位置 #'+emitted;
+    }else{
+      hint.style.display='none';
+    }
+  });
+  stream.addEventListener('mouseleave',()=>hint.style.display='none');
+
+  stream.addEventListener('click',e=>{
+    const el=document.elementFromPoint(e.clientX,e.clientY);
+    if(!(el&&el.classList&&el.classList.contains('tok'))) return;
+    playing=false;
+    pb.classList.add('paused');
+    const p=((PROB_HUE[el.dataset.role]||0.5)*100).toFixed(1);
+    document.getElementById('mTok').textContent=el.dataset.ch;
+    document.getElementById('mBody').innerHTML=
+      '字符：<b style="color:#5ff0e0">'+el.dataset.ch+'</b>　角色：'+(ROLE_NAME[el.dataset.role]||'token')+
+      '<br/>预测概率 '+p+'%　上下文位置 #'+emitted+
+      '<br/>来源章节：'+el.dataset.chp+'<br/>河流已冻结。';
+    modal.style.display='flex';
+  });
+  document.getElementById('mResume').addEventListener('click',()=>{
+    modal.style.display='none';
+    playing=true;
+    pb.classList.remove('paused');
+  });
+
+  document.querySelectorAll('#speed button').forEach(b=>{
+    b.addEventListener('click',()=>{
+      document.querySelectorAll('#speed button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      speed=parseFloat(b.dataset.s);
+    });
+  });
+
+  stream.addEventListener('wheel',e=>{
+    follow=stream.scrollTop+stream.clientHeight>=stream.scrollHeight-e.deltaY-4;
+  },{passive:true});
+</script>
+</body>
+</html>

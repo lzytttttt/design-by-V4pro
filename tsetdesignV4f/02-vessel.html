@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>VESSEL · Latent Space Agent</title>
+<style>
+  :root{
+    --bg:#030510; --ink:#cdd8ea; --dim:#4d5b75; --acc:#6fb7ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--ink);font-family:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace}
+  #c{position:fixed;inset:0;display:block;cursor:grab}
+  #c.drag{cursor:grabbing}
+  #hud{
+    position:fixed;top:0;left:0;right:0;height:58px;z-index:20;
+    display:flex;align-items:center;gap:26px;padding:0 26px;
+    background:linear-gradient(rgba(3,5,16,.85),rgba(3,5,16,.4));
+    border-bottom:1px solid rgba(111,183,255,.1);backdrop-filter:blur(8px);
+  }
+  #hud .logo{font-size:15px;letter-spacing:.18em;color:var(--acc);font-weight:700}
+  #hud .philo{font-size:10px;color:var(--dim);letter-spacing:.16em;text-transform:uppercase}
+  #hud .spacer{flex:1}
+  #coord{font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums;letter-spacing:.08em}
+  #legend{
+    position:fixed;left:26px;bottom:24px;z-index:20;
+    display:flex;flex-direction:column;gap:8px;
+  }
+  #legend .row{display:flex;align-items:center;gap:10px;font-size:10px;color:var(--dim);letter-spacing:.1em;cursor:pointer;user-select:none}
+  #legend .dot{width:8px;height:8px;border-radius:50%}
+  #legend .row.on{color:var(--ink)}
+  #legend .row.on .dot{box-shadow:0 0 12px currentColor}
+  #caption{
+    position:fixed;right:26px;bottom:24px;z-index:20;text-align:right;
+    font-size:10px;color:var(--dim);line-height:2;letter-spacing:.14em;
+  }
+  #caption b{color:var(--acc);font-weight:400}
+  #tip{
+    position:fixed;pointer-events:none;z-index:40;display:none;
+    background:rgba(10,16,32,.92);border:1px solid rgba(111,183,255,.25);
+    border-radius:8px;padding:12px 16px;max-width:280px;font-size:11px;line-height:1.9;
+  }
+  #tip b{color:var(--acc)}
+  #tip .v{color:var(--dim);font-size:9px;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div class="logo">VESSEL</div>
+  <div class="philo">latent-space · navigation is retrieval</div>
+  <div class="spacer"></div>
+  <div id="coord">θ 0.00 · φ 0.00 · d 1.00</div>
+</div>
+
+<div id="legend"></div>
+<div id="caption"><b>拖动旋转 · 滚轮缩放 · 悬停检索</b><br/>每一个光点都是一个能力维度<br/>聚类中心即 VESSEL 的自我</div>
+<div id="tip"></div>
+
+<script>
+  const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+  let W,H,DPR;
+  function resize(){
+    DPR=Math.min(window.devicePixelRatio||1,2);
+    W=innerWidth;H=innerHeight;
+    cv.width=W*DPR;cv.height=H*DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  resize();addEventListener('resize',resize);
+
+  const CLUSTERS=[
+    {name:'感知', hue:'#6fb7ff', desc:'多模态输入、实时视觉与听觉流。VESSEL 首先是一个接收器。', n:9},
+    {name:'推理', hue:'#c792ea', desc:'链式思考、反事实推演、形式验证。每一步都留下可检查的痕迹。', n:8},
+    {name:'记忆', hue:'#ffc46b', desc:'向量检索、分层压缩、遗忘曲线。旧记忆沉入深空，新记忆浮现。', n:8},
+    {name:'行动', hue:'#7dffa8', desc:'工具调用、代码执行、环境交互。思想必须触地才算完成。', n:8},
+    {name:'人格', hue:'#ff8f9e', desc:'语气控制、价值观对齐、元认知。它知道自己是谁，也知道自己在说什么。', n:7}
+  ];
+
+  const R=380;
+  let points=[];
+  (function build(){
+    points=[];
+    let id=0;
+    CLUSTERS.forEach((cl,ci)=>{
+      const a=Math.random()*Math.PI*2,b=Math.acos(Math.random()*2-1);
+      const cx=Math.sin(b)*Math.cos(a),cy=Math.cos(b),cz=Math.sin(b)*Math.sin(a);
+      for(let i=0;i<cl.n;i++){
+        const ang=Math.random()*Math.PI*2,pol=Math.acos(Math.random()*2-1);
+        const spread=0.14;
+        const px=cx+Math.sin(pol)*Math.cos(ang)*spread;
+        const py=cy+Math.cos(pol)*spread;
+        const pz=cz+Math.sin(pol)*Math.sin(ang)*spread;
+        const len=Math.hypot(px,py,pz)||1;
+        const rr=R*(0.72+Math.random()*0.3);
+        points.push({
+          x:px/len*rr,y:py/len*rr,z:pz/len*rr,
+          ci,id:++id,
+          cap:'维度·'+('ABCDEFGHIJKLMNOPQRSTUVWXYZ'[id%26])+String(id%100).padStart(2,'0')
+        });
+      }
+      cl.center={x:cx,y:cy,z:cz};
+    });
+  })();
+
+  const stars=[];
+  for(let i=0;i<240;i++) stars.push({x:Math.random(),y:Math.random(),s:Math.random()*1.6+0.3,tw:Math.random()*Math.PI*2});
+
+  let yaw=0.6,pitch=0.35,zoom=1;
+  let dragging=false,lx=0,ly=0;
+  let hoverCI=-1,selCI=-1;
+  let frame=0;
+
+  function project(p){
+    let x=p.x,y=p.y,z=p.z;
+    let c=Math.cos(yaw),s=Math.sin(yaw);
+    let x1=x*c-z*s,z1=x*s+z*c;
+    c=Math.cos(pitch);s=Math.sin(pitch);
+    let y1=y*c-z1*s,z2=y*s+z1*c;
+    z2+=R*4.4/zoom;
+    const sc=900/z2;
+    return {x:W/2+x1*sc,y:H/2+y1*sc,z:z2,s:sc};
+  }
+
+  function draw(){
+    frame++;
+    if(!dragging) yaw+=0.0016;
+    ctx.clearRect(0,0,W,H);
+    const bg=ctx.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,'#030510');bg.addColorStop(1,'#070b1c');
+    ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+
+    for(const st of stars){
+      const a=0.25+0.3*Math.sin(frame*0.02+st.tw);
+      ctx.fillStyle='rgba(140,170,220,'+a+')';
+      ctx.fillRect(st.x*W,st.y*H,st.s,st.s);
+    }
+
+    const proj=points.map(p=>({p,pr:project(p)}));
+
+    if(selCI>=0||hoverCI>=0){
+      const ci=selCI>=0?selCI:hoverCI;
+      const cl=CLUSTERS[ci],ct=project(cl.center);
+      if(ct.z>0){
+        ctx.strokeStyle='rgba(111,183,255,.16)';
+        ctx.lineWidth=1;
+        for(const {p,pr} of proj){
+          if(p.ci===ci&&pr.z>0){
+            ctx.beginPath();ctx.moveTo(ct.x,ct.y);ctx.lineTo(pr.x,pr.y);ctx.stroke();
+          }
+        }
+        ctx.fillStyle='rgba(111,183,255,.35)';
+        ctx.beginPath();ctx.arc(ct.x,ct.y,5*ct.s*0.01+3,0,Math.PI*2);ctx.fill();
+      }
+    }
+
+    proj.sort((a,b)=>a.pr.z-b.pr.z);
+    for(const {p,pr} of proj){
+      const alpha=Math.max(0,Math.min(1,(pr.z-250)/400))*0.85;
+      const hl=(p.ci===hoverCI||p.ci===selCI);
+      const r=hl?3.4:1.5+0.9*(pr.s*0.01);
+      ctx.globalAlpha=alpha;
+      ctx.fillStyle=CLUSTERS[p.ci].hue;
+      ctx.beginPath();ctx.arc(pr.x,pr.y,r,0,Math.PI*2);ctx.fill();
+      if(hl){
+        ctx.globalAlpha=0.5;
+        ctx.beginPath();ctx.arc(pr.x,pr.y,r*3.2,0,Math.PI*2);ctx.fill();
+      }
+      ctx.globalAlpha=1;
+    }
+
+    for(let i=0;i<CLUSTERS.length;i++){
+      const ct=project(CLUSTERS[i].center);
+      if(ct.z<=0) continue;
+      const on=i===hoverCI||i===selCI;
+      const a=Math.max(0,Math.min(1,(ct.z-260)/600));
+      const fs=on?16:12;
+      ctx.globalAlpha=(0.42+0.5*a)*(on?1.4:1);
+      ctx.font=(on?'700 ':'400 ')+fs+'px ui-monospace,Cascadia Code,Consolas,monospace';
+      ctx.textAlign='center';
+      ctx.fillStyle=CLUSTERS[i].hue;
+      ctx.fillText(CLUSTERS[i].name,ct.x,ct.y-16);
+      ctx.globalAlpha=(0.3+0.4*a)*(on?1.3:1);
+      ctx.font='9px ui-monospace,Consolas,monospace';
+      ctx.fillText(CLUSTERS[i].n+' dims',ct.x,ct.y-2);
+      ctx.globalAlpha=1;
+    }
+
+    ctx.fillStyle='rgba(205,216,234,0.8)';
+    ctx.font='700 15px ui-monospace,Consolas,monospace';
+    ctx.textAlign='left';
+    ctx.fillText('VESSEL',26,96);
+    ctx.font='9px ui-monospace,Consolas,monospace';
+    ctx.fillStyle='rgba(77,91,117,0.9)';
+    ctx.fillText('一个能力为空间的 agent —— 你正在它的内部',26,116);
+  }
+
+  const legend=document.getElementById('legend');
+  CLUSTERS.forEach((cl,i)=>{
+    const row=document.createElement('div');
+    row.className='row';
+    row.innerHTML='<span class="dot" style="background:'+cl.hue+';color:'+cl.hue+'"></span>'+cl.name+' · '+cl.desc.split('。')[0];
+    row.addEventListener('click',()=>{selCI=selCI===i?-1:i;updateLegend();});
+    legend.appendChild(row);
+  });
+  function updateLegend(){
+    [...legend.children].forEach((r,i)=>r.classList.toggle('on',i===selCI||i===hoverCI));
+  }
+
+  const tip=document.getElementById('tip');
+  cv.addEventListener('mousemove',e=>{
+    if(dragging){
+      const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
+      yaw+=dx*0.005;pitch=Math.max(-1.3,Math.min(1.3,pitch+dy*0.005));
+      document.getElementById('coord').textContent='θ '+yaw.toFixed(2)+' · φ '+pitch.toFixed(2)+' · d '+zoom.toFixed(2);
+      return;
+    }
+    const cx=e.clientX,cy=e.clientY;
+    let best=-1,bd=26,bi=-1;
+    for(let i=0;i<points.length;i++){
+      const pr=project(points[i]);
+      if(pr.z<180) continue;
+      const d=Math.hypot(pr.x-cx,pr.y-cy);
+      if(d<bd){bd=d;bi=i;}
+    }
+    const prev=hoverCI;
+    hoverCI=bi>=0?points[bi].ci:-1;
+    if(hoverCI!==prev) updateLegend();
+    if(bi>=0){
+      const cl=CLUSTERS[points[bi].ci];
+      tip.style.display='block';
+      tip.style.left=Math.min(cx+18,W-300)+'px';
+      tip.style.top=Math.min(cy+18,H-140)+'px';
+      tip.innerHTML='<b>'+points[bi].cap+'</b> · '+cl.name+'<br/>'+cl.desc+
+        '<div class="v">坐标 ['+points[bi].x.toFixed(2)+', '+points[bi].y.toFixed(2)+', '+points[bi].z.toFixed(2)+'] · 相似度 0.'+(87+(points[bi].id*7)%12)+'</div>';
+    }else tip.style.display='none';
+  });
+  cv.addEventListener('mouseleave',()=>{hoverCI=-1;tip.style.display='none';updateLegend();});
+  cv.addEventListener('mousedown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;cv.classList.add('drag');});
+  addEventListener('mouseup',()=>{dragging=false;cv.classList.remove('drag');});
+  cv.addEventListener('wheel',e=>{
+    e.preventDefault();
+    zoom=Math.max(0.45,Math.min(2.6,zoom*(e.deltaY<0?1.1:0.9)));
+    document.getElementById('coord').textContent='θ '+yaw.toFixed(2)+' · φ '+pitch.toFixed(2)+' · d '+zoom.toFixed(2);
+  },{passive:false});
+
+  (function loop(){draw();requestAnimationFrame(loop);})();
+</script>
+</body>
+</html>
