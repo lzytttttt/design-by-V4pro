@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DEEP FIELD · 深空观测站</title>
+<style>
+:root{
+  --bg:#050508;
+  --ink:#d9d4c6;
+  --dim:#7d7768;
+  --gold:#a8894e;
+  --gold-hi:#c8a558;
+  --line:rgba(212,196,158,.14);
+  --mono:"Cascadia Mono",Consolas,"SF Mono",ui-monospace,Menlo,monospace;
+  --serif:Georgia,"Times New Roman","Songti SC",STSong,serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--serif);overflow-x:hidden;min-height:100vh}
+#sky{position:fixed;inset:0;width:100%;height:100%;z-index:0}
+.veil{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 40%,transparent 52%,rgba(0,0,0,.62) 100%)}
+
+/* ---------- 台站信息栏 ---------- */
+#station{position:fixed;top:0;left:0;right:0;z-index:5;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:10px 22px;border-bottom:1px solid var(--line);
+  background:linear-gradient(rgba(5,5,8,.85),rgba(5,5,8,.4));
+  backdrop-filter:blur(3px);font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:#a89f8c}
+.st-l{display:flex;align-items:center;gap:9px;white-space:nowrap}
+.beacon{width:7px;height:7px;border-radius:50%;background:#b3924a;
+  box-shadow:0 0 8px 2px rgba(200,170,90,.5);animation:beacon 2.6s ease-in-out infinite}
+@keyframes beacon{0%,100%{opacity:.35}50%{opacity:1}}
+.st-m{color:#5c5647;letter-spacing:.34em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-r{white-space:nowrap;color:#8c8471}
+
+/* ---------- 观测记录 ---------- */
+#log{position:relative;z-index:3;max-width:880px;margin:0 auto;padding:86px 26px 220px}
+
+.req{font-family:var(--mono);font-size:12px;color:var(--gold);margin:36px 0 14px;
+  opacity:0;animation:fadeUp .5s forwards}
+.req .tag{color:#6e5c33;letter-spacing:.14em}
+.req .txt{display:block;margin-top:6px;padding:9px 14px;color:#cfc7b2;
+  border-left:2px solid rgba(200,170,110,.4);background:rgba(255,250,235,.02);
+  font-size:13px;line-height:1.8;letter-spacing:.04em}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.obs{position:relative;border:1px solid var(--line);background:rgba(10,10,16,.58);
+  backdrop-filter:blur(2px);padding:18px 22px 20px;margin-bottom:8px}
+.obs::before{content:"";position:absolute;left:-1px;top:14px;bottom:14px;width:2px;
+  background:linear-gradient(#8a6d33,transparent)}
+.obs-head{display:flex;justify-content:space-between;gap:18px;
+  font-family:var(--mono);font-size:11px;color:#948a74;line-height:1.95}
+.obs-meta{flex:1;min-width:0}
+.obs-id{font-size:13px;color:var(--gold-hi);letter-spacing:.14em}
+.obs-meta .row{color:#6f6754}
+.obs-meta .row b{color:#9a8f74;font-weight:400}
+.plate{width:118px;height:118px;flex:none;border:1px solid rgba(200,175,120,.25);
+  background:#07070c;position:relative}
+.plate canvas{width:100%;height:100%;display:block}
+.plate .plate-cap{position:absolute;left:0;right:0;bottom:-16px;text-align:center;
+  font-family:var(--mono);font-size:9px;color:#4c473b;letter-spacing:.2em}
+
+.exp-wrap{margin-top:14px}
+.exp-label{font-family:var(--mono);font-size:10.5px;color:#8c6f3a;letter-spacing:.22em;
+  display:flex;justify-content:space-between}
+.exp-bar{height:2px;background:rgba(220,200,150,.1);margin-top:6px;position:relative;overflow:hidden}
+.exp-fill{position:absolute;left:0;top:0;bottom:0;width:0%;
+  background:linear-gradient(90deg,#6e5c33,var(--gold-hi));
+  box-shadow:0 0 6px rgba(200,165,88,.5)}
+.obs-body{margin-top:18px}
+.obs-body p{font-size:15.5px;line-height:2.05;color:#d5cfbf;margin-bottom:11px;letter-spacing:.02em}
+.obs-body p:last-child{margin-bottom:0}
+.dev{filter:blur(7px);opacity:0;animation:develop 1.15s ease-out forwards}
+@keyframes develop{to{filter:blur(0);opacity:1}}
+
+/* ---------- 输入面板 ---------- */
+#panel{position:fixed;left:0;right:0;bottom:0;z-index:6;padding:18px 26px 20px;
+  background:linear-gradient(transparent,rgba(5,5,8,.9) 45%)}
+.panel-inner{max-width:880px;margin:0 auto;display:flex;align-items:center;gap:14px;
+  border:1px solid rgba(220,205,165,.22);background:rgba(8,8,13,.72);
+  backdrop-filter:blur(4px);padding:12px 16px;transition:border-color .3s}
+.panel-inner:focus-within{border-color:rgba(200,175,120,.55)}
+.p-label{font-family:var(--mono);font-size:10.5px;color:#8c6f3a;letter-spacing:.2em;white-space:nowrap}
+#ask{flex:1;background:none;border:none;outline:none;color:#e6dfca;
+  font-family:var(--mono);font-size:13.5px;letter-spacing:.05em;caret-color:var(--gold-hi)}
+#ask::placeholder{color:#5c5647}
+#go{background:none;border:1px solid rgba(200,175,120,.35);color:var(--gold-hi);cursor:pointer;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.18em;padding:9px 18px;transition:.25s}
+#go:hover{background:rgba(200,175,120,.1);border-color:var(--gold-hi)}
+#go:disabled{opacity:.35;cursor:default}
+.panel-foot{max-width:880px;margin:9px auto 0;font-family:var(--mono);
+  font-size:10px;color:#4c473b;letter-spacing:.16em}
+
+@media(max-width:760px){
+  .st-m{display:none}
+  .plate{width:84px;height:84px}
+  .panel-inner{flex-wrap:wrap}
+  #log{padding-top:74px}
+}
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<div class="veil"></div>
+
+<header id="station">
+  <div class="st-l"><span class="beacon"></span><span>深空观测站 · 在线</span></div>
+  <div class="st-m">DEEP FIELD OBSERVATORY</div>
+  <div class="st-r" id="clock">LST --:--:-- · 视宁度 0.62″ · 4.2m 主镜</div>
+</header>
+
+<main id="log"></main>
+
+<footer id="panel">
+  <div class="panel-inner">
+    <span class="p-label">提交观测请求</span>
+    <input id="ask" type="text" placeholder="输入观测目标…" autocomplete="off">
+    <button id="go">曝光 GO</button>
+  </div>
+  <div class="panel-foot">DEEP FIELD v4.2 · CCD -89.3°C · 光谱归档正常 · 今晚天区晴朗</div>
+</footer>
+
+<script>
+/* ==================== 星空底片 ==================== */
+const sky=document.getElementById('sky'),sc=sky.getContext('2d');
+let W=0,H=0,dpr=Math.min(window.devicePixelRatio||1,2);
+const stars=[],brights=[],brightSprites=[];
+
+function makeBrightSprite(sz){ /* 带十字衍射光芒的亮星 */
+  const c=document.createElement('canvas');c.width=c.height=sz*10;
+  const x=c.width/2,g=c.getContext('2d');
+  const rg=g.createRadialGradient(x,x,0,x,x,sz*3.2);
+  rg.addColorStop(0,'rgba(255,248,232,.95)');
+  rg.addColorStop(.3,'rgba(235,222,190,.28)');
+  rg.addColorStop(1,'rgba(235,222,190,0)');
+  g.fillStyle=rg;g.fillRect(0,0,c.width,c.height);
+  const ray=(ang,len,w)=>{
+    g.save();g.translate(x,x);g.rotate(ang);
+    const lg=g.createLinearGradient(-len,0,len,0);
+    lg.addColorStop(0,'rgba(255,246,224,0)');
+    lg.addColorStop(.5,'rgba(255,246,224,.75)');
+    lg.addColorStop(1,'rgba(255,246,224,0)');
+    g.fillStyle=lg;g.fillRect(-len,-w/2,len*2,w);g.restore();
+  };
+  ray(0,sz*4.6,.9);ray(Math.PI/2,sz*4.6,.9);
+  ray(Math.PI/4,sz*2.1,.55);ray(-Math.PI/4,sz*2.1,.55);
+  g.fillStyle='#fff8ea';g.beginPath();g.arc(x,x,sz*.55,0,7);g.fill();
+  return c;
+}
+[1.1,1.5,2].forEach(s=>brightSprites.push(makeBrightSprite(s)));
+
+function initSky(){
+  W=innerWidth;H=innerHeight;
+  sky.width=W*dpr;sky.height=H*dpr;
+  sky.style.width=W+'px';sky.style.height=H+'px';
+  sc.setTransform(dpr,0,0,dpr,0,0);
+  stars.length=0;brights.length=0;
+  const n=Math.min(520,Math.round(W*H/2600));
+  for(let i=0;i<n;i++){
+    const r=Math.random();
+    stars.push({x:Math.random()*W,y:Math.random()*H,
+      s:r<.93?Math.random()*1.1+.4:Math.random()*.9+1.2,
+      a:.18+Math.random()*.5,tw:.4+Math.random()*1.4,ph:Math.random()*6.283,
+      c:r<.06?'200,170,110':r<.09?'205,95,85':'232,228,215'});
+  }
+  const bn=Math.max(7,Math.round(n/48));
+  for(let i=0;i<bn;i++)brights.push({x:Math.random()*W,y:Math.random()*H,
+    sp:Math.random()<.5?0:Math.random()<.5?1:2,
+    a:.5+Math.random()*.4,tw:.3+Math.random()*.8,ph:Math.random()*6.283});
+}
+initSky();addEventListener('resize',initSky);
+
+let skyT=0;
+(function skyLoop(){
+  skyT+=.016;sc.clearRect(0,0,W,H);
+  for(const s of stars){
+    const a=s.a*(.62+.38*Math.sin(skyT*s.tw+s.ph));
+    sc.fillStyle='rgba('+s.c+','+a.toFixed(3)+')';
+    sc.fillRect(s.x,s.y,s.s,s.s);
+  }
+  for(const b of brights){
+    const sp=brightSprites[b.sp],a=b.a*(.7+.3*Math.sin(skyT*b.tw+b.ph));
+    sc.globalAlpha=a;
+    sc.drawImage(sp,b.x-sp.width/2,b.y-sp.height/2);
+  }
+  sc.globalAlpha=1;
+  requestAnimationFrame(skyLoop);
+})();
+
+/* ==================== 台站时钟 ==================== */
+const clockEl=document.getElementById('clock');
+(function tick(){
+  const d=new Date(),p=n=>String(n).padStart(2,'0');
+  clockEl.textContent='LST '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())
+    +' · 视宁度 0.62″ · 4.2m 主镜';
+  setTimeout(tick,1000);
+})();
+
+/* ==================== 底片：噪点渐清 ==================== */
+function makeGalaxyPlate(){
+  const c=document.createElement('canvas');c.width=c.height=128;
+  const g=c.getContext('2d');
+  g.fillStyle='#07070c';g.fillRect(0,0,128,128);
+  const rot=Math.random()*Math.PI,squash=.32+Math.random()*.2;
+  g.save();g.translate(64,64);g.rotate(rot);g.scale(1,squash);
+  let core=g.createRadialGradient(0,0,0,0,0,16);
+  core.addColorStop(0,'rgba(255,246,226,.95)');
+  core.addColorStop(.5,'rgba(238,224,192,.55)');
+  core.addColorStop(1,'rgba(238,224,192,0)');
+  g.fillStyle=core;g.beginPath();g.arc(0,0,16,0,7);g.fill();
+  let disk=g.createRadialGradient(0,0,0,0,0,52);
+  disk.addColorStop(0,'rgba(196,204,224,.4)');
+  disk.addColorStop(.55,'rgba(130,140,170,.16)');
+  disk.addColorStop(1,'rgba(110,120,150,0)');
+  g.fillStyle=disk;g.beginPath();g.arc(0,0,52,0,7);g.fill();
+  g.restore();
+  for(let i=0;i<5;i++){ /* 前景恒星 */
+    const x=10+Math.random()*108,y=10+Math.random()*108;
+    g.fillStyle='rgba(255,250,238,'+(.5+Math.random()*.5).toFixed(2)+')';
+    g.beginPath();g.arc(x,y,Math.random()*1.4+.5,0,7);g.fill();
+  }
+  const vg=g.createRadialGradient(64,64,34,64,64,92); /* 渐晕 */
+  vg.addColorStop(0,'rgba(5,5,8,0)');vg.addColorStop(1,'rgba(5,5,8,.9)');
+  g.fillStyle=vg;g.fillRect(0,0,128,128);
+  return c;
+}
+function makeNoisePlate(){
+  const c=document.createElement('canvas');c.width=c.height=128;
+  const g=c.getContext('2d'),img=g.createImageData(128,128);
+  for(let i=0;i<img.data.length;i+=4){
+    const v=Math.random()*255;
+    img.data[i]=v*1.02;img.data[i+1]=v;img.data[i+2]=v*.94;img.data[i+3]=255;
+  }
+  g.putImageData(img,0,0);return c;
+}
+const noisePlate=makeNoisePlate();
+
+/* p: 0(噪点) → 1(清晰星系) */
+function drawPlate(ctx,target,p){
+  ctx.clearRect(0,0,128,128);
+  ctx.filter='blur('+(5*(1-p)).toFixed(2)+'px)';
+  ctx.drawImage(target,0,0);
+  ctx.filter='none';
+  ctx.globalAlpha=Math.pow(1-p,1.15)*.9;
+  ctx.drawImage(noisePlate,0,0);
+  ctx.globalAlpha=1;
+}
+
+/* ==================== 观测报告库 ==================== */
+const REPORTS=[
+["本帧覆盖天区约 2.4 平方角分，深度曝光后共解析出 1,847 个星系。其中最遥远者红移 z ≈ 1.62，我们所见的光出发时，地球尚不存在。",
+"空间本身在膨胀——这不是星系在飞离，而是尺子在变长。观测越深，退行速度越快；在视界附近，它甚至超过光速，而这一切并不违反任何定律。",
+"结论：每一次深场曝光都是一次时间旅行。望远镜从不看「现在」，它只是耐心地收集过去。"],
+["目标为一片中性氢密集区，边缘可见数颗年轻的蓝色恒星，年龄不足两千万年。它们燃烧得极烈，也将在数百万年内以超新星谢幕。",
+"对比之下，暗淡的红矮星可以燃烧上万亿年——宇宙至今的年龄，还不足以让任何一颗红矮星走完一生。",
+"结论：亮度是挥霍，暗淡是长寿。夜空中最不起眼的光点，往往才是最后的赢家。"],
+["本星系团的引力透镜分析完成。背景星系的影像被拉成弧形，其偏折角度远超可见物质所能产生的效果。",
+"推算表明，我们熟悉的物质——恒星、行星、气体、你我——只占宇宙总质能的约 4.9%。其余是 26.8% 的暗物质与 68.3% 的暗能量。",
+"结论：宇宙的主要成分尚未被直接观测到。天文学是一门在黑暗中读信的学问。"],
+["对目标恒星完成凌星法监测，光变曲线下降 0.8%，周期稳定。推断存在一颗热木星，轨道半径 0.04 AU，公转周期 3.1 天。",
+"其白昼面温度约 1,900 K——铁可能以蒸气形式存在，又在夜面凝成雨落下。",
+"结论：在系外行星的气象预报里，我们尚未找到任何惯例。宇宙比想象力更奢侈。"],
+["本次曝光时长内抵达的光子约 2.1 × 10¹⁸ 个，其中真正落在传感器上的不足十亿分之一。观测是一种低效而庄重的事情。",
+"提醒：此刻进入你眼睛的星光，多数已旅行了百年以上。你抬头所见的，从来是叠满时间的天穹。",
+"结论：观测者的耐心，是天文台唯一的传统能源。"]
+];
+
+/* ==================== 观测记录流程 ==================== */
+const log=document.getElementById('log'),ask=document.getElementById('ask'),
+      goBtn=document.getElementById('go');
+let busy=false,reqSeq=0,lastRep=-1;
+
+const pad=n=>String(n).padStart(2,'0');
+function randRA(){
+  const h=Math.floor(Math.random()*24),m=Math.floor(Math.random()*60),s=Math.floor(Math.random()*60);
+  return pad(h)+'h '+pad(m)+'m '+pad(s)+'s';
+}
+function randDEC(){
+  const sg=Math.random()<.5?'+':'-',d=Math.floor(Math.random()*90),
+        m=Math.floor(Math.random()*60),s=Math.floor(Math.random()*60);
+  return sg+pad(d)+'° '+pad(m)+'′ '+pad(s)+'″';
+}
+const SPECTRA=['O-5','B-3','A-0','F-2','G-7','K-7','M-4','E-x'];
+
+function appendReq(text){
+  reqSeq++;
+  const d=new Date(),el=document.createElement('div');
+  el.className='req';
+  el.innerHTML='<span class="tag">▸ OBS-REQ #'+pad(reqSeq)+' · '
+    +pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())
+    +'</span><span class="txt"></span>';
+  el.querySelector('.txt').textContent='“'+text+'”';
+  log.appendChild(el);
+}
+
+function appendObsShell(){
+  const id='NGC-AI-'+(7000+Math.floor(Math.random()*999));
+  const el=document.createElement('article');
+  el.className='obs';
+  el.innerHTML=
+    '<div class="obs-head">'+
+      '<div class="obs-meta">'+
+        '<div class="obs-id">'+id+'</div>'+
+        '<div class="row"><b>RA</b> '+randRA()+' &nbsp;·&nbsp; <b>DEC</b> '+randDEC()+'</div>'+
+        '<div class="row"><b>光谱</b> '+SPECTRA[Math.floor(Math.random()*SPECTRA.length)]
+          +' &nbsp;·&nbsp; <b>仪器</b> DEEP-4 / CCD-B</div>'+
+      '</div>'+
+      '<figure class="plate"><canvas width="128" height="128"></canvas>'+
+      '<figcaption class="plate-cap">底片 FRAME</figcaption></figure>'+
+    '</div>'+
+    '<div class="exp-wrap">'+
+      '<div class="exp-label"><span>曝光中 EXPOSING</span><span class="exp-time">0.0s</span></div>'+
+      '<div class="exp-bar"><div class="exp-fill"></div></div>'+
+    '</div>'+
+    '<div class="obs-body"></div>';
+  log.appendChild(el);
+  return {el,cvs:el.querySelector('.plate canvas'),
+          fill:el.querySelector('.exp-fill'),
+          time:el.querySelector('.exp-time'),
+          wrap:el.querySelector('.exp-wrap'),
+          body:el.querySelector('.obs-body')};
+}
+
+function runExposure(shell,duration,done){
+  const target=makeGalaxyPlate(),g=shell.cvs.getContext('2d');
+  const t0=performance.now();
+  drawPlate(g,target,0);
+  (function frame(now){
+    const p=Math.min(1,(now-t0)/duration);
+    drawPlate(g,target,p);
+    shell.fill.style.width=(p*100).toFixed(1)+'%';
+    shell.time.textContent=((p*duration)/1000).toFixed(1)+'s / '+(duration/1000).toFixed(1)+'s';
+    if(p<1)requestAnimationFrame(frame);
+    else{
+      shell.wrap.querySelector('.exp-label span').textContent='曝光完成 · 已归档';
+      shell.wrap.style.opacity='.55';
+      setTimeout(done,350);
+    }
+  })(t0);
+}
+
+function typeReport(shell){
+  let idx=Math.floor(Math.random()*REPORTS.length);
+  if(idx===lastRep)idx=(idx+1)%REPORTS.length;
+  lastRep=idx;
+  const paras=REPORTS[idx];
+  paras.forEach((t,i)=>{
+    setTimeout(()=>{
+      const p=document.createElement('p');
+      p.className='dev';
+      p.textContent=t;
+      shell.body.appendChild(p);
+      if(i===paras.length-1)setTimeout(finishTurn,1100);
+    },i*900);
+  });
+}
+
+function finishTurn(){
+  busy=false;goBtn.disabled=false;
+  window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+}
+
+function send(){
+  const text=ask.value.trim();
+  if(!text||busy)return;
+  busy=true;goBtn.disabled=true;
+  appendReq(text);
+  ask.value='';
+  const shell=appendObsShell();
+  const duration=1500+Math.random()*1500; /* 思考 = 曝光 1.5~3s */
+  runExposure(shell,duration,()=>typeReport(shell));
+  window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+}
+
+ask.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+goBtn.addEventListener('click',send);
+
+/* ==================== 开机自检（欢迎观测） ==================== */
+setTimeout(()=>{
+  const shell=appendObsShell();
+  shell.el.querySelector('.obs-meta .row').innerHTML=
+    '<b>RA</b> 00h 00m 00s &nbsp;·&nbsp; <b>DEC</b> +00° 00′ 00″';
+  shell.el.querySelector('.obs-id').textContent='NGC-AI-0001 · 系统自检';
+  runExposure(shell,900,()=>{
+    const wel=["深空观测站已上线。今晚视宁度极佳，曝光队列空闲，穹顶已为你的问题敞开。",
+      "在下方提交任意观测请求——无论多远的天区、多深的时间，我们都负责凝视。",
+      "宇宙负责回答。"];
+    wel.forEach((t,i)=>setTimeout(()=>{
+      const p=document.createElement('p');p.className='dev';p.textContent=t;
+      shell.body.appendChild(p);
+    },i*850));
+  });
+},700);
+</script>
+</body>
+</html>

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI NATIVE · 五十种 Agent 的存在方式</title>
+<style>
+  :root{
+    --bg:#0a0a0d;
+    --bg2:#101014;
+    --ink:#ececee;
+    --ink-dim:#8b8b93;
+    --hairline:rgba(255,255,255,.08);
+    --accent:#c8b06a;
+    --card:#121217;
+    --serif:"Georgia","Times New Roman","Songti SC","SimSun",serif;
+    --sans:"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono","Cascadia Code",Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  /* 环境光：极慢的呼吸辉光，暗示这是一个活着的展馆 */
+  .aura{
+    position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(600px 400px at 20% -5%, rgba(200,176,106,.05), transparent 70%),
+      radial-gradient(700px 500px at 85% 110%, rgba(120,140,255,.04), transparent 70%);
+    animation:breathe 9s ease-in-out infinite;
+  }
+  @keyframes breathe{0%,100%{opacity:.7}50%{opacity:1}}
+
+  header{
+    position:relative;z-index:1;
+    padding:88px 48px 40px;
+    max-width:1440px;margin:0 auto;
+  }
+  .kicker{
+    font-family:var(--mono);font-size:11px;letter-spacing:.35em;
+    color:var(--accent);text-transform:uppercase;margin-bottom:22px;
+    display:flex;align-items:center;gap:14px;
+  }
+  .kicker::before{content:"";width:36px;height:1px;background:var(--accent);opacity:.6}
+  h1{
+    font-family:var(--serif);
+    font-size:clamp(34px,4.6vw,62px);
+    font-weight:400;letter-spacing:.02em;line-height:1.15;
+  }
+  h1 em{font-style:italic;color:var(--accent)}
+  .sub{
+    margin-top:22px;max-width:640px;
+    color:var(--ink-dim);font-size:15px;line-height:1.9;
+  }
+  .sub b{color:var(--ink);font-weight:500}
+  .meta-row{
+    margin-top:36px;display:flex;gap:40px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:11px;color:var(--ink-dim);letter-spacing:.12em;
+  }
+  .meta-row span b{color:var(--ink);font-weight:400}
+
+  /* 分类导航 */
+  nav{
+    position:sticky;top:0;z-index:10;
+    background:rgba(10,10,13,.82);backdrop-filter:blur(14px);
+    border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);
+    padding:0 48px;
+  }
+  .nav-inner{
+    max-width:1440px;margin:0 auto;
+    display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
+  }
+  .nav-inner::-webkit-scrollbar{display:none}
+  .chip{
+    border:none;background:none;cursor:pointer;
+    font-family:var(--mono);font-size:12px;letter-spacing:.08em;
+    color:var(--ink-dim);padding:17px 16px;white-space:nowrap;
+    border-bottom:1px solid transparent;transition:color .25s,border-color .25s;
+  }
+  .chip:hover{color:var(--ink)}
+  .chip.on{color:var(--accent);border-bottom-color:var(--accent)}
+  .chip i{font-style:normal;opacity:.45;margin-left:6px}
+
+  /* 展厅网格 */
+  main{
+    position:relative;z-index:1;
+    max-width:1440px;margin:0 auto;
+    padding:48px 48px 120px;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+    gap:14px;
+  }
+  .card{
+    position:relative;
+    background:var(--card);
+    border:1px solid var(--hairline);
+    border-radius:4px;
+    padding:24px 22px 20px;
+    cursor:pointer;
+    text-decoration:none;color:inherit;
+    display:flex;flex-direction:column;gap:14px;
+    transition:transform .35s cubic-bezier(.2,.8,.2,1),border-color .35s,background .35s;
+    overflow:hidden;
+    opacity:0;transform:translateY(14px);
+    animation:rise .7s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  @keyframes rise{to{opacity:1;transform:none}}
+  .card::after{ /* hover 光晕 */
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(320px 200px at var(--mx,50%) var(--my,0%),rgba(255,255,255,.05),transparent 70%);
+    opacity:0;transition:opacity .4s;
+  }
+  .card:hover{
+    transform:translateY(-3px);
+    border-color:rgba(255,255,255,.2);
+    background:#15151b;
+  }
+  .card:hover::after{opacity:1}
+  .card-top{display:flex;align-items:baseline;gap:12px}
+  .num{
+    font-family:var(--mono);font-size:11px;color:var(--ink-dim);letter-spacing:.1em;
+  }
+  .en{
+    font-family:var(--mono);font-size:10px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--accent);opacity:.85;
+    margin-left:auto;
+  }
+  .zh{
+    font-family:var(--serif);font-size:22px;letter-spacing:.06em;line-height:1.3;
+  }
+  .desc{
+    font-size:12.5px;line-height:1.75;color:var(--ink-dim);
+    flex:1;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .card-bot{display:flex;align-items:center;justify-content:space-between}
+  .cat-tag{
+    font-family:var(--mono);font-size:10px;letter-spacing:.15em;
+    color:var(--ink-dim);border:1px solid var(--hairline);
+    padding:4px 9px;border-radius:2px;
+  }
+  .swatches{display:flex;gap:5px}
+  .sw{
+    width:16px;height:16px;border-radius:2px;
+    border:1px solid rgba(255,255,255,.14);
+    transition:transform .3s;
+  }
+  .card:hover .sw{transform:scale(1.18)}
+  .card:hover .sw:nth-child(2){transition-delay:.04s}
+  .card:hover .sw:nth-child(3){transition-delay:.08s}
+  .arrow{
+    position:absolute;right:18px;bottom:44px;
+    font-family:var(--mono);font-size:12px;color:var(--accent);
+    opacity:0;transform:translateX(-6px);transition:.3s;
+  }
+  .card:hover .arrow{opacity:1;transform:none}
+
+  footer{
+    position:relative;z-index:1;
+    border-top:1px solid var(--hairline);
+    padding:36px 48px 60px;max-width:1440px;margin:0 auto;
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;
+    font-family:var(--mono);font-size:11px;color:var(--ink-dim);letter-spacing:.14em;
+  }
+
+  @media (max-width:720px){
+    header,nav,main,footer{padding-left:22px;padding-right:22px}
+    .grid{grid-template-columns:1fr 1fr}
+  }
+</style>
+</head>
+<body>
+<div class="aura"></div>
+
+<header>
+  <div class="kicker">AI Native Design exploration · 2026</div>
+  <h1>五十种 Agent 的<em>存在方式</em></h1>
+  <p class="sub">
+    这不是五十张落地页，而是对 <b>AI Native 设计哲学</b> 的五十次回答：当界面不再等待点击，而是持续呼吸；当回答不再加载，而是<b>生长</b>；当思考不再藏进黑盒，而是可以被凝视——Agent 应该以怎样的形态存在？
+    <br><br>十个方向：深海、菌丝、黑洞、水墨、账本、终端、全息、熵变……每一套都拥有独立的布局范式、交互隐喻与动效语言。<b>点击任意展品进入</b>，向它提问。
+  </p>
+  <div class="meta-row">
+    <span>展品 <b>50</b> 件</span>
+    <span>方向 <b>5</b> 类</span>
+    <span>形态 <b>0</b> 次重复</span>
+    <span>依赖 <b>0</b>（全部单文件自包含）</span>
+  </div>
+</header>
+
+<nav>
+  <div class="nav-inner" id="nav"></div>
+</nav>
+
+<main><div class="grid" id="grid"></div></main>
+
+<footer>
+  <span>AI NATIVE GALLERY — 每一件展品都是可对话的生命体</span>
+  <span>DESIGNED FOR 1440 × 900</span>
+</footer>
+
+<script>
+const CATS = ["全部","有机生命","深空宇宙","材质工艺","信息架构","先锋实验"];
+
+const D = [
+ [1,"天鹅座","CYGNUS","有机生命","深海生物发光粒子球，声呐涟漪对话，问题坠入深渊被球体接住",["#020810","#5eead4","#a78bfa"]],
+ [2,"菌丝网络","MYCELIUM","有机生命","分形菌丝在纸面上持续蔓延生长，知识沿枝蔓节点浮现",["#f7f4ec","#1c1917","#b45309"]],
+ [3,"脉搏","PULSE","有机生命","心电监护仪美学，整个界面按心跳节律脉动，回复即诊断报告",["#050505","#22c55e","#166534"]],
+ [4,"孢子花园","SPORE GARDEN","有机生命","每次对话绽放一朵程序生成的花，花园随交流逐渐繁茂",["#fffbeb","#65a30d","#f472b6"]],
+ [5,"变形虫","AMOEBA","有机生命","液态 gooey 本体，会拉长倾听、搅动思考、吞掉你的问题",["#1e1b4b","#831843","#22d3ee"]],
+ [6,"昼夜节律","CIRCADIAN","有机生命","界面色温随 24 小时循环流转，一根滑杆拨动整个世界的晨昏",["#0b1026","#f59e0b","#fde68a"]],
+ [7,"珊瑚礁","REEF","有机生命","潮汐涨落式对话流，海草摆动光斑游移，每 20 秒一次潮汐事件",["#fff7ed","#ea580c","#0d9488"]],
+ [8,"皮层","CORTEX","有机生命","等高线脑区随思考激活发亮，记忆以同心环陈列于侧",["#050505","#e7e5e4","#fb923c"]],
+ [9,"叶绿素","CHLOROPHYLL","有机生命","提问是升起的 CO₂ 气泡，回答是释放的氧气光束",["#052e16","#4ade80","#a3e635"]],
+ [10,"种子库","SEED VAULT","有机生命","3D 极地长廊，每次对话存档为一支玻璃种子管飞入货架",["#f0f9ff","#0c4a6e","#7dd3fc"]],
+ [11,"事件视界","EVENT HORIZON","深空宇宙","问题螺旋坠入黑洞，回答以霍金辐射逸出，吸积盘呼吸发光",["#000000","#f97316","#7c2d12"]],
+ [12,"中微子","NEUTRINO","深空宇宙","几乎不可见的 UI，云室轨迹一闪而过，hover 才让世界显形",["#fafafa","#111111","#6b7280"]],
+ [13,"脉冲星","PULSAR","深空宇宙","1.337 秒的宇宙灯塔节律锁定页面一切动效，回复以摩尔斯闪烁开场",["#020617","#fef08a","#3b82f6"]],
+ [14,"太阳系仪","ORRERY","深空宇宙","黄铜机械轨道宇宙，每颗行星是一个话题，可快进时间",["#292524","#b45309","#d6d3d1"]],
+ [15,"极光","AURORA","深空宇宙","多层贝塞尔极光幕流动演变，磁暴时思考的它泛起红光",["#0b1026","#34d399","#a78bfa"]],
+ [16,"深空场","DEEP FIELD","深空宇宙","哈勃深空气质的观测档案，回复如长曝光底片显影成形",["#050508","#d4af37","#7f1d1d"]],
+ [17,"引力井","GRAVITY WELL","深空宇宙","弯曲的空间网格，任务块沿引力轨迹坠入中心被处理",["#0b1120","#60a5fa","#e0e7ff"]],
+ [18,"回声定位","ECHOLOCATION","深空宇宙","全屏声呐，一道 ping 扫过，回波点依次亮起给出回答",["#020617","#38bdf8","#155e75"]],
+ [19,"星尘","STARDUST","深空宇宙","黑金奢华，思考时金色尘埃汇聚成缓慢旋转的漩涡",["#000000","#d4af37","#f5f0e6"]],
+ [20,"超新星","SUPERNOVA","深空宇宙","高能爆发美学，回复完成瞬间全屏闪白加冲击波环",["#ffffff","#ea580c","#000000"]],
+ [21,"墨井","INKWELL","材质工艺","东方水墨手卷，毛笔笔触逐字书写，完成时落一枚朱砂印",["#f8f5ec","#171717","#b91c1c"]],
+ [22,"琉璃工坊","GLASSWORK","材质工艺","玻璃卡片层叠折射，hover 时边缘流动彩虹光谱",["#e0e7ff","#f0abfc","#a5f3fc"]],
+ [23,"电路城","CIRCUITRY","材质工艺","PCB 通电自检，回复沿金色走线以固件烧录节奏显现",["#0a2e1f","#d4af37","#f5f5f4"]],
+ [24,"熔岩灯","LAVA","材质工艺","六十年代 gooey 液块缓慢升降，液泡升顶破裂释放答案",["#1a0b2e","#f97316","#ec4899"]],
+ [25,"水磨石","TERRAZZO","材质工艺","米兰新粗野主义，硬阴影贴纸被啪地盖章到页面上",["#f5f0e8","#c2410c","#000000"]],
+ [26,"窑变","KILN","材质工艺","天青釉渐变，每条回复出窑时生成独一无二的开片裂纹",["#0369a1","#0f766e","#d1e7dd"]],
+ [27,"蓝图","BLUEPRINT","材质工艺","工程制图动画，回答先被逐笔画出再标注引线",["#1e3a8a","#fde047","#e0e7ff"]],
+ [28,"铸字行","TYPEFOUNDRY","材质工艺","铅字块逐字落入版框，油墨浓淡随机，字盘翻找思考",["#f5f1e8","#171717","#b91c1c"]],
+ [29,"羊皮卷","VELLUM","材质工艺","中世纪手抄本，花体边框绘制入场，华丽首字下沉",["#e8dcc4","#b45309","#78350f"]],
+ [30,"霓虹锻炉","NEON FORGE","材质工艺","赛博霓虹招牌，标题像坏灯管般随机熄灭又点亮",["#0a0a0f","#ff2d95","#00e5ff"]],
+ [31,"卡片目录","CARD CATALOG","信息架构","图书馆抽屉柜被依次拉开查找，索引卡弹出成答案",["#78350f","#fef3c7","#b45309"]],
+ [32,"地铁线网","SUBWAY","信息架构","柏林 U-Bahn 式路径规划动画，回复以报站格式送达",["#ffffff","#dc2626","#2563eb"]],
+ [33,"乐谱","SCORE","信息架构","对话排布成有音高的旋律线，光标扫过即可回放重奏",["#faf9f6","#171717","#a16207"]],
+ [34,"制图师","CARTOGRAPHER","信息架构","古地图探索，罗盘寻向，答案以虚线航路与地名浮现",["#e8dfc8","#7c2d12","#a16207"]],
+ [35,"账本","LEDGER","信息架构","复式记账美学，借方提问贷方回答，余额滚动最终盖章结清",["#fdfcf7","#b91c1c","#1e3a5f"]],
+ [36,"织机","WEAVE","信息架构","经线为骨纬线为言，每次对话把上下文织成一匹更密的布",["#8a5a2b","#1e40af","#b91c1c"]],
+ [37,"星座","CONSTELLATION","信息架构","历史对话化作星辰，新的回答连线成座并被命名",["#0a1128","#e0e7ff","#94a3b8"]],
+ [38,"电报局","TELEGRAPH","信息架构","摩尔斯滴答与键杆同步起落，答案沿纸带吐字而来",["#d6c7a1","#b45309","#1c1917"]],
+ [39,"编辑部","EDITORIAL","信息架构","杂志黄金时代排印，回复先出导语再分流入栏",["#ffffff","#111111","#b91c1c"]],
+ [40,"观测站","OBSERVATORY","信息架构","黄铜仪表群联动摆动，回复以观测读数格式记录",["#123524","#b45309","#f5f0e6"]],
+ [41,"零号终端","TERMINAL ZERO","先锋实验","BIOS 自检开场，行内提示符会话，支持 /help 假命令",["#0d1117","#7ee787","#79c0ff"]],
+ [42,"液态铬","LIQUID CHROME","先锋实验","Y2K 铬面流淌，思考时升起一颗旋转的液态金属球",["#a8a9ad","#6d28d9","#e4e4e7"]],
+ [43,"故障管风琴","GLITCH ORGAN","先锋实验","音管随律动起伏，回复以乱码解码波的方式显形",["#0a0a0a","#ff0033","#00e5ff"]],
+ [44,"纸痕","PAPER TRAIL","先锋实验","回复像一张纸被抛落到桌面，带回形针与咖啡渍",["#d6d3d1","#ffffff","#fde047"]],
+ [45,"空","VOID","先锋实验","99% 的留白与一个呼吸的墨点，叩响即唤起",["#ffffff","#111111","#9ca3af"]],
+ [46,"潮汐","TIDAL","先锋实验","多层波浪视差，月相随对话轮次由新月盈满",["#0c1e33","#38bdf8","#e0e7ff"]],
+ [47,"分形之境","FRACTAL","先锋实验","曼德博式无限缩放，回答可逐层递归深入展开",["#0d0d14","#7c3aed","#c4b5fd"]],
+ [48,"复印机","XEROX","先锋实验","一道扫描光条从上到下揭开答案，自带复印失真重影",["#ffffff","#111111","#b91c1c"]],
+ [49,"全息甲板","HOLODECK","先锋实验","无限延伸的黄铜网格地面，指令下达后场景程序化升起",["#0a0a12","#fde047","#22d3ee"]],
+ [50,"熵","ENTROPY","先锋实验","从瑞士网格般的秩序开始，每轮对话让世界更混沌，直至崩解重生",["#ffffff","#111111","#ea580c"]],
+];
+
+const nav = document.getElementById("nav");
+const grid = document.getElementById("grid");
+let cur = "全部";
+
+CATS.forEach((c,i)=>{
+  const b=document.createElement("button");
+  b.className="chip"+(i===0?" on":"");
+  const count = i===0 ? D.length : D.filter(d=>d[3]===c).length;
+  b.innerHTML=c+'<i>'+String(count).padStart(2,"0")+"</i>";
+  b.onclick=()=>{
+    cur=c;
+    document.querySelectorAll(".chip").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    render();
+  };
+  nav.appendChild(b);
+});
+
+function pad(n){return String(n).padStart(2,"0")}
+
+function render(){
+  grid.innerHTML="";
+  const list = cur==="全部" ? D : D.filter(d=>d[3]===cur);
+  list.forEach((d,i)=>{
+    const [n,zh,en,cat,desc,cols]=d;
+    const a=document.createElement("a");
+    a.className="card";
+    a.href="pages/agent-"+pad(n)+".html";
+    a.target="_blank";
+    a.rel="noopener";
+    a.style.animationDelay=(Math.min(i,24)*0.035)+"s";
+    a.innerHTML=`
+      <div class="card-top">
+        <span class="num">${pad(n)} / 50</span>
+        <span class="en">${en}</span>
+      </div>
+      <div class="zh">${zh}</div>
+      <div class="desc">${desc}</div>
+      <div class="arrow">进入 ↗</div>
+      <div class="card-bot">
+        <span class="cat-tag">${cat}</span>
+        <span class="swatches">${cols.map(c=>`<span class="sw" style="background:${c}"></span>`).join("")}</span>
+      </div>`;
+    a.addEventListener("mousemove",e=>{
+      const r=a.getBoundingClientRect();
+      a.style.setProperty("--mx",(e.clientX-r.left)+"px");
+      a.style.setProperty("--my",(e.clientY-r.top)+"px");
+    });
+    grid.appendChild(a);
+  });
+}
+render();
+</script>
+</body>
+</html>

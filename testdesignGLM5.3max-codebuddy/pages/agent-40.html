@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OBSERVATORY · 观测站 — 数据观测 AI</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --felt:#123524; --felt-deep:#0b2015;
+  --brass1:#f0d68a; --brass2:#b8933e; --brass3:#7d5c1e;
+  --cream:#f0e9d2; --dim:#9fb8a8;
+}
+html,body{height:100%;}
+body{
+  font-family:Georgia,"Songti SC","STSong","SimSun",serif;
+  color:var(--cream);
+  background:
+    radial-gradient(900px 500px at 50% 0%, rgba(50,110,80,.22), transparent 70%),
+    radial-gradient(1400px 900px at 50% 110%, rgba(0,0,0,.55), transparent 60%),
+    linear-gradient(180deg,var(--felt) 0%,var(--felt-deep) 100%);
+  overflow:hidden;
+}
+#app{height:100%;display:flex;flex-direction:column;}
+
+/* ---------- 台站页眉 ---------- */
+#obsHead{display:flex;align-items:center;padding:11px 30px;border-bottom:1px solid rgba(212,180,106,.25);flex-wrap:wrap;gap:6px 14px;}
+h1{font-size:16px;letter-spacing:.42em;color:#e4cf96;font-weight:400;}
+.zh{font-size:11px;color:var(--dim);letter-spacing:.3em;}
+#obsStatus{margin-left:auto;font-size:11.5px;color:var(--dim);letter-spacing:.2em;white-space:nowrap;}
+
+/* ---------- 仪表盘 ---------- */
+#panel{
+  display:flex;align-items:flex-end;justify-content:center;
+  gap:38px;padding:16px 30px 20px;flex-wrap:wrap;
+  border-bottom:2px solid rgba(212,180,106,.35);
+}
+.gauge{display:flex;flex-direction:column;align-items:center;gap:7px;}
+.gauge svg{display:block;filter:drop-shadow(0 6px 12px rgba(0,0,0,.5));}
+.g-label{font-size:10.5px;color:var(--dim);letter-spacing:.28em;text-indent:.28em;white-space:nowrap;}
+#gMain{width:232px;height:232px;}
+#gLoad,#gCreate{width:118px;height:118px;}
+#gCtx{width:76px;height:168px;}
+.side-col{display:flex;flex-direction:column;align-items:center;gap:22px;}
+.lamp-wrap{position:relative;width:60px;}
+.lamp-wrap svg{display:block;width:60px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5));}
+.lamp-glow{
+  position:absolute;left:50%;top:34%;width:140px;height:140px;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle, rgba(255,179,71,.65), rgba(255,179,71,.14) 45%, transparent 70%);
+  opacity:0;transition:opacity .5s;pointer-events:none;border-radius:50%;
+}
+.lamp-wrap.on .lamp-glow{opacity:1;animation:lampFlick 2.4s ease-in-out infinite;}
+@keyframes lampFlick{0%,100%{opacity:.88;}50%{opacity:1;}}
+.bulb{opacity:.14;transition:opacity .4s;}
+.lamp-wrap.on .bulb{opacity:1;}
+.windup{display:flex;flex-direction:column;align-items:center;gap:5px;}
+.windup svg{width:38px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5));}
+.windup span{font-size:9px;color:var(--dim);letter-spacing:.3em;text-indent:.3em;}
+.windup.spin svg{animation:windupSpin .9s ease;}
+@keyframes windupSpin{from{transform:rotate(0);}to{transform:rotate(360deg);}}
+
+/* ---------- 观测日志本 ---------- */
+#logs{flex:1;overflow-y:auto;padding:18px 44px 20px;display:flex;flex-direction:column;gap:16px;scrollbar-width:thin;scrollbar-color:rgba(212,180,106,.3) transparent;}
+#logs::-webkit-scrollbar{width:8px;}
+#logs::-webkit-scrollbar-thumb{background:rgba(212,180,106,.3);border-radius:4px;}
+.log{
+  width:min(860px,100%);margin:0 auto;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 25px, rgba(70,130,90,.15) 25px 26px),
+    repeating-linear-gradient(90deg, transparent 0 25px, rgba(70,130,90,.15) 25px 26px),
+    linear-gradient(180deg,#f7f2dd,#efe9cf);
+  border:1px solid #b7a87e;border-top:4px solid #8a6a26;
+  box-shadow:0 5px 16px rgba(0,0,0,.45);
+  padding:13px 22px 16px;color:#2b2a22;
+  animation:logIn .45s ease both;
+}
+@keyframes logIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+.log-head{
+  font-family:Consolas,"Courier New",monospace;
+  font-size:11px;letter-spacing:.1em;color:#7a6741;line-height:1.9;
+  border-bottom:1px solid rgba(122,103,65,.35);
+  padding-bottom:6px;margin-bottom:9px;min-height:22px;white-space:pre-wrap;
+}
+.log-q{
+  font-family:Consolas,"Courier New",monospace;
+  font-size:12.5px;color:#4a5c3f;margin-bottom:9px;line-height:1.8;
+}
+.log-a{font-size:14.5px;line-height:2.05;letter-spacing:.02em;min-height:24px;}
+.sent{display:inline-block;opacity:0;animation:sentIn .5s ease forwards;}
+@keyframes sentIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:none;}}
+
+/* ---------- 黄铜话筒输入 ---------- */
+#mic{display:flex;align-items:center;gap:18px;padding:13px 40px 18px;justify-content:center;border-top:2px solid rgba(212,180,106,.35);}
+.wood-frame{
+  flex:1;max-width:760px;
+  background:linear-gradient(160deg,#5d3b1d,#31200d);
+  padding:4px;border-radius:14px;
+  box-shadow:0 6px 16px rgba(0,0,0,.5), inset 0 1px 2px rgba(255,215,150,.25);
+}
+.wood-frame input{
+  width:100%;border:none;outline:none;
+  background:#0f221a;color:var(--cream);
+  font-family:Georgia,"Songti SC","SimSun",serif;
+  font-size:15px;letter-spacing:.04em;
+  padding:11px 18px;border-radius:10px;
+}
+.wood-frame input::placeholder{color:rgba(240,233,210,.32);}
+#micBtn{
+  width:56px;height:56px;border-radius:50%;border:2px solid #8a6a26;cursor:pointer;flex:none;
+  background:radial-gradient(circle at 35% 30%, #f4dd96, #c49a3f 55%, #7d5c1e);
+  box-shadow:0 5px 14px rgba(0,0,0,.5), inset 0 2px 3px rgba(255,246,214,.7), inset 0 -3px 5px rgba(60,40,10,.5);
+  display:flex;align-items:center;justify-content:center;transition:transform .08s;
+}
+#micBtn:active{transform:translateY(3px);}
+.hint{text-align:center;font-size:9.5px;color:rgba(159,184,168,.4);letter-spacing:.3em;margin-top:7px;}
+
+@media(max-width:980px){
+  #panel{gap:20px;padding:12px 16px 16px;}
+  #gMain{width:180px;height:180px;}
+  #gLoad,#gCreate{width:96px;height:96px;}
+  #logs{padding:14px 18px;}
+  #mic{padding:10px 18px 14px;flex-wrap:wrap;}
+}
+</style>
+</head>
+<body>
+<!-- 共享黄铜渐变定义 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="brassLg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4dd96"/>
+      <stop offset=".5" stop-color="#b8933e"/>
+      <stop offset="1" stop-color="#8a6a26"/>
+    </linearGradient>
+    <radialGradient id="faceG" cx=".5" cy=".42" r=".72">
+      <stop offset="0" stop-color="#fbf6e6"/>
+      <stop offset="1" stop-color="#ece0c2"/>
+    </radialGradient>
+    <radialGradient id="lampG" cx=".5" cy=".35" r=".8">
+      <stop offset="0" stop-color="#ffe9b0"/>
+      <stop offset=".55" stop-color="#ffb347"/>
+      <stop offset="1" stop-color="#7a4d12"/>
+    </radialGradient>
+  </defs>
+</svg>
+
+<div id="app">
+  <header id="obsHead">
+    <h1>OBSERVATORY</h1>
+    <span class="zh">观测站 · 第肆号 · EST. 1897</span>
+    <span id="obsStatus">仪器静置 · 等待观测请求</span>
+  </header>
+
+  <section id="panel">
+    <div class="gauge">
+      <svg id="gLoad" viewBox="0 0 120 120"></svg>
+      <span class="g-label">思考负载 %</span>
+    </div>
+    <div class="gauge">
+      <svg id="gMain" viewBox="0 0 240 240"></svg>
+      <span class="g-label">洞察度 · INSIGHT</span>
+    </div>
+    <div class="gauge">
+      <svg id="gCreate" viewBox="0 0 120 120"></svg>
+      <span class="g-label">创造力指数</span>
+    </div>
+    <div class="gauge">
+      <svg id="gCtx" viewBox="0 0 90 200"></svg>
+      <span class="g-label">上下文容量</span>
+    </div>
+    <div class="side-col">
+      <div class="lamp-wrap" id="lampWrap">
+        <div class="lamp-glow"></div>
+        <svg viewBox="0 0 60 86">
+          <rect x="10" y="64" width="40" height="13" rx="3" fill="url(#brassLg)" stroke="#5c431a" stroke-width=".8"/>
+          <rect x="26" y="54" width="8" height="11" fill="url(#brassLg)" stroke="#5c431a" stroke-width=".6"/>
+          <path d="M13 54 Q30 20 47 54 Z" fill="url(#brassLg)" stroke="#5c431a" stroke-width=".9"/>
+          <circle class="bulb" cx="30" cy="46" r="8.5" fill="url(#lampG)"/>
+        </svg>
+      </div>
+      <div class="windup" id="windup">
+        <svg viewBox="0 0 44 44">
+          <circle cx="22" cy="22" r="16" fill="url(#brassLg)" stroke="#5c431a" stroke-width="1"/>
+          <rect x="20" y="11" width="4" height="22" rx="2" fill="#3a2a10"/>
+          <circle cx="22" cy="22" r="4" fill="#3a2a10"/>
+        </svg>
+        <span>上发条</span>
+      </div>
+    </div>
+  </section>
+
+  <main id="logs"></main>
+
+  <footer id="mic">
+    <div style="flex:1;max-width:760px">
+      <div class="wood-frame">
+        <input id="ask" type="text" placeholder="口述你的观测请求，读数即刻记录…" autocomplete="off">
+      </div>
+      <p class="hint">ENTER 或 按下黄铜话筒 · 每次提问都是一次正式观测</p>
+    </div>
+    <button id="micBtn" title="开始观测">
+      <svg width="22" height="26" viewBox="0 0 22 26" fill="none" stroke="#4a3208" stroke-width="1.8">
+        <rect x="7" y="1.5" width="8" height="14" rx="4"/>
+        <path d="M3.5 10.5 C3.5 16 7 19 11 19 C15 19 18.5 16 18.5 10.5"/>
+        <path d="M11 19 V23.5 M6.5 23.5 H15.5"/>
+      </svg>
+    </button>
+  </footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+var NS='http://www.w3.org/2000/svg';
+var logs=document.getElementById('logs');
+var input=document.getElementById('ask');
+var micBtn=document.getElementById('micBtn');
+var statusEl=document.getElementById('obsStatus');
+var lampWrap=document.getElementById('lampWrap');
+var windup=document.getElementById('windup');
+
+function el(n,at){var e=document.createElementNS(NS,n);for(var k in at)e.setAttribute(k,at[k]);return e;}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function polar(cx,cy,r,deg){
+  var rad=(deg-90)*Math.PI/180;
+  return [cx+r*Math.cos(rad), cy+r*Math.sin(rad)];
+}
+
+/* ---------------- 表盘构建 ---------------- */
+var gauges=[];
+function buildDial(svg,opt){
+  var S=+svg.getAttribute('viewBox').split(' ')[2];
+  var c=S/2, faceR=c-S*.045;
+  /* 黄铜表圈 */
+  svg.appendChild(el('circle',{cx:c,cy:c,r:c-1.5,fill:'url(#brassLg)',stroke:'#4a3510','stroke-width':1}));
+  svg.appendChild(el('circle',{cx:c,cy:c,r:faceR+5,fill:'none',stroke:'#5c431a','stroke-width':.8}));
+  /* 表盘面 */
+  svg.appendChild(el('circle',{cx:c,cy:c,r:faceR,fill:'url(#faceG)',stroke:'#c8b686','stroke-width':1}));
+  /* 刻度：-135° 至 +135° */
+  var TICKS=41, span=270;
+  for(var i=0;i<TICKS;i++){
+    var deg=-135+i*(span/(TICKS-1));
+    var major=(i%5===0);
+    var r1=faceR-(major?S*.055:S*.035), r2=faceR-S*.016;
+    var p1=polar(c,c,r1,deg), p2=polar(c,c,r2,deg);
+    svg.appendChild(el('line',{x1:p1[0].toFixed(1),y1:p1[1].toFixed(1),x2:p2[0].toFixed(1),y2:p2[1].toFixed(1),
+      stroke:major?'#1c1a16':'#8d7f5c','stroke-width':major?S*.011:S*.006}));
+    if(i%10===0){
+      var v=Math.round(i/(TICKS-1)*100);
+      var pt=polar(c,c,faceR-S*.09,deg);
+      var t=el('text',{x:pt[0].toFixed(1),y:(pt[1]+S*.022).toFixed(1),
+        'text-anchor':'middle','font-size':S*.055,fill:'#5c431a'});
+      t.textContent=v;
+      svg.appendChild(t);
+    }
+  }
+  /* 指针 */
+  var nl=faceR-S*.13;
+  var needle=el('path',{
+    d:'M '+c+' '+(c-nl)+' L '+(c-S*.013)+' '+(c+S*.06)+' L '+(c+S*.013)+' '+(c+S*.06)+' Z',
+    fill:'#1c1a16'});
+  svg.appendChild(needle);
+  svg.appendChild(el('circle',{cx:c,cy:c,r:S*.028,fill:'url(#brassLg)',stroke:'#4a3510','stroke-width':.8}));
+  /* 铭牌与读数 */
+  var label=el('text',{x:c,y:(c+faceR*.56).toFixed(1),'text-anchor':'middle',
+    'font-size':S*(opt.big?.052:.062),fill:'#6b5b3a','letter-spacing':S*.015});
+  label.textContent=opt.label;
+  svg.appendChild(label);
+  var valueEl=el('text',{x:c,y:(c+faceR*.74).toFixed(1),'text-anchor':'middle',
+    'font-size':S*(opt.big?.075:.075),fill:'#2b2a22','font-weight':'bold'});
+  valueEl.textContent=opt.start;
+  svg.appendChild(valueEl);
+  return {needle:needle,valueEl:valueEl,c:c};
+}
+function registerDial(svg,opt){
+  var ui=buildDial(svg,opt);
+  var g={svg:svg,needle:ui.needle,valueEl:ui.valueEl,c:ui.c,
+    val:opt.start,tgt:opt.start,excite:false,seed:Math.random()*7,
+    fmt:opt.fmt||function(v){return Math.round(v);}};
+  gauges.push(g);
+  return g;
+}
+var gMain=registerDial(document.getElementById('gMain'),{start:58,label:'洞察度',big:true});
+var gLoad=registerDial(document.getElementById('gLoad'),{start:18,label:'负载'});
+var gCreate=registerDial(document.getElementById('gCreate'),{start:34,label:'创造',fmt:function(v){return (v/10).toFixed(1);}});
+
+/* ---------------- 温度计（上下文容量） ---------------- */
+var ctxSvg=document.getElementById('gCtx');
+var mercury=null;
+(function buildThermo(){
+  ctxSvg.appendChild(el('rect',{x:28,y:12,width:34,height:150,rx:17,fill:'url(#brassLg)',stroke:'#4a3510','stroke-width':1}));
+  ctxSvg.appendChild(el('rect',{x:35,y:20,width:20,height:134,rx:10,fill:'#efe8d2',stroke:'#c8b686','stroke-width':.8}));
+  mercury=el('rect',{x:39,y:150,width:12,height:0,rx:6,fill:'#b91c1c'});
+  ctxSvg.appendChild(mercury);
+  ctxSvg.appendChild(el('circle',{cx:45,cy:178,r:15,fill:'#b91c1c',stroke:'#8a6a26','stroke-width':3}));
+  ctxSvg.appendChild(el('circle',{cx:41,cy:174,r:4,fill:'rgba(255,255,255,.35)'}));
+  for(var i=0;i<=10;i++){
+    var y=152-i*12.6;
+    ctxSvg.appendChild(el('line',{x1:58,y1:y,x2:64,y2:y,stroke:'#5c431a','stroke-width':i%5===0?1.4:.7}));
+    if(i%5===0){
+      var t=el('text',{x:68,y:y+3,'font-size':7,fill:'#5c431a'});
+      t.textContent=(i*10); ctxSvg.appendChild(t);
+    }
+  }
+  var cap=el('text',{x:45,y:9,'text-anchor':'middle','font-size':9,fill:'#2b2a22','font-weight':'bold',id:'ctxVal'});
+  cap.textContent='0%'; ctxSvg.appendChild(cap);
+  thermoValEl=cap;
+})();
+var thermoValEl, ctxVal=22;
+function setThermo(v){
+  ctxVal=v;
+  var h=v/100*126;
+  mercury.setAttribute('y',(152-h).toFixed(1));
+  mercury.setAttribute('height',h.toFixed(1));
+  thermoValEl.textContent=Math.round(v)+'%';
+}
+setThermo(ctxVal);
+
+/* ---------------- 指针联动动画（呼吸 / 思考抖动） ---------------- */
+function loop(t){
+  for(var i=0;i<gauges.length;i++){
+    var g=gauges[i];
+    g.val+=(g.tgt-g.val)*.045;
+    var j=g.excite
+      ? Math.sin(t/42+g.seed)*2.4+Math.sin(t/13+g.seed*2)*1.0
+      : Math.sin(t/1500+g.seed)*.55;
+    var v=Math.max(0,Math.min(100,g.val));
+    var deg=-135+(v/100)*270+j;
+    g.needle.setAttribute('transform','rotate('+deg.toFixed(2)+' '+g.c+' '+g.c+')');
+    if(!g._n||t-g._n>180){ g.valueEl.textContent=g.fmt(g.val); g._n=t; }
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------------- 预置回复 ---------------- */
+var replies=[
+  '记录如下：你的提问在 0.3 秒内抵达观测焦点。经初步测量，这是一个「高折射率」的问题——值得架起主镜细看。建议观测顺序：先测定核心变量，再扫视周边干扰项。仪表显示洞察度上扬，正是好问题的征兆。',
+  '观测确认：你关心的现象存在周期性。过去七日的读数显示，波峰总在相同相位出现。本站建议你在下一波峰前二十分钟进入状态，误差不超过正负三分钟——这是仪器给你的承诺。',
+  '读数偏低的部分已定位：并非目标黯淡，而是目镜上有雾。打个比方——你把「应该」和「想要」叠在了同一片镜片上。分开校准之后，两颗星各自清晰。容量管仍有富余，尽管继续说。',
+  '本次观测暂停在百分之八十七处：出现一个未标定的暗斑。科学的态度是不硬猜。请你补一组数据——一句具体的例子即可——我将把暗斑纳入下一次曝光。发条已上满，随时可以继续。',
+  '曝光完成。整段对话的合成像已经显影：轮廓清晰，边缘略带光晕——那是你尚未说尽的部分。已归档为今晚第三号观测。夜还长，仪器状态极佳。'
+];
+var welcome='黄铜仪器静置，指针微颤，呢绒台面已经擦拭干净。这里是一部以发条驱动的观测仪器：你的每一句话，都会被当作一次正式观测，记入日志。请提出第一个请求。';
+var busy=false, exchanges=0, replyIdx=Math.floor(Math.random()*replies.length);
+
+/* ---------------- 工具 ---------------- */
+function nowHMS(){
+  var d=new Date();
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
+}
+function typeInto(elText,text,speed){
+  return new Promise(function(res){
+    var i=0;
+    (function tick(){
+      if(i>=text.length){res();return;}
+      elText.textContent+=text[i++];
+      logs.scrollTop=logs.scrollHeight;
+      setTimeout(tick,speed);
+    })();
+  });
+}
+function addCard(){
+  var art=document.createElement('article');
+  art.className='log';
+  var head=document.createElement('div'); head.className='log-head';
+  head.textContent='时刻: --:--:-- ｜ 观测准备中…';
+  var q=document.createElement('div'); q.className='log-q';
+  var a=document.createElement('div'); a.className='log-a';
+  art.appendChild(head); art.appendChild(q); art.appendChild(a);
+  logs.appendChild(art);
+  logs.scrollTop=logs.scrollHeight;
+  return {art:art,head:head,q:q,a:a};
+}
+function streamBody(elText,text){
+  var parts=text.match(/[^。！？；]+[。！？；]?/g)||[text];
+  parts.forEach(function(p,i){
+    var s=document.createElement('span');
+    s.className='sent'; s.textContent=p;
+    s.style.animationDelay=(0.15+i*.42)+'s';
+    elText.appendChild(s);
+  });
+  logs.scrollTop=logs.scrollHeight;
+}
+
+/* ---------------- 发送回路 ---------------- */
+async function send(){
+  var text=input.value.trim();
+  if(!text||busy)return;
+  busy=true; input.value='';
+  var card=addCard();
+  /* 上发条 + 观测请求快速录入 */
+  windup.classList.remove('spin'); void windup.offsetWidth; windup.classList.add('spin');
+  card.head.textContent='';
+  card.q.textContent='▸ 观测请求：';
+  await typeInto(card.q,text,16);
+  /* 思考态：仪表联动上升（标志性瞬间） */
+  statusEl.textContent='仪表联动 · 观测中…';
+  lampWrap.classList.add('on');
+  gauges.forEach(function(g){g.excite=true;});
+  gMain.tgt=Math.min(96,80+Math.random()*10);
+  gLoad.tgt=68+Math.random()*14;
+  gCreate.tgt=78+Math.random()*14;
+  await sleep(1600+Math.random()*1200);
+  /* 回稳：指针落至新的基线 */
+  gauges.forEach(function(g){g.excite=false;});
+  exchanges++;
+  gMain.tgt=Math.min(90,58+exchanges*4);
+  gLoad.tgt=16+Math.random()*10;
+  gCreate.tgt=28+Math.random()*36;
+  setThermo(Math.min(96,ctxVal+7));
+  setTimeout(function(){lampWrap.classList.remove('on');},800);
+  /* 读数头：两行等宽记录 */
+  var qual=['优','良','佳','极优'][Math.floor(Math.random()*4)];
+  var snr=(38+Math.random()*8).toFixed(1);
+  statusEl.textContent='读数记录中…';
+  card.head.textContent='';
+  await typeInto(card.head,'时刻: '+nowHMS()+' ｜ 观测质量: '+qual+' ｜ 台站: OBS-40\n',10);
+  await typeInto(card.head,'镜头: 主镜 42mm ｜ 信噪比: '+snr+'dB ｜ 操作员: 你',10);
+  /* 正文：观测日志式叙述，逐句浮现 */
+  var reply=replies[replyIdx%replies.length]; replyIdx++;
+  streamBody(card.a,reply);
+  statusEl.textContent='读数已归档 · 仪器回稳';
+  setTimeout(function(){ if(!busy)statusEl.textContent='仪器静置 · 等待观测请求'; },3200);
+  busy=false;
+}
+input.addEventListener('keydown',function(e){ if(e.key==='Enter')send(); });
+micBtn.addEventListener('click',send);
+
+/* ---------------- 初始欢迎 ---------------- */
+(async function(){
+  var card=addCard();
+  card.q.textContent='▸ 观测请求：（本站开站记录）';
+  await typeInto(card.head,'时刻: '+nowHMS()+' ｜ 观测质量: 待定 ｜ 台站: OBS-40\n',10);
+  await typeInto(card.head,'镜头: 待校准 ｜ 发条: 已上满 ｜ 操作员: 你',10);
+  streamBody(card.a,welcome);
+})();
+})();
+</script>
+</body>
+</html>

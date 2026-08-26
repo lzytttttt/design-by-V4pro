@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>STARDUST · 星尘定制</title>
+<style>
+:root{
+  --gold:#d4af37;
+  --gold-hi:#e9d193;
+  --gold-dim:#8a6d1f;
+  --ink:#e8d9ae;
+  --mono:"Cascadia Mono",Consolas,ui-monospace,monospace;
+  --serif:Georgia,"Times New Roman","Songti SC",STSong,serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:#030303;color:var(--ink);font-family:var(--serif);overflow-x:hidden}
+#dust{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* 滚动条 */
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-track{background:#0a0906}
+::-webkit-scrollbar-thumb{background:linear-gradient(#8a6d1f,#d4af37);border-radius:4px}
+
+.wrap{position:relative;z-index:1;max-width:680px;margin:0 auto;padding:70px 26px 220px}
+
+/* ---------- 标题 ---------- */
+.masthead{text-align:center;margin-bottom:54px}
+.title{font-size:clamp(58px,8.5vw,110px);font-weight:400;line-height:1;
+  background:linear-gradient(165deg,#f6e8bd 5%,var(--gold) 38%,#96762a 62%,#e9d193 88%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  opacity:0;animation:titleIn 1.7s .25s ease forwards}
+@keyframes titleIn{
+  from{opacity:0;letter-spacing:.55em;transform:translateY(12px)}
+  to{opacity:1;letter-spacing:.16em;transform:none}}
+.subtitle{margin-top:20px;font-size:13px;letter-spacing:.9em;color:#9a7f42;
+  text-indent:.9em;opacity:0;animation:fadeIn 1.4s 1s ease forwards}
+.m-line{width:120px;height:1px;margin:26px auto 0;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  opacity:0;animation:fadeIn 1.4s 1.2s ease forwards}
+@keyframes fadeIn{to{opacity:1}}
+
+/* ---------- 用户嘱托 ---------- */
+.wish{margin:52px 0 30px auto;max-width:78%;text-align:right;
+  opacity:0;animation:fadeUp .8s ease forwards}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.w-tag{font-size:11px;letter-spacing:.5em;color:var(--gold-dim);display:block;margin-bottom:9px}
+.wish p{display:inline-block;font-size:15px;line-height:2;color:#c9b98a;
+  border:1px solid rgba(212,175,55,.22);padding:12px 20px;transition:border-color .5s}
+.wish:hover p{border-color:rgba(212,175,55,.5)}
+
+/* ---------- 手记（回复） ---------- */
+.verse{position:relative;margin-bottom:58px;padding:6px 0 0 54px;
+  opacity:0;animation:fadeUp .9s ease forwards}
+.verse:hover .v-rn{border-color:rgba(212,175,55,.55)}
+.v-rn{position:absolute;left:0;top:2px;width:44px;height:44px;
+  border:1px solid rgba(212,175,55,.3);display:flex;align-items:center;justify-content:center;
+  font-size:19px;color:var(--gold);background:rgba(212,175,55,.04);
+  transition:border-color .6s,box-shadow .6s;transform:rotate(-3deg)}
+.v-rn::after{content:"";position:absolute;inset:3px;border:1px solid rgba(212,175,55,.14)}
+.v-label{font-size:11px;letter-spacing:.42em;color:#9a7f42;display:block;margin-bottom:14px}
+.v-head{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.v-line{flex:0 0 60px;height:1px;background:linear-gradient(90deg,var(--gold-dim),transparent)}
+.verse p{font-size:17.5px;line-height:2.2;letter-spacing:.04em;margin-bottom:13px;
+  color:var(--ink)}
+.verse p:last-child{margin-bottom:0}
+.w{opacity:0;animation:wIn .6s ease forwards;
+  color:#e6d5a5;text-shadow:0 0 14px rgba(212,175,55,.3)}
+@keyframes wIn{from{opacity:0;transform:translateY(5px);filter:blur(2px)}
+  to{opacity:1;transform:none;filter:blur(0)}}
+.v-div{width:100%;height:1px;margin:22px 0 4px;
+  background:linear-gradient(90deg,transparent,rgba(212,175,55,.35) 30%,rgba(212,175,55,.35) 70%,transparent)}
+
+/* ---------- 思考提示 ---------- */
+#brewing{position:fixed;left:50%;bottom:118px;transform:translateX(-50%);z-index:8;
+  font-size:12.5px;letter-spacing:.55em;text-indent:.55em;color:var(--gold);
+  opacity:0;pointer-events:none;transition:opacity .6s;
+  animation:brew 2s ease-in-out infinite}
+#brewing.on{opacity:1}
+@keyframes brew{0%,100%{text-shadow:0 0 6px rgba(212,175,55,.1)}50%{text-shadow:0 0 18px rgba(212,175,55,.55)}}
+
+/* ---------- 输入 ---------- */
+#console{position:fixed;left:0;right:0;bottom:0;z-index:9;
+  padding:34px 26px 30px;background:linear-gradient(transparent,#030303 42%)}
+.askBox{position:relative;max-width:680px;margin:0 auto;
+  border-top:1px solid rgba(212,175,55,.16);
+  border-bottom:1px solid rgba(212,175,55,.16);
+  background:rgba(212,175,55,.02)}
+.grow{position:absolute;height:1px;width:0;transition:width .75s cubic-bezier(.25,0,.15,1);
+  background:linear-gradient(90deg,transparent,var(--gold-hi) 30%,#fff6d8 50%,var(--gold-hi) 70%,transparent);
+  box-shadow:0 0 8px rgba(212,175,55,.6)}
+.g-top{top:-1px}.g-bot{bottom:-1px}
+.g-l{left:0;transform:scaleX(-1)}
+.g-r{right:0}
+.askBox:focus-within .grow{width:50%}
+.askRow{display:flex;align-items:center;gap:14px;padding:15px 18px}
+#ask{flex:1;background:none;border:none;outline:none;color:#f0e3b8;
+  font-family:var(--serif);font-size:15.5px;letter-spacing:.08em;caret-color:var(--gold)}
+#ask::placeholder{color:#6b5a2e;letter-spacing:.2em}
+#sendBtn{background:none;border:1px solid rgba(212,175,55,.4);color:var(--gold);
+  font-family:var(--serif);font-size:12.5px;letter-spacing:.42em;text-indent:.42em;
+  padding:9px 22px;cursor:pointer;transition:.5s}
+#sendBtn:hover{border-color:var(--gold);box-shadow:0 0 18px rgba(212,175,55,.25);
+  background:rgba(212,175,55,.06)}
+#sendBtn:disabled{opacity:.3;cursor:default}
+.con-hint{text-align:center;margin-top:13px;font-size:10px;letter-spacing:.34em;color:#4e3f1c}
+
+@media(max-width:700px){
+  .verse{padding-left:0;padding-top:58px}
+  .v-rn{top:0}
+  .wish{max-width:100%}
+}
+</style>
+</head>
+<body>
+<canvas id="dust"></canvas>
+
+<div class="wrap">
+  <header class="masthead">
+    <h1 class="title">STARDUST</h1>
+    <div class="subtitle">星尘 · 奢品定制智慧</div>
+    <div class="m-line"></div>
+  </header>
+  <main id="flow"></main>
+</div>
+
+<div id="brewing">正在凝炼 · 金尘汇聚</div>
+
+<footer id="console">
+  <div class="askBox">
+    <span class="grow g-top g-l"></span><span class="grow g-top g-r"></span>
+    <span class="grow g-bot g-l"></span><span class="grow g-bot g-r"></span>
+    <div class="askRow">
+      <input id="ask" type="text" placeholder="轻声说出您的愿望" autocomplete="off">
+      <button id="sendBtn">呈递</button>
+    </div>
+  </div>
+  <div class="con-hint">ENTER 呈递 · 愿望将被打磨成形</div>
+</footer>
+
+<script>
+/* ==================== 金色尘埃 ==================== */
+const cv=document.getElementById('dust'),g=cv.getContext('2d');
+let W=0,H=0,dpr=Math.min(window.devicePixelRatio||1,2);
+const N=270,parts=[];
+let mode='drift';
+function resize(){
+  W=innerWidth;H=innerHeight;
+  cv.width=W*dpr;cv.height=H*dpr;
+  cv.style.width=W+'px';cv.style.height=H+'px';
+  g.setTransform(dpr,0,0,dpr,0,0);
+}
+resize();addEventListener('resize',resize);
+for(let i=0;i<N;i++)parts.push({
+  x:Math.random()*W,y:Math.random()*H,vx:0,vy:0,
+  s:.5+Math.random()*1.7,tw:.5+Math.random()*1.6,ph:Math.random()*6.28,
+  amp:Math.random()<.14?.85:.38 /* 少数粒子强闪 */
+});
+let dt=0;
+(function loop(){
+  dt+=.016;
+  const cx=W/2,cy=H*.42;
+  g.clearRect(0,0,W,H);
+  for(const p of parts){
+    if(mode==='drift'){
+      p.vx+=(Math.random()-.5)*.014;p.vy+=(Math.random()-.5)*.014;
+      p.vx*=.985;p.vy*=.985;
+    }else if(mode==='vortex'){
+      const dx=cx-p.x,dy=cy-p.y,d=Math.hypot(dx,dy)+.001;
+      const f=.011+d*.00007,t=.052;
+      p.vx+=(dx/d)*f-(dy/d)*t;
+      p.vy+=(dy/d)*f+(dx/d)*t;
+      p.vx*=.958;p.vy*=.958;
+    }else if(mode==='burst'){
+      const dx=p.x-cx,dy=p.y-cy,d=Math.hypot(dx,dy)+.001;
+      p.vx+=(dx/d)*1.9;p.vy+=(dy/d)*1.9;
+      p.vx*=.97;p.vy*=.97;
+    }
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<-8)p.x=W+8;if(p.x>W+8)p.x=-8;
+    if(p.y<-8)p.y=H+8;if(p.y>H+8)p.y=-8;
+    const a=(.16+.84*Math.max(0,Math.sin(dt*p.tw+p.ph)))*p.amp+.08;
+    g.fillStyle='rgba(222,186,90,'+Math.min(1,a).toFixed(3)+')';
+    const s=p.s*(1+a*.5);
+    g.fillRect(p.x,p.y,s,s);
+    if(p.amp>.6&&a>.72){ /* 强闪粒子的辉光 */
+      g.fillStyle='rgba(240,214,130,'+((a-.7)*.9).toFixed(3)+')';
+      g.fillRect(p.x-1.5,p.y-1.5,s+3,s+3);
+    }
+  }
+  requestAnimationFrame(loop);
+})();
+function vortexOn(){mode='vortex'}
+function burst(){
+  mode='burst';
+  setTimeout(()=>mode='drift',700);
+}
+
+/* ==================== 手记内容库 ==================== */
+const NOTES=[
+["关于您的设想，我倾向于克制。","真正的奢品从不喧哗——它只用最好的材质，说最少的话。我建议以留白为基底，让核心的意象如金屑般散落其间。","仪式感来自节制，而非堆砌。"],
+["这一季的灵感，取自凌晨四点的金箔工坊。","匠人屏息，锤音轻落，薄片在黑暗中一点点透出光。您要的正是这种光——不刺眼，但无法忽视。","我已为您备好三稿：一繁、一简、一介于其间。奢品从不急于一时。"],
+["定制始于倾听，成于取舍。","您提到的每一个偏好，我都视作一枚金线。但并非所有金线都要织入——顶级的织物，懂得让某些丝线沉入背面，撑起整体的垂坠。","取舍本身就是一种手艺。"],
+["黑色是所有颜色的容器，而金色是唯一能从中醒来的颜色。","我建议主体沉入哑光黑，仅在您视线停驻之处，落一笔香槟金。如同暗室中缓缓睁开的眼睛。","美不在物件里，在凝视发生的那一刻。"],
+["为您预留了一段慢时光。","真正的高级无法量产，因为它与耐心同源。让尘埃再飘一会儿，让光再沉一沉——待到金粒恰好聚拢，成形之物自会开口。","您的等待，本身就是定制的一部分。"]
+];
+let lastIdx=-1;
+function pick(){let i=Math.floor(Math.random()*NOTES.length);
+  if(i===lastIdx)i=(i+1)%NOTES.length;lastIdx=i;return NOTES[i];}
+function roman(n){
+  const m=[[10,'Ⅹ'],[9,'Ⅸ'],[5,'Ⅴ'],[4,'Ⅳ'],[1,'Ⅰ']];let s='';
+  for(const[v,r]of m)while(n>=v){s+=r;n-=v}return s;
+}
+
+/* ==================== 流程 ==================== */
+const flow=document.getElementById('flow'),ask=document.getElementById('ask'),
+      sendBtn=document.getElementById('sendBtn'),brewing=document.getElementById('brewing');
+let busy=false,verseN=0;
+
+function chunkify(s){
+  const out=[];let buf='';
+  for(const ch of s){
+    buf+=ch;
+    if('，。！？；：、…'.includes(ch)||buf.length>=3){out.push(buf);buf=''}
+  }
+  if(buf)out.push(buf);
+  return out;
+}
+function appendWish(text){
+  const el=document.createElement('div');
+  el.className='wish';
+  el.innerHTML='<span class="w-tag">您 的 嘱 托</span><p></p>';
+  el.querySelector('p').textContent=text;
+  flow.appendChild(el);
+}
+function appendVerse(){
+  verseN++;
+  const notes=pick();
+  const art=document.createElement('article');
+  art.className='verse';
+  art.innerHTML=
+    '<div class="v-rn">'+roman(verseN)+'</div>'+
+    '<div class="v-head"><span class="v-label">定 制 手 记</span><div class="v-line"></div></div>';
+  let delay=150;
+  notes.forEach((para,pi)=>{
+    const p=document.createElement('p');
+    para.replace('。','。\u200b');
+    chunkify(para).forEach(ch=>{
+      const sp=document.createElement('span');
+      sp.className='w';sp.textContent=ch;
+      sp.style.animationDelay=delay+'ms';
+      p.appendChild(sp);
+      delay+=115;
+    });
+    art.appendChild(p);
+    if(pi<notes.length-1){
+      const d=document.createElement('div');
+      d.className='v-div';
+      d.style.animationDelay=(delay+120)+'ms';
+      art.appendChild(d);
+    }
+    delay+=260;
+  });
+  flow.appendChild(art);
+  return art;
+}
+function send(){
+  const text=ask.value.trim();
+  if(!text||busy)return;
+  busy=true;sendBtn.disabled=true;
+  appendWish(text);
+  ask.value='';
+  brewing.classList.add('on');
+  vortexOn(); /* 思考态：金尘汇聚成漩涡 */
+  setTimeout(()=>{
+    brewing.classList.remove('on');
+    burst(); /* 回复开始：尘埃散开 */
+    appendVerse();
+    setTimeout(()=>{
+      busy=false;sendBtn.disabled=false;ask.focus();
+      window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+    },900);
+  },1500+Math.random()*1500);
+}
+ask.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+sendBtn.addEventListener('click',send);
+
+/* ==================== 开卷 ==================== */
+setTimeout(()=>{
+  verseN=0;
+  const art=document.createElement('article');
+  art.className='verse';
+  art.innerHTML='<div class="v-rn">Ⅰ</div>'+
+    '<div class="v-head"><span class="v-label">开 卷 之 言</span><div class="v-line"></div></div>';
+  ['尘埃已就位，光已调暗，工坊只等你开口。',
+   '在下方轻声说出你的愿望——它将被金尘包裹、打磨、缓慢成形。',
+   '这里不赶时间。奢品从不。'].forEach((t,i)=>{
+    const p=document.createElement('p');
+    chunkify(t).forEach(ch=>{
+      const sp=document.createElement('span');
+      sp.className='w';sp.textContent=ch;
+      p.appendChild(sp);
+    });
+    art.appendChild(p);
+  });
+  flow.appendChild(art);
+},1600);
+</script>
+</body>
+</html>

@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HOLODECK · 全息甲板 — 场景构建 AI</title>
+<style>
+  :root{
+    --holo:#fde047; --holo-dim:rgba(253,224,71,.55);
+    --cyan:#67e8f9; --bg:#0a0a12;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif;
+    background:var(--bg); color:#e7e3c8; overflow:hidden;
+  }
+
+  /* ============ 全息场景 ============ */
+  #scene{position:fixed; inset:0; z-index:0; perspective:640px; overflow:hidden;
+    background: radial-gradient(ellipse at 50% 48%, #11111f 0%, #0a0a12 62%)}
+  #gridFloor{position:absolute; left:-60%; width:220%; top:47%; height:160%;
+    transform-origin:50% 0; transform:rotateX(75deg);
+    background:
+      repeating-linear-gradient(90deg, rgba(253,224,71,.13) 0 1.5px, transparent 1.5px 64px),
+      repeating-linear-gradient(0deg, rgba(253,224,71,.13) 0 1.5px, transparent 1.5px 64px);
+    -webkit-mask-image:linear-gradient(180deg, transparent 0, #000 15%);
+    mask-image:linear-gradient(180deg, transparent 0, #000 15%);
+  }
+  #horizonLine{position:fixed; left:12%; right:12%; top:47%; height:2px; z-index:1; pointer-events:none;
+    background:linear-gradient(90deg, transparent, rgba(253,224,71,.55) 30%, rgba(103,232,249,.5) 50%, rgba(253,224,71,.55) 70%, transparent);
+    filter:blur(.6px); opacity:.7; animation: hzPulse 5s ease-in-out infinite alternate}
+  #horizonGlow{position:fixed; left:50%; top:47%; width:72%; height:130px; z-index:1; pointer-events:none;
+    transform:translate(-50%,-72%); filter:blur(12px);
+    background:radial-gradient(ellipse at center, rgba(253,224,71,.17), transparent 68%);
+    animation: hzPulse 5s ease-in-out infinite alternate}
+  @keyframes hzPulse{from{opacity:.55} to{opacity:1}}
+
+  .dust{position:absolute; width:3px; height:3px; border-radius:50%; background:rgba(253,224,71,.6);
+    box-shadow:0 0 6px rgba(253,224,71,.6); animation: dustRise linear infinite}
+  @keyframes dustRise{
+    0%{transform:translateY(0); opacity:0}
+    15%{opacity:.75}
+    85%{opacity:.4}
+    100%{transform:translateY(-130px); opacity:0}
+  }
+
+  /* 悬浮线框立方体 */
+  #holoFlick{position:absolute; left:66%; top:15%; width:120px; height:120px;
+    animation: holoIdle 4.6s steps(1) infinite}
+  body.thinking #holoFlick{animation: holoBusy 1.1s steps(1) infinite}
+  @keyframes holoIdle{0%,100%{opacity:.95} 21%{opacity:.95} 22%{opacity:.55} 23%{opacity:.95} 68%{opacity:.95} 69%{opacity:.72} 70%{opacity:.95}}
+  @keyframes holoBusy{0%,100%{opacity:1} 14%{opacity:.45} 22%{opacity:1} 48%{opacity:.5} 55%{opacity:1} 78%{opacity:.55} 86%{opacity:1}}
+  #holoBob{position:absolute; inset:0; transform-style:preserve-3d;
+    animation: cubeBob 6.5s ease-in-out infinite alternate}
+  @keyframes cubeBob{from{transform:translateY(-12px)} to{transform:translateY(12px)}}
+  .cube{position:absolute; inset:0; transform-style:preserve-3d;
+    animation: cubeSpin 17s linear infinite}
+  @keyframes cubeSpin{from{transform:rotateX(-20deg) rotateY(0deg)} to{transform:rotateX(-20deg) rotateY(360deg)}}
+  .cube .f{position:absolute; inset:0; border:1.4px solid rgba(253,224,71,.5);
+    background:rgba(253,224,71,.045); box-shadow:inset 0 0 26px rgba(253,224,71,.09)}
+  .cube .f1{transform:translateZ(60px)}
+  .cube .f2{transform:rotateY(180deg) translateZ(60px)}
+  .cube .f3{transform:rotateY(90deg) translateZ(60px); border-color:rgba(103,232,249,.5); background:rgba(103,232,249,.05)}
+  .cube .f4{transform:rotateY(-90deg) translateZ(60px)}
+  .cube .f5{transform:rotateX(90deg) translateZ(60px)}
+  .cube .f6{transform:rotateX(-90deg) translateZ(60px)}
+
+  /* 升起的全息结构 */
+  .riser{position:absolute; transform-origin:50% 100%; pointer-events:none;
+    animation: rise 1.35s cubic-bezier(.18,.85,.3,1.04) both}
+  @keyframes rise{
+    0%{transform:scaleY(.02) scaleX(1.35); opacity:0}
+    55%{opacity:1}
+    100%{transform:scaleY(1) scaleX(1); opacity:1}
+  }
+  .riser.out{animation: deproj .8s ease-in forwards}
+  @keyframes deproj{to{transform:scaleY(.04) scaleX(1.2); opacity:0}}
+  .rsvg{position:relative; transform-origin:50% 100%; transition:filter .3s;
+    animation: holoFloat 5.6s ease-in-out infinite alternate, rFlick 4.3s steps(1) infinite}
+  @keyframes holoFloat{from{transform:translateY(-2px)} to{transform:translateY(3px)}}
+  @keyframes rFlick{0%,100%{opacity:.92} 12%{opacity:.92} 13%{opacity:.5} 14%{opacity:.92} 63%{opacity:.92} 64%{opacity:.68} 65%{opacity:.92}}
+  .baseGlow{position:absolute; bottom:-9px; left:50%; transform:translateX(-50%);
+    width:150%; height:24px; filter:blur(3px);
+    background:radial-gradient(ellipse at center, rgba(253,224,71,.42), transparent 68%);
+    animation: glowPulse 3.2s ease-in-out infinite alternate}
+  @keyframes glowPulse{from{opacity:.5; transform:translateX(-50%) scaleX(.9)} to{opacity:1; transform:translateX(-50%) scaleX(1.05)}}
+
+  /* ============ 界面层 ============ */
+  #app{position:relative; z-index:5; height:100%; display:flex; flex-direction:column; pointer-events:none}
+  header{flex:none; padding:26px 0 0 48px}
+  #brand{display:inline-block; border-left:3px solid var(--holo); padding-left:16px;
+    animation: holoIdle 4.6s steps(1) infinite}
+  #brand h1{font-size:26px; letter-spacing:.38em; color:var(--holo); font-weight:700;
+    text-shadow:0 0 14px rgba(253,224,71,.35)}
+  #brand h1 span{font-size:15px; letter-spacing:.5em; color:rgba(253,224,71,.6); margin-left:10px}
+  #brand p{font-size:10.5px; letter-spacing:.32em; color:rgba(103,232,249,.55); margin-top:6px}
+
+  #sysStatus{position:fixed; right:36px; top:28px; z-index:6; text-align:right;
+    font-family:Consolas,"Courier New",monospace; font-size:12px; line-height:2}
+  #sysStatus .on{color:rgba(103,232,249,.85)}
+  #sysStatus .on b{color:#67e8f9; font-weight:400; animation: holoIdle 3s steps(1) infinite}
+  #sysStatus .cnt{color:rgba(253,224,71,.75)}
+
+  /* 对话列（全息档案） */
+  #chatCol{flex:1; overflow-y:auto; padding:26px 0 16px; margin-left:48px; width:min(520px,46vw);
+    pointer-events:auto; -webkit-mask-image:linear-gradient(180deg, transparent 0, #000 36px);
+    mask-image:linear-gradient(180deg, transparent 0, #000 36px)}
+  #chatCol::-webkit-scrollbar{width:6px}
+  #chatCol::-webkit-scrollbar-thumb{background:rgba(253,224,71,.25); border-radius:3px}
+  #chat{display:flex; flex-direction:column; gap:18px}
+
+  .msg{font-size:14px; line-height:2}
+  .msg.user{font-family:Consolas,"Courier New",monospace; font-size:13.5px; color:#8be9f7;
+    background:rgba(103,232,249,.055); border-left:2px solid rgba(103,232,249,.5);
+    border-radius:0 6px 6px 0; padding:10px 14px; word-break:break-all;
+    animation: cmdIn .35s ease-out both}
+  .msg.user::before{content:"❯ "; color:#22d3ee; font-weight:700}
+  @keyframes cmdIn{from{opacity:0; transform:translateX(-14px)} to{opacity:1; transform:translateX(0)}}
+
+  .msg.agent{color:#ffe98a; background:rgba(20,17,8,.42); border-left:2px solid rgba(253,224,71,.42);
+    border-radius:0 6px 6px 0; padding:13px 16px; backdrop-filter:blur(2px); cursor:default;
+    text-shadow:0 0 10px rgba(253,224,71,.20);
+    animation: holoIn .55s ease-out both; transition: background .3s, border-color .3s}
+  .msg.agent:hover{background:rgba(253,224,71,.09); border-left-color:var(--holo)}
+  @keyframes holoIn{from{opacity:0; filter:brightness(2.6) blur(1px)} to{opacity:1; filter:brightness(1) blur(0)}}
+  .msg.agent .who{font-family:Consolas,monospace; font-size:10px; letter-spacing:.32em;
+    color:rgba(253,224,71,.55); margin-bottom:8px}
+  .msg.agent .text{animation: textFlick 6.8s steps(1) infinite}
+  @keyframes textFlick{0%,100%{opacity:1} 88%{opacity:1} 89%{opacity:.55} 90%{opacity:1} 94%{opacity:1} 95%{opacity:.75} 96%{opacity:1}}
+  .caret{display:inline-block; color:var(--holo); animation: cBlk .7s steps(1) infinite}
+  @keyframes cBlk{50%{opacity:0}}
+  .hoverHint{font-size:10px; color:rgba(253,224,71,.4); letter-spacing:.2em; margin-top:8px;
+    font-family:Consolas,monospace; opacity:0; transition:opacity .3s}
+  .msg.agent:hover .hoverHint{opacity:1}
+
+  .sysMsg{font-family:Consolas,"Courier New",monospace; font-size:12.5px; color:rgba(253,224,71,.8);
+    letter-spacing:.15em; padding:6px 4px; animation: cmdIn .3s both}
+  .sysMsg .td{animation: tdot 1s steps(1) infinite}
+  .sysMsg .td:nth-child(2){animation-delay:.33s}
+  .sysMsg .td:nth-child(3){animation-delay:.66s}
+  @keyframes tdot{0%,100%{opacity:.15} 50%{opacity:1}}
+
+  /* 指令面板（门禁样式） */
+  #dockWrap{flex:none; margin:0 0 28px 48px; width:min(520px,46vw); pointer-events:auto}
+  #chips{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:12px}
+  .chip{font:inherit; font-size:12px; letter-spacing:.08em; cursor:pointer;
+    color:rgba(253,224,71,.75); background:rgba(20,20,12,.5); border:1px solid rgba(253,224,71,.3);
+    border-radius:2px; padding:6px 13px; transition:all .25s; font-family:Consolas,monospace}
+  .chip:hover{color:#fff8d8; border-color:var(--holo); box-shadow:0 0 14px rgba(253,224,71,.25); transform:translateY(-1px)}
+  #cmdHazard{padding:7px; border-radius:3px;
+    background:repeating-linear-gradient(45deg, #c9a227 0 13px, #17130a 13px 26px);
+    box-shadow:0 0 34px rgba(253,224,71,.14), 0 12px 30px rgba(0,0,0,.5)}
+  #cmdPanel{display:flex; align-items:center; gap:10px; background:#0d0d18;
+    border:1px solid rgba(253,224,71,.4); padding:11px 13px; border-radius:1px}
+  .prompt{color:var(--cyan); font-family:Consolas,monospace; font-weight:700; font-size:15px;
+    text-shadow:0 0 8px rgba(103,232,249,.5)}
+  #ask{flex:1; background:transparent; border:none; outline:none; color:#fef3c7;
+    font-family:Consolas,"Courier New",monospace; font-size:14.5px; letter-spacing:.03em; min-width:0}
+  #ask::placeholder{color:rgba(253,224,71,.32); font-family:"Microsoft YaHei",sans-serif; letter-spacing:.1em}
+  #execBtn{flex:none; cursor:pointer; background:var(--holo); color:#1a1705; border:none; border-radius:1px;
+    padding:10px 20px; font:inherit; font-weight:900; font-size:13.5px; letter-spacing:.35em; text-indent:.35em;
+    box-shadow:0 0 18px rgba(253,224,71,.4), inset 0 1px 0 rgba(255,255,255,.5); transition:all .13s}
+  #execBtn:hover{filter:brightness(1.12)}
+  #execBtn:active, #execBtn.pressed{transform:translateY(2px) scale(.97);
+    box-shadow:0 0 6px rgba(253,224,71,.3), inset 0 2px 4px rgba(0,0,0,.25)}
+  #cmdHazard.shake{animation: shk .4s}
+  @keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+  #toast{position:fixed; left:48px; bottom:110px; z-index:60; font-family:Consolas,monospace;
+    font-size:12px; letter-spacing:.15em; color:#ffe98a; background:rgba(13,13,24,.92);
+    border:1px solid rgba(253,224,71,.4); border-left:3px solid var(--holo);
+    padding:8px 18px; opacity:0; pointer-events:none; transition:opacity .35s}
+  #toast.show{opacity:1}
+
+  @media (max-width:900px){
+    #chatCol,#dockWrap,header{margin-left:18px; width:auto; padding-left:0}
+    #chatCol{width:calc(100vw - 36px)}
+    #dockWrap{width:calc(100vw - 36px)}
+    #holoFlick{left:70%; top:11%; width:84px; height:84px}
+    .cube .f1{transform:translateZ(42px)} .cube .f2{transform:rotateY(180deg) translateZ(42px)}
+    .cube .f3{transform:rotateY(90deg) translateZ(42px)} .cube .f4{transform:rotateY(-90deg) translateZ(42px)}
+    .cube .f5{transform:rotateX(90deg) translateZ(42px)} .cube .f6{transform:rotateX(-90deg) translateZ(42px)}
+    #sysStatus{right:16px; top:16px; font-size:10.5px}
+  }
+</style>
+</head>
+<body>
+
+<div id="scene">
+  <div id="gridFloor"></div>
+  <div id="risers"></div>
+  <div id="holoFlick"><div id="holoBob"><div class="cube">
+    <div class="f f1"></div><div class="f f2"></div><div class="f f3"></div>
+    <div class="f f4"></div><div class="f f5"></div><div class="f f6"></div>
+  </div></div></div>
+</div>
+<div id="horizonGlow"></div>
+<div id="horizonLine"></div>
+
+<div id="app">
+  <header>
+    <div id="brand">
+      <h1>HOLODECK<span>全息甲板</span></h1>
+      <p>SCENE SYNTHESIS · 场景构建系统 · DECK 07</p>
+    </div>
+  </header>
+
+  <main id="chatCol"><div id="chat"></div></main>
+
+  <div id="dockWrap">
+    <div id="chips">
+      <button class="chip" data-q="生成一座图书馆">生成一座图书馆</button>
+      <button class="chip" data-q="生成一座夜间花园">生成一座夜间花园</button>
+      <button class="chip" data-q="生成一座山顶天文台">生成一座山顶天文台</button>
+    </div>
+    <div id="cmdHazard">
+      <div id="cmdPanel">
+        <span class="prompt">❯</span>
+        <input id="ask" type="text" placeholder="输入指令，例如：生成一座图书馆…" autocomplete="off" maxlength="80">
+        <button id="execBtn">执 行</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="sysStatus">
+  <div class="on">全息矩阵 <b>● ONLINE</b></div>
+  <div class="cnt">结构投影 <span id="structCount">0</span></div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var chat = document.getElementById('chat');
+  var chatCol = document.getElementById('chatCol');
+  var ask = document.getElementById('ask');
+  var execBtn = document.getElementById('execBtn');
+  var cmdHazard = document.getElementById('cmdHazard');
+  var toast = document.getElementById('toast');
+  var floor = document.getElementById('gridFloor');
+  var risersBox = document.getElementById('risers');
+  var structCount = document.getElementById('structCount');
+
+  /* ---------- 网格滚动（rAF 平滑变速） ---------- */
+  var scrollY = 0, speed = 34, targetSpeed = 34, lastT = null;
+  function loop(ts){
+    if(lastT === null) lastT = ts;
+    var dt = Math.min(0.05, (ts - lastT)/1000);
+    lastT = ts;
+    speed += (targetSpeed - speed) * 0.055;
+    scrollY += speed * dt;
+    if(scrollY >= 64) scrollY -= 64;
+    floor.style.backgroundPosition = '0px 0px, 0px ' + scrollY.toFixed(1) + 'px';
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  /* ---------- 悬浮尘埃 ---------- */
+  (function(){
+    var scene = document.getElementById('scene');
+    for(var i=0;i<14;i++){
+      var d = document.createElement('span');
+      d.className = 'dust';
+      d.style.left = (40 + Math.random()*58)+'%';
+      d.style.bottom = (Math.random()*34+6)+'%';
+      d.style.animationDuration = (7+Math.random()*9)+'s';
+      d.style.animationDelay = (-Math.random()*10)+'s';
+      scene.appendChild(d);
+    }
+  })();
+
+  /* ---------- 全息结构模板 ---------- */
+  function tplTower(w){
+    return '<svg viewBox="0 0 140 170" width="'+w+'" style="display:block">'+
+      '<g stroke="#fde047" stroke-width="1.1" fill="none" opacity=".85">'+
+      '<polygon points="20,160 120,160 132,130 8,130" fill="rgba(253,224,71,.05)"/>'+
+      '<polygon points="30,130 110,130 118,96 22,96" fill="rgba(253,224,71,.04)"/>'+
+      '<polygon points="36,96 104,96 110,62 30,62" fill="rgba(253,224,71,.04)"/>'+
+      '<polygon points="42,62 98,62 102,34 38,34" fill="rgba(253,224,71,.05)"/>'+
+      '<line x1="70" y1="34" x2="70" y2="10"/>'+
+      '<circle cx="70" cy="8" r="2.4" fill="#fde047" stroke="none"/>'+
+      '<line x1="30" y1="160" x2="42" y2="34" opacity=".45"/>'+
+      '<line x1="110" y1="160" x2="98" y2="34" opacity=".45"/>'+
+      '<line x1="30" y1="130" x2="110" y2="96" opacity=".35"/>'+
+      '<line x1="110" y1="130" x2="30" y2="96" opacity=".35"/>'+
+      '</g></svg>';
+  }
+  function tplDome(w){
+    return '<svg viewBox="0 0 150 112" width="'+w+'" style="display:block">'+
+      '<g stroke="#fde047" stroke-width="1.1" fill="none" opacity=".85">'+
+      '<path d="M15 100 A60 60 0 0 1 135 100"/>'+
+      '<path d="M30 100 A45 45 0 0 1 120 100" opacity=".6"/>'+
+      '<path d="M45 100 A30 30 0 0 1 105 100" opacity=".6"/>'+
+      '<path d="M60 100 A15 15 0 0 1 90 100" opacity=".6"/>'+
+      '<line x1="15" y1="100" x2="135" y2="100"/>'+
+      '<line x1="75" y1="40" x2="75" y2="14"/>'+
+      '<circle cx="75" cy="12" r="2.4" fill="#fde047" stroke="none"/>'+
+      '<ellipse cx="75" cy="100" rx="60" ry="9" opacity=".35"/>'+
+      '<ellipse cx="75" cy="100" rx="34" ry="5" opacity=".3"/>'+
+      '</g></svg>';
+  }
+  function tplArch(w){
+    return '<svg viewBox="0 0 150 142" width="'+w+'" style="display:block">'+
+      '<g stroke="#fde047" stroke-width="1.1" fill="none" opacity=".85">'+
+      '<line x1="30" y1="136" x2="30" y2="55"/>'+
+      '<line x1="120" y1="136" x2="120" y2="55"/>'+
+      '<path d="M30 55 A45 45 0 0 1 120 55"/>'+
+      '<path d="M42 136 L42 62 A33 33 0 0 1 108 62 L108 136" opacity=".5"/>'+
+      '<line x1="20" y1="136" x2="40" y2="136"/>'+
+      '<line x1="110" y1="136" x2="130" y2="136"/>'+
+      '<line x1="30" y1="84" x2="42" y2="84" opacity=".5"/>'+
+      '<line x1="108" y1="84" x2="120" y2="84" opacity=".5"/>'+
+      '<line x1="30" y1="112" x2="42" y2="112" opacity=".5"/>'+
+      '<line x1="108" y1="112" x2="120" y2="112" opacity=".5"/>'+
+      '<line x1="75" y1="10" x2="75" y2="24"/>'+
+      '<circle cx="75" cy="8" r="2.2" fill="#fde047" stroke="none"/>'+
+      '</g></svg>';
+  }
+  var TEMPLATES = [tplTower, tplDome, tplArch];
+  var structTotal = 0;
+
+  function spawnRiser(){
+    var tpl = TEMPLATES[structTotal % TEMPLATES.length];
+    var w = 88 + Math.random()*44;
+    var riser = document.createElement('div');
+    riser.className = 'riser';
+    riser.style.left = (30 + Math.random()*58)+'%';
+    riser.style.bottom = (4 + Math.random()*10)+'%';
+    var inner = document.createElement('div');
+    inner.className = 'rsvg';
+    inner.innerHTML = '<div class="baseGlow"></div>' + tpl(Math.round(w));
+    riser.appendChild(inner);
+    risersBox.appendChild(riser);
+    structTotal++;
+    structCount.textContent = structTotal;
+    var olds = risersBox.querySelectorAll('.riser:not(.out)');
+    if(olds.length > 7){
+      var first = olds[0];
+      first.classList.add('out');
+      setTimeout(function(){ first.remove(); }, 850);
+    }
+    return {el: riser, inner: inner};
+  }
+
+  function reproject(r){
+    r.el.style.animation = 'none';
+    r.inner.style.filter = 'brightness(1.8)';
+    void r.el.offsetWidth;
+    r.el.style.animation = '';
+    setTimeout(function(){ r.inner.style.filter = ''; }, 900);
+  }
+
+  /* ---------- 对话数据 ---------- */
+  var REPLIES = [
+    "场景编译完成：一座悬浮图书馆正在甲板上升起。书架沿穹顶螺旋上升，每一层的灯都比上一层暗半度——越接近天空的书，越古老。\n知识在这里不是被存储，而是被点亮。告诉我一个主题，我会为它再投影出一座新的翼楼。",
+    "场景编译完成：夜间花园。发光的藤蔓正沿着数据拱门攀爬，每朵花绽放时都会释放一小段旋律，频率取自你今天的语速。\n我建议你在长椅上坐一会儿——全息花园的露水，对疲惫有奇效。",
+    "场景编译完成：山顶天文台。穹顶缓缓开启，投影出的星空比真实星空多三个星座——那三个，是用你曾经说过的话编排的。\n有些愿望太小，真实宇宙装不下；全息宇宙，刚好。",
+    "场景编译完成：跨海光桥。桥面由无数六边形光板拼接，每一步亮起，又在你身后熄灭——它只照亮你正在走的这一段。\n这是全息的温柔：路永远刚好足够，不多修建一寸。",
+    "场景编译完成：竹林茶室。竹叶的沙沙声由伪随机数生成，概率分布取自某个真实雨天的采样。\n茶已备好。全息茶没有味道，但热气是真的——它来自处理器。"
+  ];
+  var WELCOME = "全息甲板已就绪。我是 HOLODECK，场景构建 AI——只要你描述得出，我就投影得出。\n试着输入一条指令，例如「生成一座图书馆」，或者任何你此刻需要去的地方。";
+
+  var busy = false, replyIdx = Math.floor(Math.random()*REPLIES.length);
+
+  function scrollBottom(){ chatCol.scrollTop = chatCol.scrollHeight; }
+
+  function addUser(t){
+    var el = document.createElement('div');
+    el.className = 'msg user';
+    el.textContent = t;
+    chat.appendChild(el);
+    scrollBottom();
+  }
+
+  function streamAgent(text, riser){
+    var el = document.createElement('div');
+    el.className = 'msg agent';
+    el.innerHTML = '<div class="who">HOLODECK · 投影日志 #'+String(structTotal+1).padStart(2,'0')+'</div>';
+    var textEl = document.createElement('div');
+    textEl.className = 'text';
+    var caret = document.createElement('span');
+    caret.className = 'caret'; caret.textContent = '▌';
+    textEl.appendChild(caret);
+    el.appendChild(textEl);
+    var hint = document.createElement('div');
+    hint.className = 'hoverHint';
+    hint.textContent = '⌖ 悬停以重新投影此结构';
+    el.appendChild(hint);
+    if(riser){
+      el.addEventListener('mouseenter', function(){ reproject(riser); });
+    }
+    chat.appendChild(el);
+    scrollBottom();
+    var i = 0;
+    var timer = setInterval(function(){
+      if(i >= text.length){
+        clearInterval(timer);
+        caret.remove();
+        busy = false;
+        ask.focus();
+        return;
+      }
+      var ch = text[i++];
+      if(ch === '\n') textEl.insertBefore(document.createElement('br'), caret);
+      else textEl.insertBefore(document.createTextNode(ch), caret);
+      scrollBottom();
+    }, 46);
+  }
+
+  function thinkThenReply(){
+    busy = true;
+    document.body.classList.add('thinking');
+    targetSpeed = 270;
+    var holder = document.createElement('div');
+    holder.className = 'sysMsg';
+    holder.innerHTML = '程序编译中 <span class="td">·</span><span class="td">·</span><span class="td">·</span>';
+    chat.appendChild(holder);
+    scrollBottom();
+    var wait = 1700 + Math.random()*1100;
+    setTimeout(function(){
+      holder.remove();
+      document.body.classList.remove('thinking');
+      targetSpeed = 34;
+      var riser = spawnRiser();
+      streamAgent(REPLIES[replyIdx % REPLIES.length], riser);
+      replyIdx++;
+    }, wait);
+  }
+
+  var toastTimer = null;
+  function showToast(t){
+    toast.textContent = t;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toast.classList.remove('show'); }, 2200);
+  }
+
+  function send(raw){
+    var t = (raw||'').trim();
+    if(!t) return;
+    if(busy){
+      cmdHazard.classList.remove('shake');
+      void cmdHazard.offsetWidth;
+      cmdHazard.classList.add('shake');
+      showToast('编译器忙：请等待当前场景生成完毕');
+      return;
+    }
+    addUser(t);
+    ask.value = '';
+    thinkThenReply();
+  }
+
+  execBtn.addEventListener('click', function(){
+    execBtn.classList.add('pressed');
+    setTimeout(function(){ execBtn.classList.remove('pressed'); }, 160);
+    send(ask.value);
+  });
+  ask.addEventListener('keydown', function(e){ if(e.key === 'Enter') send(ask.value); });
+  Array.prototype.forEach.call(document.querySelectorAll('.chip'), function(c){
+    c.addEventListener('click', function(){ send(c.getAttribute('data-q')); });
+  });
+
+  setTimeout(function(){
+    var riser = spawnRiser();
+    streamAgent(WELCOME, riser);
+  }, 700);
+})();
+</script>
+</body>
+</html>

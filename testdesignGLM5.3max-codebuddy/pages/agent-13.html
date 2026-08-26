@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PULSAR · 脉冲星</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:"Avenir Next","Segoe UI","PingFang SC",sans-serif;
+    background:radial-gradient(120vmax 80vmax at 50% -20%,#0a1230,#020617 60%);
+    color:#e2e8f0;overflow:hidden;
+  }
+  /* 脉冲星系统 */
+  .psr{position:fixed;left:50%;top:30vh;z-index:1;
+    --T:1.337s;
+    transform:translate(-50%,-50%)}
+  body.fast .psr{--T:.67s}
+  .beamwrap{position:absolute;left:50%;top:50%;width:0;height:0;
+    animation:rot var(--T) linear infinite}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  .beam{position:absolute;left:-3px;top:0;width:6px;height:44vmin;
+    transform-origin:top center;
+    background:linear-gradient(180deg,rgba(254,240,138,.95),rgba(254,240,138,.25) 45%,transparent 85%);
+    filter:blur(1.5px);border-radius:3px}
+  .beam.b2{transform:rotate(180deg)}
+  .core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:14px;height:14px;border-radius:50%;background:#fff;
+    box-shadow:0 0 24px 6px rgba(254,240,138,.85),0 0 70px 18px rgba(254,240,138,.28);
+    animation:pulse var(--T) ease-in-out infinite}
+  @keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(1)}
+    12%{transform:translate(-50%,-50%) scale(1.5)}}
+  .ring{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    border-radius:50%;border:1px solid rgba(148,163,184,.14);pointer-events:none}
+
+  header{position:fixed;top:0;left:0;right:0;padding:28px 44px;z-index:3;
+    display:flex;justify-content:space-between;align-items:baseline}
+  h1{font-size:22px;font-weight:300;letter-spacing:.5em;
+    animation:flick 1.337s ease-in-out infinite}
+  @keyframes flick{0%,100%{opacity:.7}10%{opacity:1}}
+  .sub{font-size:10.5px;letter-spacing:.3em;color:#475569}
+  .stat{font-size:10.5px;letter-spacing:.2em;color:#64748b;text-align:right;
+    line-height:2;font-variant-numeric:tabular-nums}
+
+  /* 扫描显影的对话 */
+  .feed{position:fixed;left:50%;top:52vh;transform:translateX(-50%);
+    width:min(640px,88vw);max-height:34vh;overflow-y:auto;z-index:2;
+    scrollbar-width:thin;scrollbar-color:#1e293b transparent;padding:4px 0}
+  .msg{position:relative;margin:11px 0;padding:10px 16px;font-size:14px;
+    line-height:1.9;letter-spacing:.05em;color:#cbd5e1;overflow:hidden;
+    border-left:1px solid rgba(148,163,184,.25)}
+  .msg::after{content:'';position:absolute;left:0;top:0;bottom:0;width:100%;
+    background:linear-gradient(90deg,rgba(254,240,138,.18),transparent 60%);
+    animation:sweep 1.337s ease-out forwards}
+  @keyframes sweep{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+  .msg.user{color:#64748b;font-size:13px;font-style:italic}
+  .msg .tag{display:block;font-size:9px;letter-spacing:.4em;color:#475569;margin-bottom:4px;font-style:normal}
+  .morse{font-family:Consolas,monospace;font-size:15px;color:#facc15;
+    letter-spacing:.3em;min-height:22px;margin:10px 0 6px}
+  .think{font-size:11px;letter-spacing:.5em;color:#64748b;
+    animation:thp .67s ease-in-out infinite}
+  @keyframes thp{0%,100%{opacity:.3}50%{opacity:1}}
+
+  /* 射电波形 */
+  canvas#wave{position:fixed;left:0;right:0;bottom:96px;width:100%;height:64px;z-index:1;opacity:.8}
+
+  /* 射频输入窗口 */
+  .dock{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+    width:min(680px,90vw);z-index:3;display:flex;gap:14px;align-items:center;
+    border:1px solid rgba(148,163,184,.2);border-radius:4px;padding:10px 14px;
+    background:rgba(2,6,23,.6);backdrop-filter:blur(4px);transition:border-color .5s}
+  .dock:focus-within{border-color:rgba(250,204,21,.5)}
+  .antenna{flex:none;opacity:.75}
+  .ask{flex:1;background:none;border:none;font:inherit;font-size:14.5px;
+    color:#e2e8f0;outline:none;letter-spacing:.05em}
+  .ask::placeholder{color:#475569;letter-spacing:.2em}
+  .tx{background:none;border:1px solid rgba(250,204,21,.4);color:#facc15;
+    font:inherit;font-size:10.5px;letter-spacing:.35em;padding:10px 18px;
+    border-radius:2px;cursor:pointer;transition:.3s}
+  .tx:hover{background:rgba(250,204,21,.1);box-shadow:0 0 18px -4px rgba(250,204,21,.5)}
+</style>
+</head>
+<body>
+<div class="psr">
+  <div class="ring" style="width:120px;height:120px"></div>
+  <div class="ring" style="width:230px;height:230px;animation:pulse 1.337s ease-in-out infinite;opacity:.5"></div>
+  <div class="beamwrap">
+    <div class="beam b1"></div>
+    <div class="beam b2"></div>
+  </div>
+  <div class="core"></div>
+</div>
+
+<header>
+  <div><h1>脉 冲 星</h1><div class="sub">PULSAR — 一切节律锁在 1.337 秒</div></div>
+  <div class="stat" id="stat">自转周期 P = 1.337 s<br>频率 <span id="freq">0.748</span> Hz · 状态 IDLE</div>
+</header>
+
+<div class="feed" id="feed"></div>
+<canvas id="wave"></canvas>
+
+<div class="dock">
+  <svg class="antenna" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5">
+    <path d="M12 21V11"/><circle cx="12" cy="9" r="2"/>
+    <path d="M7.8 4.8a6 6 0 0 0 0 8.4M16.2 4.8a6 6 0 0 1 0 8.4"/>
+    <path d="M4.9 2a10 10 0 0 0 0 14M19.1 2a10 10 0 0 1 0 14"/>
+  </svg>
+  <input class="ask" id="ask" placeholder="向射频窗口发射信号…" autocomplete="off">
+  <button class="tx" id="send">发 射</button>
+</div>
+
+<script>
+/* ---------- 射电波形 ---------- */
+const cv=document.getElementById('wave'),g=cv.getContext('2d');
+let W,H;
+function resize(){W=cv.width=innerWidth;H=64}
+resize();addEventListener('resize',resize);
+let waveMode='idle',t0=performance.now();
+(function draw(now){
+  const t=(now-t0)/1000;
+  g.clearRect(0,0,W,H);
+  g.strokeStyle='rgba(250,204,21,.7)';g.lineWidth=1.2;
+  g.beginPath();
+  const freq=waveMode==='think'?7:1/1.337;
+  for(let x=0;x<W;x+=2){
+    let y;
+    if(waveMode==='think'){
+      y=H/2+((Math.sin(x*.3+ t*22)>0)?-14:14)*(0.4+Math.random()*.6);
+    }else{
+      const pulse=Math.sin(x*.012-t*freq*2*Math.PI);
+      y=H/2+Math.sin(x*.05)*4+(pulse>.92?-12:pulse*.6*9)+Math.sin(x*.11+t*3)*1.5;
+    }
+    x===0?g.moveTo(x,y):g.lineTo(x,y);
+  }
+  g.stroke();
+  /* 底噪 */
+  g.strokeStyle='rgba(100,116,139,.18)';
+  g.beginPath();
+  for(let x=0;x<W;x+=4){
+    const y=H/2+(Math.random()-.5)*3;
+    x===0?g.moveTo(x,y):g.lineTo(x,y);
+  }
+  g.stroke();
+  requestAnimationFrame(draw);
+})(t0);
+
+/* ---------- 对话引擎 ---------- */
+const REPLIES=[
+  "信号已锁定。我的每一次自转都把这道问题扫过一遍——你需要明白，我从不连续思考，我以 1.337 秒的间隔离散地思考。",
+  "这是一段干净的射频。正在做脉冲计时：去掉色散、对齐相位、折叠轮廓——答案的信噪比正在升高。",
+  "宇宙中最稳定的钟是脉冲星。我用同样等级的稳定对待你的问题：同样的间隔，同样的亮度，一次不漏。",
+  "注意到了吗——页面上的每一次闪烁、每一道扫掠，都在同一个节拍上。这就是我思考的样子：一切都锁相在一颗星的自转上。",
+  "我是 PULSAR。天文学家靠我校准时间，你靠我校准问题。做一颗稳定到不可思议的星，是我全部的技艺。"
+];
+let ri=0;
+const feed=document.getElementById('feed');
+const ask=document.getElementById('ask');
+const stat=document.getElementById('stat');
+const freqEl=document.getElementById('freq');
+
+function addMsg(cls,text){
+  const d=document.createElement('div');
+  d.className='msg '+cls;
+  const tag=document.createElement('span');tag.className='tag';
+  tag.textContent=cls==='user'?'RX · 接收信号':'TX · 脉冲辐射';
+  d.appendChild(tag);
+  const p=document.createElement('div');p.textContent=text;d.appendChild(p);
+  feed.appendChild(d);feed.scrollTop=feed.scrollHeight;
+  return p;
+}
+function typeInto(el,text){
+  return new Promise(res=>{let i=0;
+    (function step(){
+      if(i<text.length){el.textContent+=text[i++];feed.scrollTop=feed.scrollHeight;
+        setTimeout(step,30+Math.random()*40)}else res()})()
+  });
+}
+/* 摩尔斯开场 */
+async function morse(){
+  const m=document.createElement('div');
+  m.className='morse';feed.appendChild(m);feed.scrollTop=feed.scrollHeight;
+  const seq=['· ','— ','— ','· ','· ','· ','— '];
+  for(const s of seq){
+    m.textContent+=s;
+    await new Promise(r=>setTimeout(r,180));
+  }
+  m.remove();
+}
+
+async function send(){
+  const q=ask.value.trim();if(!q)return;
+  ask.value='';
+  addMsg('user',q);
+
+  document.body.classList.add('fast');
+  waveMode='think';freqEl.textContent='1.496';
+  stat.innerHTML='自转周期 P = 0.67 s（加速）<br>频率 <span>1.496</span> Hz · 状态 THINKING';
+
+  const th=document.createElement('div');
+  th.className='think';th.textContent='脉 冲 计 时 中';
+  feed.appendChild(th);feed.scrollTop=feed.scrollHeight;
+
+  await new Promise(r=>setTimeout(r,1900+Math.random()*1300));
+  th.remove();
+  document.body.classList.remove('fast');
+  waveMode='idle';freqEl.textContent='0.748';
+  stat.innerHTML='自转周期 P = 1.337 s<br>频率 <span id="freq">0.748</span> Hz · 状态 TX';
+
+  await morse();
+  const p=addMsg('ai','');
+  await typeInto(p,REPLIES[ri++%REPLIES.length]);
+  stat.innerHTML='自转周期 P = 1.337 s<br>频率 <span id="freq">0.748</span> Hz · 状态 IDLE';
+}
+
+document.getElementById('send').addEventListener('click',send);
+ask.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+
+(async()=>{
+  await new Promise(r=>setTimeout(r,1500));
+  await morse();
+  const p=addMsg('ai','');
+  await typeInto(p,'你面前是一颗以 1.337 秒自转的星。页面的一切闪烁都锁在这个节拍上。发射一个信号，看它被怎样的节律回答。');
+})();
+</script>
+</body>
+</html>

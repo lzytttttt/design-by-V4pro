@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>墨井 INKWELL · 水墨文心AI</title>
+<style>
+:root{
+  --ink:#1c1a17;
+  --ink-soft:#57524a;
+  --ink-faint:#8f897c;
+  --paper:#f8f5ec;
+  --paper-deep:#efe9db;
+  --cinnabar:#b23a2b;
+  --kai:"KaiTi","STKaiti","KaiTi_GB2312","DFKai-SB","TW-Kai",serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--paper);
+  font-family:var(--kai);
+  color:var(--ink);
+  overflow:hidden;
+  display:grid;
+  grid-template-columns:150px 1fr;
+  grid-template-rows:1fr auto;
+}
+
+/* ============ 宣纸质感 ============ */
+.paper-grain{
+  position:fixed;inset:0;z-index:60;pointer-events:none;
+  filter:url(#paperNoise);
+}
+.paper-vignette{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(ellipse at 50% 38%, transparent 55%, rgba(120,98,64,.09) 100%),
+    radial-gradient(circle at 12% 90%, rgba(150,120,70,.06), transparent 40%);
+}
+
+/* ============ 左侧竖排题款 ============ */
+.side{
+  grid-row:1/3;
+  border-right:1px solid rgba(28,26,23,.16);
+  display:flex;flex-direction:column;align-items:center;
+  padding:44px 0 30px;
+  position:relative;z-index:5;
+  animation:fade-in 1.6s ease .3s both;
+}
+.side-title{
+  writing-mode:vertical-rl;
+  font-size:62px;font-weight:400;letter-spacing:24px;
+  color:var(--ink);
+  text-shadow:0 0 1px rgba(28,26,23,.3);
+}
+.side-sub{
+  writing-mode:vertical-rl;
+  font-size:13px;color:var(--ink-faint);letter-spacing:7px;
+  margin-top:22px;
+}
+.side-seal{
+  margin-top:auto;
+  width:34px;height:34px;
+  border:1.5px solid rgba(178,58,43,.55);
+  border-radius:3px;
+  color:rgba(178,58,43,.6);
+  font-size:15px;
+  display:flex;align-items:center;justify-content:center;
+  animation:seal-breathe 5s ease-in-out infinite;
+}
+@keyframes seal-breathe{0%,100%{opacity:.45}50%{opacity:.85}}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+
+/* ============ 画卷舞台 ============ */
+.stage{
+  position:relative;z-index:4;
+  display:flex;flex-direction:column;
+  padding-top:46px;
+  min-width:0;
+}
+.scroll-wrap{
+  height:min(560px,60vh);
+  margin:0 64px;
+  display:flex;align-items:stretch;
+  filter:drop-shadow(0 10px 24px rgba(28,26,23,.12));
+}
+.axis{
+  width:26px;flex:none;border-radius:13px;position:relative;z-index:3;
+  background:linear-gradient(90deg,#4a463f,#211f1b 28%,#57524a 50%,#211f1b 72%,#4a463f);
+  animation:axis-glow 6s ease-in-out infinite;
+}
+@keyframes axis-glow{
+  0%,100%{box-shadow:0 0 0 rgba(28,26,23,.0)}
+  50%{box-shadow:0 8px 22px rgba(28,26,23,.22)}
+}
+.axis::before,.axis::after{
+  content:"";position:absolute;left:50%;transform:translateX(-50%);
+  width:36px;height:13px;border-radius:7px;
+  background:linear-gradient(180deg,#6a655b,#2b2823 55%,#4a463f);
+  box-shadow:0 2px 5px rgba(28,26,23,.3);
+}
+.axis::before{top:-7px}
+.axis::after{bottom:-7px}
+
+.scroll-area{
+  flex:1;overflow-x:auto;overflow-y:hidden;position:relative;
+  background:
+    linear-gradient(180deg,transparent 0 7%,rgba(28,26,23,.028) 7% 93%,transparent 93%),
+    linear-gradient(90deg,var(--paper-deep),rgba(248,245,236,.35) 7%,rgba(248,245,236,.35) 93%,var(--paper-deep));
+  box-shadow:inset 0 3px 12px rgba(28,26,23,.07),inset 0 -3px 12px rgba(28,26,23,.07);
+  scrollbar-width:none;
+}
+.scroll-area::-webkit-scrollbar{display:none}
+.scroll-inner{
+  display:flex;align-items:stretch;height:100%;
+  padding:26px 44px;gap:38px;
+  width:max-content;
+}
+
+/* ============ 对话条目（竖排题跋） ============ */
+.entry{
+  writing-mode:vertical-rl;
+  position:relative;
+  display:flex;flex-direction:row;
+  height:100%;
+  transform-origin:bottom center;
+  animation:grow-up .8s cubic-bezier(.22,.9,.3,1) both;
+}
+@keyframes grow-up{from{transform:scaleY(.02);opacity:0}to{transform:scaleY(1);opacity:1}}
+.entry .tag{
+  font-size:13px;color:var(--ink-faint);letter-spacing:5px;
+  padding:2px 0;margin-right:14px;
+  border-right:1px solid rgba(28,26,23,.25);
+}
+.entry .msg{
+  font-size:21px;line-height:2.05;letter-spacing:8px;
+  max-height:100%;
+  color:var(--ink);
+}
+.entry .sig{
+  font-size:12px;color:var(--ink-faint);letter-spacing:4px;
+  margin-top:auto;margin-left:14px;padding-top:20px;
+}
+.entry.user .msg{color:var(--ink-soft);font-size:18px;letter-spacing:6px}
+.entry.user .sig{margin-left:0;margin-right:14px;padding-top:20px}
+
+/* 毛笔字浮现 */
+.ch{
+  display:inline-block;
+  transform:rotate(var(--r,0deg));
+  opacity:0;filter:blur(6px);
+  transition:opacity .55s ease,filter .55s ease;
+}
+.ch.on{opacity:var(--o,1);filter:blur(0)}
+
+/* ============ 朱砂印 ============ */
+.seal{
+  position:absolute;bottom:4px;left:-2px;
+  width:54px;height:54px;
+  border:2.5px solid var(--cinnabar);border-radius:4px;
+  color:var(--cinnabar);
+  writing-mode:vertical-rl;
+  display:flex;align-items:center;justify-content:center;
+  font-size:25px;letter-spacing:5px;
+  background-image:
+    radial-gradient(circle at 30% 60%,rgba(178,58,43,.12) 1.5px,transparent 2.5px),
+    radial-gradient(circle at 70% 30%,rgba(178,58,43,.1) 1px,transparent 2px),
+    radial-gradient(circle at 60% 80%,rgba(178,58,43,.14) 1.2px,transparent 2px);
+  opacity:0;pointer-events:none;z-index:5;
+  transform:scale(1.45) rotate(7deg);
+}
+.seal.stamp{animation:stamp .55s cubic-bezier(.2,1.5,.35,1) forwards}
+@keyframes stamp{
+  0%{opacity:0;transform:scale(1.45) rotate(7deg)}
+  62%{opacity:1;transform:scale(.93) rotate(2deg)}
+  100%{opacity:.92;transform:scale(1) rotate(2.5deg)}
+}
+
+/* ============ 墨滴与涟漪 ============ */
+.ink-drop{
+  position:fixed;width:11px;height:13px;z-index:70;pointer-events:none;
+  border-radius:50% 50% 50% 50%/62% 62% 38% 38%;
+  background:radial-gradient(circle at 34% 28%,#3d3931,#0e0d0b 72%);
+  animation:drop-arc .62s cubic-bezier(.45,.1,.7,.5) forwards;
+}
+@keyframes drop-arc{
+  0%{transform:translate(0,0) scale(.5)}
+  18%{transform:translate(calc(var(--dx)*.12),calc(var(--dy)*.12 - 46px)) scale(1)}
+  100%{transform:translate(var(--dx),var(--dy)) scale(.92)}
+}
+.ripple{position:absolute;pointer-events:none;z-index:6}
+.ripple .ring{
+  position:absolute;left:0;top:0;transform:translate(-50%,-50%);
+  border:1.5px solid rgba(28,26,23,.55);border-radius:50%;
+  width:8px;height:8px;
+  animation:ring-spread .95s ease-out forwards;
+}
+.ripple .ring:nth-child(2){animation-delay:.16s;border-color:rgba(28,26,23,.4)}
+.ripple .ring:nth-child(3){animation-delay:.32s;border-color:rgba(28,26,23,.28)}
+@keyframes ring-spread{
+  from{width:8px;height:8px;opacity:.85}
+  to{width:150px;height:150px;opacity:0}
+}
+.ripple .blot{
+  position:absolute;left:0;top:0;transform:translate(-50%,-50%);
+  width:16px;height:16px;border-radius:52% 48% 55% 45%/48% 55% 45% 52%;
+  background:radial-gradient(circle at 42% 36%,rgba(58,54,47,.95),rgba(14,13,11,.96) 74%);
+  animation:blot-settle .8s cubic-bezier(.2,.8,.3,1) forwards;
+}
+@keyframes blot-settle{
+  from{transform:translate(-50%,-50%) scale(.15)}
+  to{transform:translate(-50%,-50%) scale(1)}
+}
+
+/* ============ 状态区（砚台） ============ */
+.status{
+  height:110px;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  gap:10px;padding-top:16px;
+}
+.inkstone{
+  width:96px;height:62px;position:relative;
+  border:2px solid rgba(28,26,23,.6);
+  border-radius:10px 10px 16px 16px;
+  background:linear-gradient(180deg,#efe9db,#e0d8c2);
+  box-shadow:inset 0 3px 9px rgba(28,26,23,.18),0 4px 10px rgba(28,26,23,.14);
+  opacity:0;transform:translateY(8px);
+  transition:opacity .45s ease,transform .45s ease;
+  pointer-events:none;
+}
+.inkstone.show{opacity:1;transform:translateY(0)}
+.inkstone .pool{
+  position:absolute;right:11px;top:8px;bottom:8px;width:46px;
+  border-radius:50%/42%;
+  background:radial-gradient(ellipse at 44% 38%,#3d3931,#141210 76%);
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.55);
+}
+.inkstone .pool::after{
+  content:"";position:absolute;inset:-9px;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(28,26,23,.38),transparent 68%);
+  animation:ink-breathe 1.7s ease-in-out infinite;
+}
+@keyframes ink-breathe{0%,100%{opacity:.22;transform:scale(1)}50%{opacity:.72;transform:scale(1.28)}}
+.inkstone .stick{
+  position:absolute;width:27px;height:11px;border-radius:3px;
+  background:linear-gradient(180deg,#332f28,#0b0a08);
+  left:22px;top:25px;
+  transform-origin:0 50%;
+  animation:grind 1.5s linear infinite;
+}
+@keyframes grind{
+  from{transform:rotate(0deg) translateX(12px) rotate(0deg)}
+  to{transform:rotate(360deg) translateX(12px) rotate(-360deg)}
+}
+.status-text{
+  font-size:14px;color:var(--ink-faint);letter-spacing:6px;
+  animation:idle-breathe 3.4s ease-in-out infinite;
+}
+@keyframes idle-breathe{0%,100%{opacity:.35}50%{opacity:.8}}
+.status-text.thinking{color:var(--ink-soft);animation-duration:1.4s}
+
+/* ============ 输入墨线 ============ */
+.input-bar{
+  grid-column:2;
+  display:flex;align-items:center;gap:22px;
+  padding:18px 64px 30px;
+  border-top:1px solid rgba(28,26,23,.24);
+  position:relative;z-index:10;
+  background:linear-gradient(180deg,rgba(248,245,236,.55),rgba(248,245,236,0));
+}
+.input-label{
+  writing-mode:vertical-rl;font-size:12px;color:var(--ink-faint);letter-spacing:4px;
+  border-right:1px solid rgba(28,26,23,.2);padding-right:10px;height:34px;
+}
+#inkInput{
+  flex:1;background:transparent;border:none;outline:none;
+  border-bottom:1px solid rgba(28,26,23,.32);
+  font-family:var(--kai);font-size:21px;color:var(--ink);
+  padding:8px 4px;letter-spacing:2px;
+  transition:border-color .35s;
+}
+#inkInput:focus{border-bottom-color:rgba(28,26,23,.8)}
+#inkInput::placeholder{color:var(--ink-faint);letter-spacing:3px}
+.send-btn{
+  font-family:var(--kai);font-size:18px;letter-spacing:5px;
+  color:var(--paper);background:var(--ink);
+  border:none;border-radius:999px;padding:11px 32px 11px 37px;
+  cursor:pointer;
+  box-shadow:0 4px 14px rgba(28,26,23,.35);
+  transition:box-shadow .35s,transform .12s,opacity .35s;
+}
+.send-btn:hover{box-shadow:0 7px 22px rgba(28,26,23,.5)}
+.send-btn:active{transform:translateY(2px);box-shadow:0 2px 7px rgba(28,26,23,.4)}
+.send-btn:disabled{opacity:.45;cursor:default;box-shadow:none}
+
+/* ============ 自适应 ============ */
+@media (max-width:900px){
+  body{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}
+  .side{grid-row:1/2;flex-direction:row;border-right:none;border-bottom:1px solid rgba(28,26,23,.16);padding:16px 24px}
+  .side-title,.side-sub{writing-mode:horizontal-tb}
+  .side-title{font-size:30px;letter-spacing:10px}
+  .side-sub{margin:0 0 0 16px;align-self:flex-end}
+  .side-seal{margin:0 0 0 auto}
+  .stage{grid-row:2/3;padding-top:16px}
+  .scroll-wrap{margin:0 20px}
+  .input-bar{grid-column:1;grid-row:3/4;padding:14px 20px 20px;flex-wrap:wrap}
+  .input-label{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- SVG 滤镜：宣纸噪点 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="paperNoise">
+    <feTurbulence type="fractalNoise" baseFrequency="0.82" numOctaves="4" seed="11" stitchTiles="stitch"/>
+    <feColorMatrix type="matrix" values="0 0 0 0 0.36  0 0 0 0 0.32  0 0 0 0 0.24  0 0 0 0.055 0"/>
+  </filter>
+</svg>
+<div class="paper-grain"></div>
+<div class="paper-vignette"></div>
+
+<!-- 左侧题款 -->
+<aside class="side">
+  <h1 class="side-title">墨井</h1>
+  <div class="side-sub">INKWELL · 水墨文心</div>
+  <div class="side-seal">心</div>
+</aside>
+
+<!-- 画卷舞台 -->
+<main class="stage">
+  <div class="scroll-wrap">
+    <div class="axis axis-l"></div>
+    <div class="scroll-area" id="scrollArea">
+      <div class="scroll-inner" id="scrollInner"></div>
+    </div>
+    <div class="axis axis-r"></div>
+  </div>
+  <div class="status">
+    <div class="inkstone" id="inkstone">
+      <div class="pool"></div>
+      <div class="stick"></div>
+    </div>
+    <p class="status-text" id="statusText">静候落墨</p>
+  </div>
+</main>
+
+<!-- 输入 -->
+<footer class="input-bar">
+  <span class="input-label">君之笔</span>
+  <input id="inkInput" type="text" placeholder="蘸墨欲书，落笔成章……" autocomplete="off" maxlength="60">
+  <button id="sendBtn" class="send-btn">落 墨</button>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  const $ = s => document.querySelector(s);
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const rand = (a,b) => a + Math.random()*(b-a);
+
+  const scrollArea = $('#scrollArea');
+  const scrollInner = $('#scrollInner');
+  const input = $('#inkInput');
+  const sendBtn = $('#sendBtn');
+  const inkstone = $('#inkstone');
+  const statusText = $('#statusText');
+
+  /* ---------- 预置回复 ---------- */
+  const REPLIES = [
+    { seal:"行云", text:"落笔如烟云，字字见山河。君所问之事，恰似墨入静水——初看是一团混沌，静待片刻，纹路自现。急，则墨浊；缓，则墨清。" },
+    { seal:"五色", text:"墨分五色：焦、浓、重、淡、清。君之此问落在浓淡之间，我取一瓢清水，为君研开这团墨。答案不在笔尖，而在笔与纸将触未触的那一刻。" },
+    { seal:"守白", text:"古人作画，计白当黑。君的问题里有大片留白，我斗胆替君补上一笔：与其寻一个确切答案，不如养一颗会发问的心。白，亦是章法。" },
+    { seal:"听风", text:"砚要勤洗，心要常静。方才我在砚池边坐了片刻，想起风过竹林的公案——不是风动，不是竹动，是君心里那点念头在动。既已动了，便落墨吧。" },
+    { seal:"万象", text:"一墨点纸，万象生焉。君带来的题目，像一滴墨落入清水，我看了许久它晕开的形状……好，形状已定，层次分明，落款为证。" }
+  ];
+  const THINKING_WORDS = ["研墨中……","凝思中……","磨墨待书……","洗砚听心……"];
+  let lastReply = -1;
+  function pickReply(){
+    let i;
+    do { i = Math.floor(Math.random()*REPLIES.length); } while(i === lastReply);
+    lastReply = i;
+    return REPLIES[i];
+  }
+
+  let busy = false;
+
+  /* ---------- 构建条目 ---------- */
+  function makeEntry(type){
+    const e = document.createElement('div');
+    e.className = 'entry ' + type;
+    e.innerHTML =
+      '<span class="tag">' + (type === 'user' ? '问' : '答') + '</span>' +
+      '<div class="msg"></div>' +
+      (type === 'user'
+        ? '<div class="sig">君 · 手书</div>'
+        : '<div class="sig">墨井 · 谨答</div>');
+    scrollInner.appendChild(e);
+    return e;
+  }
+
+  /* ---------- 毛笔逐字浮现 ---------- */
+  function inkWrite(container, text, speed){
+    return new Promise(resolve => {
+      let i = 0;
+      const timer = setInterval(() => {
+        const s = document.createElement('span');
+        s.className = 'ch';
+        s.textContent = text[i];
+        s.style.setProperty('--r', rand(-2,2).toFixed(1) + 'deg');
+        s.style.setProperty('--o', rand(0.75,1).toFixed(2));
+        container.appendChild(s);
+        requestAnimationFrame(() => requestAnimationFrame(() => s.classList.add('on')));
+        i++;
+        if(i >= text.length){
+          clearInterval(timer);
+          setTimeout(resolve, 650);
+        }
+      }, speed);
+    });
+  }
+
+  /* ---------- 朱砂印 ---------- */
+  function stampSeal(entry, word){
+    const seal = document.createElement('div');
+    seal.className = 'seal';
+    seal.textContent = word;
+    entry.appendChild(seal);
+    requestAnimationFrame(() => requestAnimationFrame(() => seal.classList.add('stamp')));
+    return sleep(600);
+  }
+
+  /* ---------- 墨滴 + 涟漪 ---------- */
+  function inkDropTo(entry){
+    return new Promise(resolve => {
+      scrollArea.scrollTo({ left: scrollArea.scrollWidth, behavior:'smooth' });
+      setTimeout(() => {
+        const rect = entry.getBoundingClientRect();
+        const areaRect = scrollArea.getBoundingClientRect();
+        const tx = rect.left + rect.width/2 + rand(-8,8);
+        const ty = rect.top + rect.height*0.68;
+        const sx = input.getBoundingClientRect().left + 90;
+        const sy = input.getBoundingClientRect().top - 6;
+
+        const drop = document.createElement('div');
+        drop.className = 'ink-drop';
+        drop.style.left = sx + 'px';
+        drop.style.top = sy + 'px';
+        drop.style.setProperty('--dx', (tx - sx).toFixed(1) + 'px');
+        drop.style.setProperty('--dy', (ty - sy).toFixed(1) + 'px');
+        document.body.appendChild(drop);
+
+        drop.addEventListener('animationend', () => {
+          drop.remove();
+          /* 涟漪落点（画卷坐标系，随卷移动） */
+          const rip = document.createElement('div');
+          rip.className = 'ripple';
+          rip.style.left = (tx - areaRect.left + scrollArea.scrollLeft) + 'px';
+          rip.style.top = (ty - areaRect.top) + 'px';
+          rip.innerHTML = '<div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="blot"></div>';
+          scrollInner.appendChild(rip);
+          setTimeout(() => rip.remove(), 1400);
+          setTimeout(resolve, 380);
+        }, { once:true });
+      }, 320);
+    });
+  }
+
+  /* ---------- 思考态 ---------- */
+  async function think(ms){
+    inkstone.classList.add('show');
+    statusText.textContent = THINKING_WORDS[Math.floor(Math.random()*THINKING_WORDS.length)];
+    statusText.classList.add('thinking');
+    await sleep(ms);
+    inkstone.classList.remove('show');
+    statusText.classList.remove('thinking');
+    statusText.textContent = '静候落墨';
+  }
+
+  /* ---------- 发送主流程 ---------- */
+  async function handleSend(){
+    const text = input.value.trim();
+    if(!text || busy) return;
+    busy = true;
+    sendBtn.disabled = true;
+    input.value = '';
+    input.blur();
+
+    const userEntry = makeEntry('user');
+    await inkDropTo(userEntry);
+    await inkWrite(userEntry.querySelector('.msg'), text, 34);
+
+    await think(rand(1800, 2600));
+
+    const reply = pickReply();
+    const aiEntry = makeEntry('ai');
+    scrollArea.scrollTo({ left: scrollArea.scrollWidth, behavior:'smooth' });
+    await sleep(500);
+    await inkWrite(aiEntry.querySelector('.msg'), reply.text, 88);
+    await stampSeal(aiEntry, reply.seal);
+
+    busy = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+
+  sendBtn.addEventListener('click', handleSend);
+  input.addEventListener('keydown', e => {
+    if(e.key === 'Enter') handleSend();
+  });
+
+  /* ---------- 开场白 ---------- */
+  async function opening(){
+    await sleep(1100);
+    const entry = makeEntry('ai');
+    await inkWrite(entry.querySelector('.msg'),
+      '吾乃墨井。以砚为思，以笔为言，以留白为境。君有所问，落墨便是。', 82);
+    await stampSeal(entry, '启');
+    input.focus();
+  }
+  opening();
+})();
+</script>
+</body>
+</html>

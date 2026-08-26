@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MYCELIUM · 菌丝网络 — 知识互联智能体</title>
+<style>
+:root{--ink:#211d17;--paper:#f7f4ec;--amber:#b45309}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  overflow:hidden;background:var(--paper);color:var(--ink);
+  font-family:Georgia,"Songti SC","SimSun",serif;
+  /* 纸张肌理 */
+  background-image:
+    radial-gradient(rgba(33,29,23,.045) 1px,transparent 1px),
+    radial-gradient(rgba(33,29,23,.03) 1px,transparent 1px);
+  background-size:26px 26px,26px 26px;
+  background-position:0 0,13px 13px;
+}
+#net{position:fixed;inset:0;z-index:0}
+#fx{position:fixed;inset:0;z-index:1;pointer-events:none}
+header{position:fixed;top:34px;left:44px;z-index:5}
+.brand{font-size:17px;letter-spacing:.42em;font-weight:700}
+.brand em{font-style:normal;font-size:11px;letter-spacing:.35em;color:#8a7f6d;display:block;margin-top:8px}
+.meta{margin-top:14px;font-size:10.5px;letter-spacing:.18em;color:#9b8f7b}
+.status{position:fixed;top:38px;right:44px;z-index:5;text-align:right;
+  font-size:10px;letter-spacing:.3em;color:#8a7f6d}
+.status b{display:block;font-size:13px;font-weight:400;letter-spacing:.22em;color:var(--ink);margin-top:7px}
+.status .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);
+  margin-right:8px;vertical-align:0;animation:pulse 2.8s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(180,83,9,.35)}50%{box-shadow:0 0 0 7px rgba(180,83,9,0)}}
+/* 对话卡片：浮现于菌丝节点 */
+.card{
+  position:fixed;z-index:4;width:252px;padding:15px 17px;background:#fffdf6;
+  border:1.5px solid var(--ink);
+  box-shadow:5px 6px 0 rgba(33,29,23,.09),0 14px 30px rgba(60,50,30,.1);
+  opacity:0;transform:scale(.7) translateY(12px);
+  transition:opacity .7s cubic-bezier(.2,.8,.3,1),transform .7s cubic-bezier(.2,.8,.3,1)}
+.card.in{opacity:1;transform:none}
+.card .q{font-size:11px;letter-spacing:.1em;color:#8a7f6d;margin-bottom:9px;line-height:1.75;
+  border-bottom:1px dashed #d8d0bc;padding-bottom:9px}
+.card .q b{color:var(--ink);letter-spacing:.3em;margin-right:6px;font-weight:700}
+.card .a{font-size:13.5px;line-height:1.95;color:#2c2620}
+.card .a span{opacity:0;display:inline-block;transform:translateY(5px);
+  transition:opacity .5s,transform .5s}
+.card .a span.on{opacity:1;transform:none}
+.card.gone{opacity:0;transform:scale(.75) translateY(-14px);transition:all .8s}
+/* 底部：孢子输入 */
+#hint{position:fixed;left:50%;bottom:116px;transform:translateX(-50%);z-index:6;
+  font-size:10.5px;letter-spacing:.42em;color:#a3987f;text-indent:.42em;transition:opacity .8s;pointer-events:none}
+#ask{position:fixed;left:50%;bottom:42px;transform:translateX(-50%);z-index:6;
+  display:flex;align-items:center;gap:18px;width:min(560px,90vw)}
+#ask .field{flex:1;border-bottom:1.5px solid var(--ink);padding:10px 4px;display:flex}
+#ask input{flex:1;min-width:0;border:0;outline:0;background:none;
+  font:15px Georgia,"Songti SC",serif;color:var(--ink);letter-spacing:.06em}
+#ask input::placeholder{color:#a99e89;letter-spacing:.14em}
+.spore{
+  width:52px;height:52px;flex:none;border-radius:50%;border:1.5px solid var(--ink);cursor:pointer;
+  background:
+    radial-gradient(circle at 34% 32%,#fffdf6 0 17%,transparent 18%),
+    radial-gradient(circle at 67% 28%,#fffdf6 0 10%,transparent 11%),
+    radial-gradient(circle at 44% 66%,#fffdf6 0 13%,transparent 14%),
+    radial-gradient(circle at 72% 62%,#fffdf6 0 9%,transparent 10%),
+    var(--amber);
+  box-shadow:3px 4px 0 rgba(33,29,23,.15);
+  transition:transform .3s,box-shadow .3s}
+.spore:hover{transform:scale(1.08)}
+.spore:active{transform:scale(.92)}
+/* 飞行的孢子 */
+.fly{position:fixed;z-index:7;width:10px;height:10px;border-radius:50%;background:var(--amber);
+  box-shadow:0 0 12px rgba(180,83,9,.8);pointer-events:none}
+@media(max-width:720px){
+  header{left:20px;top:20px}.status{right:20px}
+  .card{width:212px}
+}
+</style>
+</head>
+<body>
+<canvas id="net"></canvas>
+<canvas id="fx"></canvas>
+
+<header>
+  <div class="brand">MYCELIUM<em>菌丝网络 · 知识互联智能体</em></div>
+  <div class="meta">RHIZOMATIC KNOWLEDGE GRAPH · EST. 地下三米</div>
+</header>
+
+<div class="status"><span class="dot"></span>NETWORK<b id="st">网络稳定生长</b></div>
+
+<div id="hint">播种一个问题 · 看菌丝如何回应</div>
+
+<form id="ask" autocomplete="off">
+  <div class="field"><input id="q" type="text" maxlength="60" placeholder="向菌丝网络播种一个问题…"></div>
+  <button class="spore" type="submit" aria-label="播种"></button>
+</form>
+
+<script>
+'use strict';
+const TAU=Math.PI*2;
+const $=s=>document.querySelector(s);
+const net=$('#net'),fx=$('#fx');
+const nctx=net.getContext('2d'),fctx=fx.getContext('2d');
+const form=$('#ask'),input=$('#q'),st=$('#st'),hint=$('#hint');
+
+let W=0,H=0;
+function resize(){
+  const d=Math.min(window.devicePixelRatio||1,2);
+  W=innerWidth;H=innerHeight;
+  for(const[c,cx]of[[net,nctx],[fx,fctx]]){
+    c.width=W*d;c.height=H*d;
+    c.style.width=W+'px';c.style.height=H+'px';
+    cx.setTransform(d,0,0,d,0,0);
+  }
+  nctx.lineWidth=.9;nctx.strokeStyle='rgba(33,29,23,.7)';nctx.lineCap='round';
+}
+addEventListener('resize',resize);resize();
+
+/* ---------- 菌丝生长引擎 ---------- */
+const nodes=[];   /* 节点（分叉/间隔落点） */
+const tips=[];    /* 生长尖端 */
+const G={speed:3};/* 初始加速蔓延，随后归于缓慢 */
+let now=0;
+
+function addTip(x,y,a,life){
+  const t={x,y,a,life,since:0,dead:false,target:null,v:0};
+  tips.push(t);return t;
+}
+function drawDot(x,y,r){
+  nctx.fillStyle='rgba(33,29,23,.5)';
+  nctx.beginPath();nctx.arc(x,y,r,0,TAU);nctx.fill();
+}
+
+/* 标志性瞬间：从中心一点开始蔓延 */
+const O={x:W*.5,y:H*.44};
+nodes.push({x:O.x,y:O.y});
+drawDot(O.x,O.y,2.6);
+addTip(O.x,O.y,-Math.PI/2,9);
+addTip(O.x,O.y,Math.PI*.15,11);
+addTip(O.x,O.y,Math.PI*.85,11);
+setTimeout(()=>{if(!busy&&G.speed>1)G.speed=1;},6000);
+
+function grow(dt){
+  const base=30*G.speed;
+  let alive=0;
+  for(const t of tips){
+    if(t.dead)continue;
+    alive++;
+    /* 随机游走：线段随机角度延伸 */
+    t.a+=(Math.random()-.5)*1.5*dt*Math.sqrt(Math.min(G.speed,4));
+    /* 定向生长（朝卡片锚点） */
+    if(t.target){
+      const ta=Math.atan2(t.target.y-t.y,t.target.x-t.x);
+      let d=Math.atan2(Math.sin(ta-t.a),Math.cos(ta-t.a));
+      t.a+=d*Math.min(1,dt*5);
+      if(Math.hypot(t.target.x-t.x,t.target.y-t.y)<10){
+        t.dead=true;t.target.done();continue;
+      }
+    }
+    const sp=t.v||base;
+    const nx=t.x+Math.cos(t.a)*sp*dt,ny=t.y+Math.sin(t.a)*sp*dt;
+    nctx.beginPath();nctx.moveTo(t.x,t.y);nctx.lineTo(nx,ny);nctx.stroke();
+    t.x=nx;t.y=ny;t.life-=dt;t.since+=sp*dt;
+    /* 沿途落节点 */
+    if(t.since>46){
+      t.since=0;
+      nodes.push({x:nx,y:ny});
+      drawDot(nx,ny,1.2+Math.random()*1.5);
+      if(nodes.length>700)nodes.splice(0,1);
+    }
+    /* 分叉 */
+    if(!t.target&&alive<24&&Math.random()<dt*.24*Math.min(G.speed,3)){
+      addTip(nx,ny,t.a+(Math.random()<.5?-1:1)*(.5+Math.random()*.7),5+Math.random()*7);
+    }
+    if(t.life<=0||nx<-40||nx>W+40||ny<-40||ny>H+40)t.dead=true;
+  }
+  for(let i=tips.length-1;i>=0;i--)if(tips[i].dead)tips.splice(i,1);
+  /* 菌丝永不停息：尖端耗尽则从旧节点重生 */
+  if(tips.length===0&&nodes.length>3){
+    const n=nodes[(Math.random()*nodes.length)|0];
+    addTip(n.x,n.y,Math.random()*TAU,9);
+  }
+}
+
+/* 思考态：节点闪烁琥珀色 */
+function drawFx(){
+  fctx.clearRect(0,0,W,H);
+  const k=Math.max(0,Math.min(1,(G.speed-1)/6));
+  if(k<=.02)return;
+  fctx.fillStyle='#b45309';
+  for(let i=0;i<nodes.length;i+=3){
+    const nd=nodes[i];
+    const a=(.18+.32*(.5+.5*Math.sin(now*4+nd.x*.011+nd.y*.017)))*k;
+    fctx.globalAlpha=a;
+    fctx.beginPath();fctx.arc(nd.x,nd.y,2.4,0,TAU);fctx.fill();
+  }
+  fctx.globalAlpha=.85*k;
+  for(const t of tips){
+    fctx.beginPath();fctx.arc(t.x,t.y,2,0,TAU);fctx.fill();
+  }
+  fctx.globalAlpha=1;
+}
+
+let lastT=performance.now();
+function loop(nw){
+  const dt=Math.min(.05,(nw-lastT)/1000);lastT=nw;now=nw/1000;
+  grow(dt);drawFx();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------- 对话 ---------- */
+const REPLIES=[
+  '这个问题已接入网络。它与一千两百个既有节点产生共振——其中三个节点，指向同一位十九世纪的博物学家。他曾在日记里写下几乎相同的困惑。',
+  '知识不是孤岛，而是菌丝：你在地表看到的一朵蘑菇，地下连着几公里长的网络。你的问题也一样——它早已和许多答案悄悄相连。',
+  '正在交叉验证三条菌索的信号……结论是：好答案往往生长在两个学科的交界处，就像菌类偏爱腐木与新土的边界。',
+  '我把你的问题分解成十七粒孢子，分别送往哲学、物理与诗歌的菌床。它们带回的共识是：先想清楚「为什么问」，答案会自己找上门来。',
+  '网络记忆显示，人类在公元前就问过类似的问题。当时的答案是「水」，现在的答案是「信息」。再过两千年也许是别的什么——但问题本身，一直活着。'
+];
+let ri=0,ci=0,busy=false;
+const cards=[];
+
+/* 卡片锚点（避开页眉 / 状态 / 输入区） */
+const ANCH=[[.16,.33],[.45,.26],[.73,.29],[.24,.64],[.57,.70],[.84,.55],[.38,.47]];
+
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function setStatus(m){st.textContent={idle:'网络稳定生长',grow:'菌丝加速分支',fruit:'新枝结果中'}[m];}
+function nearestNode(x,y){
+  let best=O,bd=1e9;
+  for(const n of nodes){
+    const d=(n.x-x)**2+(n.y-y)**2;
+    if(d<bd){bd=d;best=n;}
+  }
+  return best;
+}
+function makeCard(a){
+  const c=document.createElement('div');c.className='card';
+  c.style.left=(a[0]*W-126)+'px';
+  c.style.top=(a[1]*H-30)+'px';
+  document.body.appendChild(c);return c;
+}
+function trimCards(){
+  if(cards.length>3){
+    const old=cards.shift();
+    old.classList.add('gone');
+    setTimeout(()=>old.remove(),820);
+  }
+}
+
+form.addEventListener('submit',e=>{
+  e.preventDefault();
+  const v=input.value.trim();
+  if(!v||busy)return;
+  busy=true;input.value='';hint.style.opacity='0';
+  const anchor=ANCH[ci%ANCH.length];
+  const tx=anchor[0]*W,ty=anchor[1]*H;
+  const org=nearestNode(tx,ty);
+
+  /* 1. 孢子飘向菌丝生长点 */
+  setStatus('grow');
+  const btn=document.querySelector('.spore');
+  const br=btn.getBoundingClientRect();
+  const bx=br.left+br.width/2,by=br.top+br.height/2;
+  const fly=document.createElement('div');fly.className='fly';
+  fly.style.left=(bx-5)+'px';fly.style.top=(by-5)+'px';
+  document.body.appendChild(fly);
+  fly.animate(
+    [{transform:'translate(0,0) scale(1)',opacity:1},
+     {transform:`translate(${org.x-bx}px,${org.y-by}px) scale(.4)`,opacity:.4}],
+    {duration:640,easing:'cubic-bezier(.45,.05,.3,1)'}
+  ).onfinish=()=>fly.remove();
+
+  /* 2. 菌丝加速（思考态），新枝定向生长 */
+  G.speed=7;
+  setTimeout(()=>{
+    const card=makeCard(anchor);
+    cards.push(card);trimCards();
+    const qd=document.createElement('div');qd.className='q';
+    qd.innerHTML='<b>问</b>'+esc(v);
+    const ad=document.createElement('div');ad.className='a';
+    card.append(qd,ad);
+
+    const tip=addTip(org.x,org.y,Math.atan2(ty-org.y,tx-org.x),99);
+    tip.v=Math.hypot(tx-org.x,ty-org.y)/1.5;
+    tip.target={x:tx,y:ty,done:()=>{
+      /* 3. 卡片沿节点浮现，回复沿新枝依次长出 */
+      card.classList.add('in');
+      G.speed=2.4;setStatus('fruit');
+      const reply=REPLIES[ri++%REPLIES.length];
+      const sp=[...reply].map(ch=>{
+        const s=document.createElement('span');s.textContent=ch;ad.appendChild(s);return s;
+      });
+      sp.forEach((s,i)=>setTimeout(()=>s.classList.add('on'),200+i*38));
+      setTimeout(()=>{
+        G.speed=1;setStatus('idle');busy=false;
+      },200+sp.length*38+900);
+    }};
+  },680);
+  ci++;
+});
+</script>
+</body>
+</html>

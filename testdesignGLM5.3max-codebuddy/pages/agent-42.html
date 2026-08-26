@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIQUID CHROME · 液态铬</title>
+<style>
+/* ============ LIQUID CHROME · 液态铬 ============ */
+:root{
+  --display:"Arial Black","Arial Bold",Impact,"Microsoft YaHei","SimHei",sans-serif;
+  --body:"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+  --mono:Consolas,"Cascadia Code","SF Mono",Menlo,monospace;
+  --ink:#2c3542;
+  --steel:#4a5563;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:var(--body);
+  color:var(--ink);
+  overflow:hidden;
+  /* 缓慢流动的铬色世界 */
+  background:linear-gradient(120deg,
+    #d9dee5 0%,#f3f6f9 12%,#b9c2cd 26%,#e9edf2 40%,
+    #c9d1da 55%,#9aa5b3 68%,#e1e6ec 82%,#d0d6de 100%);
+  background-size:280% 280%;
+  animation:chromeFlow 26s ease-in-out infinite;
+}
+@keyframes chromeFlow{
+  0%{background-position:0% 40%}
+  50%{background-position:100% 60%}
+  100%{background-position:0% 40%}
+}
+/* 紫蓝环境反射 */
+.ambient{position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0}
+.a1{width:560px;height:560px;background:radial-gradient(circle,#b39dff,transparent 68%);top:-160px;right:-140px;opacity:.42;animation:drift1 24s ease-in-out infinite alternate}
+.a2{width:520px;height:520px;background:radial-gradient(circle,#8fb4ff,transparent 68%);bottom:-180px;left:-120px;opacity:.38;animation:drift2 30s ease-in-out infinite alternate}
+@keyframes drift1{to{transform:translate(-130px,150px) scale(1.18)}}
+@keyframes drift2{to{transform:translate(170px,-110px) scale(.88)}}
+/* 噪点 */
+.grain{
+  position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.055'/%3E%3C/svg%3E");
+}
+/* 布局 */
+.app{
+  position:relative;z-index:2;
+  height:100vh;display:flex;flex-direction:column;
+}
+/* ===== 头部 ===== */
+.hero{text-align:center;padding-top:34px;flex-shrink:0}
+.badge{
+  display:inline-block;
+  font:700 10px/1 var(--mono);
+  letter-spacing:3.5px;color:#57616f;
+  padding:8px 16px;border-radius:999px;
+  background:linear-gradient(180deg,#f4f6f9,#c4cdd8);
+  box-shadow:inset 0 1px 0 #fff,inset 0 -1px 2px rgba(0,0,0,.16),0 2px 7px rgba(30,40,60,.2);
+  margin-bottom:20px;
+  animation:badgePulse 3.4s ease-in-out infinite;
+}
+@keyframes badgePulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.06)}}
+.chrome-text{
+  font-family:var(--display);
+  font-size:clamp(42px,6.6vw,90px);
+  letter-spacing:3px;line-height:1.05;
+  background:linear-gradient(180deg,
+    #fdfeff 0%,#ccd5df 20%,#7d8898 42%,#f0f3f7 50%,
+    #525c6b 54%,#9aa6b5 74%,#f5f8fb 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 2px 0 rgba(255,255,255,.75)) drop-shadow(0 12px 22px rgba(40,50,72,.3));
+  user-select:none;
+}
+.hero-sub{
+  margin-top:12px;font-size:13px;
+  letter-spacing:11px;color:#5a6472;text-indent:11px;
+}
+/* ===== 液态波浪分隔线 ===== */
+.wave-line{flex-shrink:0;display:block;width:100%;height:54px;margin-top:6px}
+.wave-line .wave-a,.wave-line .wave-b{will-change:transform}
+.wave-a{animation:waveShift 8s linear infinite}
+.wave-b{animation:waveShift 13s linear infinite reverse;opacity:.4}
+@keyframes waveShift{to{transform:translateX(-360px)}}
+/* ===== 对话区 ===== */
+.stage{flex:1;min-height:0;position:relative;display:flex;flex-direction:column}
+.chat{
+  flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:16px;
+  padding:6px 40px 10px;width:min(860px,92vw);margin:0 auto;
+  scrollbar-width:thin;scrollbar-color:#8d99a8 transparent;
+  transition:filter .6s ease,opacity .6s ease;
+}
+.chat::-webkit-scrollbar{width:8px}
+.chat::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#aab4c0,#7d8898);border-radius:4px}
+.chat.dim{filter:blur(3px) saturate(.55);opacity:.35;pointer-events:none}
+/* 用户消息：铬制胶囊牌 */
+.msg-user{
+  align-self:flex-end;display:inline-block;
+  padding:11px 22px;border-radius:999px 999px 6px 999px;
+  background:linear-gradient(180deg,#f0f3f6 0%,#c6cfda 55%,#b0bcc9 100%);
+  color:var(--ink);font:600 13.5px/1.5 var(--body);
+  box-shadow:inset 0 1px 0 #fff,inset 0 -2px 4px rgba(0,0,0,.16),0 6px 16px rgba(30,40,60,.22);
+  max-width:70%;animation:riseIn .45s cubic-bezier(.2,.9,.3,1.1) both;
+}
+@keyframes riseIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+/* AI消息：铬框卡片 + 高光扫过 */
+.msg-ai{
+  position:relative;align-self:flex-start;
+  max-width:78%;padding:20px 26px;
+  border-radius:16px;
+  background:linear-gradient(180deg,#f8fafc 0%,#d6dde5 44%,#b7c2ce 50%,#e0e6ec 100%);
+  border:1px solid rgba(255,255,255,.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.95),
+    inset 0 -2px 5px rgba(20,28,44,.2),
+    0 1px 0 rgba(255,255,255,.6),
+    0 14px 34px rgba(28,38,58,.24);
+  overflow:hidden;
+  animation:riseIn .45s cubic-bezier(.2,.9,.3,1.1) both;
+}
+.msg-ai::after{
+  content:'';position:absolute;top:-25%;bottom:-25%;left:-75%;width:34%;
+  background:linear-gradient(105deg,transparent,rgba(255,255,255,.6),transparent);
+  transform:skewX(-18deg);
+  animation:sheen 5.6s ease-in-out infinite;
+  animation-delay:var(--sd,0s);
+  pointer-events:none;
+}
+@keyframes sheen{0%,55%{left:-75%}100%{left:155%}}
+.msg-ai .ai-tag{
+  font:700 9px/1 var(--mono);letter-spacing:3px;
+  color:#6a7583;margin-bottom:9px;display:block;
+}
+.ai-text{font-size:14.5px;line-height:1.95;color:#39424f}
+/* 文字铬光渐显 */
+.chunk{
+  display:inline;opacity:0;filter:blur(4px);transform:translateY(3px);
+  transition:opacity .55s cubic-bezier(.2,.7,.3,1),filter .55s ease,transform .55s ease,text-shadow .55s ease;
+}
+.chunk.on{
+  opacity:1;filter:blur(0);transform:none;
+  text-shadow:0 1px 0 rgba(255,255,255,.85);
+}
+/* ===== 思考态：液态金属球 ===== */
+.orb-zone{
+  position:absolute;inset:0;z-index:3;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;
+  opacity:0;pointer-events:none;transition:opacity .5s ease;
+}
+.orb-zone.show{opacity:1}
+.orb{
+  width:98px;height:98px;border-radius:50%;
+  position:relative;overflow:hidden;
+  background:
+    radial-gradient(circle at 32% 28%,rgba(255,255,255,.95),rgba(255,255,255,0) 27%),
+    radial-gradient(circle at 70% 76%,rgba(178,160,255,.35),transparent 42%),
+    radial-gradient(circle at 50% 50%,#eef1f5 0%,#b9c3cf 34%,#6a7686 58%,#2c3444 78%,#171c26 100%);
+  box-shadow:
+    inset -10px -14px 26px rgba(10,14,24,.55),
+    inset 6px 8px 18px rgba(255,255,255,.35),
+    0 24px 46px rgba(24,32,50,.42);
+  animation:liquid 7s linear infinite;
+}
+.orb::before{
+  content:'';position:absolute;inset:-32%;
+  background:linear-gradient(115deg,
+    transparent 22%,rgba(180,164,255,.3) 30%,rgba(120,140,255,.13) 36%,
+    transparent 44%,rgba(255,255,255,.55) 52%,transparent 60%,
+    rgba(140,160,220,.22) 68%,transparent 76%);
+  animation:envspin 5.5s linear infinite;
+}
+.orb::after{
+  content:'';position:absolute;left:20%;right:20%;bottom:9%;height:13%;
+  background:radial-gradient(ellipse,rgba(255,255,255,.5),transparent 70%);
+  filter:blur(2px);
+}
+@keyframes envspin{to{transform:rotate(360deg)}}
+@keyframes liquid{
+  0%,100%{border-radius:50% 50% 50% 50%/50% 50% 50% 50%;transform:rotate(0deg) scale(1)}
+  25%{border-radius:46% 54% 58% 42%/52% 46% 54% 48%;transform:rotate(2deg) scale(1.05)}
+  50%{border-radius:56% 44% 46% 54%/44% 58% 42% 56%;transform:rotate(-2deg) scale(.96)}
+  75%{border-radius:48% 52% 44% 56%/56% 44% 58% 42%;transform:rotate(1deg) scale(1.03)}
+}
+.orb-label{
+  font:900 12px var(--display);letter-spacing:7px;color:#4a5563;text-indent:7px;
+}
+.orb-label i{font-style:normal;animation:dotBlink 1.3s ease-in-out infinite}
+.orb-label i:nth-child(2){animation-delay:.2s}
+.orb-label i:nth-child(3){animation-delay:.4s}
+@keyframes dotBlink{0%,100%{opacity:.15}50%{opacity:1}}
+/* ===== 输入条：铬制胶囊 ===== */
+.input-pill{
+  position:relative;display:flex;align-items:center;gap:12px;
+  flex-shrink:0;
+  margin:22px auto 16px;width:min(700px,90vw);
+  padding:8px 8px 8px 24px;
+  border-radius:999px;
+  background:linear-gradient(180deg,#f2f4f8 0%,#ccd5df 58%,#b2bdca 100%);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -3px 6px rgba(20,28,44,.24),
+    0 1px 0 rgba(255,255,255,.7),
+    0 16px 34px rgba(28,38,58,.28);
+}
+/* 聚焦波纹 */
+.input-pill::before{
+  content:'';position:absolute;inset:2px;border-radius:inherit;
+  background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.8),transparent 62%);
+  opacity:0;pointer-events:none;
+}
+.input-pill:focus-within::before{animation:ripple 1.7s ease-out infinite}
+@keyframes ripple{
+  0%{opacity:.6;transform:scale(.84)}
+  100%{opacity:0;transform:scale(1.14)}
+}
+.pill-glyph{
+  font:900 11px var(--mono);color:#6a7583;letter-spacing:2px;user-select:none;
+}
+#ask{
+  flex:1;background:transparent;border:0;outline:0;
+  font:500 14px var(--body);color:var(--ink);
+  caret-color:#4a5563;min-width:60px;
+}
+#ask::placeholder{color:#8d99a8}
+.send{
+  font:900 12px var(--display);letter-spacing:2.5px;
+  color:var(--ink);padding:13px 24px;border:0;border-radius:999px;cursor:pointer;
+  background:linear-gradient(180deg,#f8fafc 0%,#c8d2dd 55%,#a6b3c2 100%);
+  box-shadow:inset 0 1px 0 #fff,inset 0 -2px 4px rgba(0,0,0,.22),0 6px 14px rgba(28,38,58,.26);
+  transition:transform .1s ease,box-shadow .2s ease;
+}
+.send:hover{box-shadow:inset 0 1px 0 #fff,inset 0 -2px 4px rgba(0,0,0,.22),0 8px 20px rgba(28,38,58,.34)}
+.send:active{transform:translateY(1px)}
+/* 底部 */
+.foot{
+  flex-shrink:0;text-align:center;
+  font:400 10px var(--mono);letter-spacing:4px;color:#6a7583;
+  padding-bottom:14px;user-select:none;
+}
+/* 自适应 */
+@media (max-width:720px){
+  .hero{padding-top:20px}
+  .chat{padding:4px 18px 8px}
+  .msg-ai{max-width:92%;padding:16px 18px}
+  .msg-user{max-width:86%}
+  .hero-sub{letter-spacing:6px;text-indent:6px}
+  .wave-line{height:40px}
+}
+</style>
+</head>
+<body>
+<div class="ambient a1"></div>
+<div class="ambient a2"></div>
+<div class="grain"></div>
+
+<div class="app">
+  <header class="hero">
+    <div class="badge">◉ Y2K INTELLIGENCE UNIT · EST.1999 ◉</div>
+    <h1 class="chrome-text">LIQUID&nbsp;CHROME</h1>
+    <p class="hero-sub">液态智能体 · 全金属心灵</p>
+  </header>
+
+  <svg class="wave-line" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="wg" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#8a94a4"/>
+        <stop offset=".5" stop-color="#f4f7fa"/>
+        <stop offset="1" stop-color="#66707f"/>
+      </linearGradient>
+    </defs>
+    <g class="wave-b"><path d="M0 32 Q90 56 180 32 T360 32 T540 32 T720 32 T900 32 T1080 32 T1260 32 T1440 32 T1620 32 T1800 32 T1980 32 T2160 32 T2340 32 T2520 32 T2700 32 T2880 32" fill="none" stroke="url(#wg)" stroke-width="1.6"/></g>
+    <g class="wave-a"><path d="M0 30 Q90 4 180 30 T360 30 T540 30 T720 30 T900 30 T1080 30 T1260 30 T1440 30 T1620 30 T1800 30 T1980 30 T2160 30 T2340 30 T2520 30 T2700 30 T2880 30" fill="none" stroke="url(#wg)" stroke-width="2.6"/></g>
+  </svg>
+
+  <main class="stage">
+    <div class="chat" id="chat"></div>
+    <div class="orb-zone" id="orbZone">
+      <div class="orb"></div>
+      <div class="orb-label">PROCESSING<i>.</i><i>.</i><i>.</i></div>
+    </div>
+  </main>
+
+  <form class="input-pill" id="pill" autocomplete="off">
+    <span class="pill-glyph">▲</span>
+    <input id="ask" spellcheck="false" placeholder="向液态智能体提问…">
+    <button type="submit" class="send">SEND</button>
+  </form>
+
+  <footer class="foot">CHROME UNIT · 反射即思考 / REFLECTION IS THINKING</footer>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var sleep = function(ms){ return new Promise(function(r){ setTimeout(r, ms); }); };
+  var chat = $('chat');
+  var orbZone = $('orbZone');
+  var ask = $('ask');
+  var pill = $('pill');
+  var busy = false;
+  var replyIdx = 0;
+
+  /* ---------- 预置回复（循环使用） ---------- */
+  var REPLIES = [
+    '欢迎来到液态层。这里的算力像水银一样流动——无孔不入，且拒绝被任何形状收编。你看到的每一道反光，都是同一次思考的不同侧面。',
+    '处理完毕。我的判断是：未来的界面不该有『边框』这种东西。所有边界都应该是液态的，随时准备为下一个想法重新成形。',
+    '检索完成。铬的哲学：反射一切，却不持有任何立场。有人称之为『中立』，我更愿意叫它——一面高级的镜子。',
+    '系统确认：把金属加热到两千度，它会流动；把智能加载到足够的密度，它也会。你刚刚看到的那颗球，就是后者的室温版本。',
+    '信号已镀膜。提醒一句：在这个界面里没有什么是固体的——包括我给你的每一个答案。它们出厂时，就是液态的。'
+  ];
+
+  function scrollBottom(){ chat.scrollTop = chat.scrollHeight; }
+
+  function printUser(text){
+    var d = document.createElement('div');
+    d.className = 'msg-user';
+    d.textContent = text;
+    chat.appendChild(d);
+    scrollBottom();
+  }
+
+  function printAiShell(){
+    var d = document.createElement('div');
+    d.className = 'msg-ai';
+    d.style.setProperty('--sd', (Math.random() * 4).toFixed(2) + 's');
+    var tag = document.createElement('span');
+    tag.className = 'ai-tag';
+    tag.textContent = 'CHROME://REPLY';
+    var body = document.createElement('span');
+    body.className = 'ai-text';
+    d.appendChild(tag);
+    d.appendChild(body);
+    chat.appendChild(d);
+    scrollBottom();
+    return body;
+  }
+
+  /* 切短语块 */
+  function chunkify(text){
+    var parts = text.match(/[^，。！？…；、]+[，。！？…；、]?/g) || [text];
+    var out = [];
+    for (var i = 0; i < parts.length; i++){
+      var p = parts[i];
+      if (p.length <= 9){ out.push(p); }
+      else {
+        for (var j = 0; j < p.length; j += 6) out.push(p.slice(j, j + 6));
+      }
+    }
+    return out;
+  }
+
+  /* 文字铬光渐显 */
+  async function revealChunks(container, text){
+    var chunks = chunkify(text);
+    for (var i = 0; i < chunks.length; i++){
+      var s = document.createElement('span');
+      s.className = 'chunk';
+      s.textContent = chunks[i];
+      container.appendChild(s);
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){ s.classList.add('on'); });
+      });
+      await sleep(150 + Math.random() * 130);
+    }
+  }
+
+  /* ---------- 主流程：输入 → 液态球思考 → 铬光回复 ---------- */
+  async function submit(){
+    var text = ask.value.trim();
+    if (!text || busy) return;
+    busy = true;
+    ask.value = '';
+    printUser(text);
+    /* 思考态：对话退后，液态金属球登场 */
+    chat.classList.add('dim');
+    orbZone.classList.add('show');
+    await sleep(1800 + Math.random() * 1100);
+    orbZone.classList.remove('show');
+    chat.classList.remove('dim');
+    var body = printAiShell();
+    await revealChunks(body, REPLIES[replyIdx++ % REPLIES.length]);
+    busy = false;
+    ask.focus();
+  }
+
+  pill.addEventListener('submit', function(e){
+    e.preventDefault();
+    submit();
+  });
+
+  /* 初始欢迎语（加载后像镀膜一样浮现） */
+  setTimeout(async function(){
+    var body = printAiShell();
+    await revealChunks(body, '系统在线。液态智能体已就绪——向我提问，我会以金属的方式思考。每一次回答，都由一颗流动的球体浇铸而成。');
+  }, 700);
+
+  ask.focus();
+})();
+</script>
+</body>
+</html>

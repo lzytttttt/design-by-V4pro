@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEED VAULT · 种子库</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:"Segoe UI","PingFang SC",sans-serif;
+    background:linear-gradient(180deg,#e0f2fe 0%,#f0f9ff 40%,#dbeafe 100%);
+    color:#0c4a6e;overflow:hidden;
+  }
+  /* 雪 */
+  .snow{position:fixed;inset:0;pointer-events:none;z-index:1}
+  .snow i{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;
+    box-shadow:0 0 4px rgba(255,255,255,.9);animation:fall linear infinite}
+  @keyframes fall{
+    0%{transform:translate(0,-10px)}
+    100%{transform:translate(var(--sw),105vh)}
+  }
+
+  header{position:fixed;top:0;left:0;right:0;padding:28px 44px;z-index:6;
+    display:flex;justify-content:space-between;align-items:baseline}
+  h1{font-size:23px;font-weight:300;letter-spacing:.45em}
+  .sub{font-size:11px;letter-spacing:.28em;color:#0369a1;opacity:.75}
+  .temp{font-size:11px;letter-spacing:.2em;color:#0369a1;text-align:right;font-variant-numeric:tabular-nums}
+
+  /* 3D 长廊 */
+  .scene{position:fixed;inset:0;perspective:1100px;perspective-origin:50% 42%;z-index:0}
+  .tunnel{position:absolute;inset:0;transform-style:preserve-3d}
+  .arch{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%) translateZ(var(--z));
+    width:min(760px,86vw);height:min(500px,66vh);
+    border:2px solid rgba(12,74,110,.28);border-radius:200px 200px 8px 8px;
+    box-shadow:0 0 0 1px rgba(255,255,255,.5) inset;
+    transition:border-color .8s}
+  .arch .lamp{position:absolute;top:8px;left:50%;transform:translateX(-50%);
+    width:54px;height:7px;border-radius:4px;background:rgba(12,74,110,.15);
+    transition:.8s}
+  body.lighting .arch{border-color:rgba(14,165,233,.55)}
+  body.lighting .arch .lamp{background:#38bdf8;box-shadow:0 0 18px 4px rgba(56,189,248,.7)}
+  .shelf{position:absolute;top:18%;width:120px;height:64%;
+    display:grid;grid-template-rows:repeat(6,1fr);gap:8px}
+  .shelf.left{left:-138px}.shelf.right{right:-138px}
+  .cell{border:1px solid rgba(12,74,110,.22);border-radius:3px;
+    background:rgba(255,255,255,.28);position:relative;
+    display:flex;align-items:center;justify-content:center}
+  .vial{width:14px;height:34px;border-radius:7px;
+    background:linear-gradient(180deg,rgba(186,230,253,.75),rgba(224,242,254,.45));
+    border:1px solid rgba(3,105,161,.5);position:relative;cursor:pointer;
+    transition:transform .3s;z-index:2}
+  .vial::after{content:'';position:absolute;left:50%;bottom:5px;transform:translateX(-50%);
+    width:5px;height:5px;border-radius:50%;background:var(--seed,#f59e0b)}
+  .vial:hover{transform:scale(1.35)}
+  .vial.fly{position:fixed;z-index:50;pointer-events:none}
+
+  /* 尽头核心面板 */
+  .core{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%) translateZ(-680px);
+    width:min(640px,80vw);padding:26px 30px;
+    background:rgba(240,249,255,.92);border:1.5px solid rgba(3,105,161,.4);
+    border-radius:6px;box-shadow:0 24px 60px -24px rgba(12,74,110,.4);
+    backdrop-filter:blur(6px)}
+  .core h3{font-size:12px;letter-spacing:.4em;color:#0369a1;font-weight:400;margin-bottom:10px}
+  .feed{max-height:30vh;overflow-y:auto;scrollbar-width:thin;
+    scrollbar-color:rgba(3,105,161,.3) transparent}
+  .msg{margin:12px 0;font-size:14px;line-height:1.9;letter-spacing:.03em;
+    opacity:0;animation:emerge .9s ease forwards}
+  @keyframes emerge{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .msg.user{color:#0369a1;font-style:italic;font-size:13px}
+  .msg.ai{color:#0f172a;border-top:1px dashed rgba(3,105,161,.25);padding-top:10px}
+  .msg .no{font-family:Consolas,monospace;font-size:10px;letter-spacing:.2em;
+    color:#0284c7;display:block;margin-bottom:4px}
+  .think{font-family:Consolas,monospace;font-size:11px;letter-spacing:.3em;color:#0284c7;
+    animation:thp 1.3s ease-in-out infinite;margin:12px 0}
+  @keyframes thp{0%,100%{opacity:.4}50%{opacity:1}}
+
+  /* 登记台输入 */
+  .desk{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);
+    width:min(680px,90vw);z-index:6;
+    background:linear-gradient(180deg,#cbe6f7,#b8dcf2);
+    border:1px solid rgba(3,105,161,.45);border-radius:6px 6px 3px 3px;
+    box-shadow:0 18px 40px -18px rgba(12,74,110,.5), inset 0 2px 0 rgba(255,255,255,.7);
+    padding:14px 16px;display:flex;gap:12px;align-items:center}
+  .desk label{font-size:10px;letter-spacing:.3em;color:#075985;white-space:nowrap;
+    border-right:1px solid rgba(3,105,161,.3);padding-right:12px}
+  .ask{flex:1;background:rgba(255,255,255,.75);border:none;border-radius:3px;
+    padding:12px 14px;font:inherit;font-size:14.5px;color:#0c4a6e;outline:none;letter-spacing:.03em}
+  .ask:focus{box-shadow:0 0 0 2px rgba(56,189,248,.5)}
+  .stamp{background:#0c4a6e;color:#e0f2fe;border:none;font:inherit;font-size:11px;
+    letter-spacing:.3em;padding:12px 20px;border-radius:3px;cursor:pointer;transition:.25s}
+  .stamp:hover{background:#0369a1;box-shadow:0 4px 14px -4px rgba(3,105,161,.6)}
+  .stamp:active{transform:translateY(2px)}
+
+  .tip{position:fixed;z-index:60;background:#0c4a6e;color:#e0f2fe;font-size:11.5px;
+    padding:8px 12px;border-radius:4px;max-width:240px;line-height:1.6;
+    pointer-events:none;opacity:0;transition:opacity .25s;letter-spacing:.03em}
+
+  .hint{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);
+    font-size:10px;letter-spacing:.4em;color:#0369a1;opacity:.6;z-index:6}
+</style>
+</head>
+<body>
+<div class="snow" id="snow"></div>
+
+<header>
+  <div><h1>种 子 库</h1><div class="sub">SEED VAULT — 每次对话，都被永久存档</div></div>
+  <div class="temp">库温 −18.0°C · 湿度 32%<br>已存样本 <b id="count">0</b> 支</div>
+</header>
+
+<div class="scene">
+  <div class="tunnel" id="tunnel"></div>
+</div>
+
+<div class="desk">
+  <label>样本登记台</label>
+  <input class="ask" id="ask" placeholder="登记一条新的对话样本…" autocomplete="off">
+  <button class="stamp" id="send">归 档</button>
+</div>
+<div class="hint">长 廊 深 处 · 冰 下 永 存</div>
+<div class="tip" id="tip"></div>
+
+<script>
+/* ---------- 雪粒 ---------- */
+const snow=document.getElementById('snow');
+for(let i=0;i<60;i++){
+  const f=document.createElement('i');
+  f.style.left=Math.random()*100+'vw';
+  f.style.top=(-Math.random()*100)+'vh';
+  f.style.setProperty('--sw',(Math.random()*60-30)+'px');
+  f.style.animationDuration=(7+Math.random()*9)+'s';
+  f.style.animationDelay=(-Math.random()*14)+'s';
+  f.style.opacity=.35+Math.random()*.55;
+  snow.appendChild(f);
+}
+
+/* ---------- 长廊构建 ---------- */
+const tunnel=document.getElementById('tunnel');
+const cells=[];
+for(let i=0;i<6;i++){
+  const a=document.createElement('div');
+  a.className='arch';
+  a.style.setProperty('--z',(-i*135)+'px');
+  const lamp=document.createElement('div');lamp.className='lamp';
+  a.appendChild(lamp);
+  ['left','right'].forEach(side=>{
+    const sh=document.createElement('div');
+    sh.className='shelf '+side;
+    for(let j=0;j<6;j++){
+      const c=document.createElement('div');c.className='cell';
+      c.dataset.z=i;c.dataset.side=side;c.dataset.row=j;
+      sh.appendChild(c);cells.push(c);
+    }
+    a.appendChild(sh);
+  });
+  tunnel.appendChild(a);
+}
+
+/* 核心面板挂在最后一层之后 */
+const core=document.createElement('div');
+core.className='core';
+core.innerHTML=`<h3>档 检 索 · CORE TERMINAL</h3><div class="feed" id="feed"></div>`;
+tunnel.appendChild(core);
+
+/* ---------- 对话引擎 ---------- */
+const REPLIES=[
+  "样本已接收。正在脱水、干燥、密封——好让它能在冰下保存一百年。你的问题会成为某次未来检索的钥匙。",
+  "这条对话的胚活性很好。我给它分配了 3 号廊道、第 2 层的格位。将来所有关于这个话题的追问，都会先来这里取种。",
+  "归档逻辑：一句话的重量不在答案，在提问的角度。角度被编进了这支种子的基因里。落位完成。",
+  "库温恒定零下十八度。在这里，没有对话会过期——只有尚未被重新唤醒的。你的这一条，编号已生成。",
+  "我是 SEED VAULT，为遗忘而建的建筑。存进来的是对话，取出来的是记忆。这就是我全部的工作。"
+];
+const SEEDCOLORS=['#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#ef4444','#14b8a6'];
+let ri=0,vialCount=0;
+const feed=core.querySelector('.feed');
+const ask=document.getElementById('ask');
+const tip=document.getElementById('tip');
+const count=document.getElementById('count');
+
+function addMsg(cls,text,no){
+  const d=document.createElement('div');
+  d.className='msg '+cls;
+  if(no){const n=document.createElement('span');n.className='no';n.textContent=no;d.appendChild(n)}
+  const p=document.createElement('div');p.textContent=text;d.appendChild(p);
+  feed.appendChild(d);feed.scrollTop=feed.scrollHeight;
+  return p;
+}
+function typeInto(el,text){
+  return new Promise(res=>{let i=0;
+    (function step(){
+      if(i<text.length){el.textContent+=text[i++];feed.scrollTop=feed.scrollHeight;
+        setTimeout(step,26+Math.random()*34)}else res()})()
+  });
+}
+
+/* 种子管飞入货架 */
+function flyVial(text){
+  const empty=cells.filter(c=>!c.firstChild);
+  const cell=empty.length?empty[Math.floor(Math.random()*empty.length)]:cells[Math.floor(Math.random()*cells.length)];
+  const color=SEEDCOLORS[vialCount%SEEDCOLORS.length];
+  vialCount++;count.textContent=vialCount;
+
+  const v=document.createElement('div');
+  v.className='vial fly';
+  v.style.setProperty('--seed',color);
+  const coreR=core.getBoundingClientRect();
+  v.style.left=(coreR.left+coreR.width/2)+'px';
+  v.style.top=(coreR.top+60)+'px';
+  document.body.appendChild(v);
+
+  const cellR=cell.getBoundingClientRect();
+  const tx=cellR.left+cellR.width/2-7-(coreR.left+coreR.width/2);
+  const ty=cellR.top+cellR.height/2-17-(coreR.top+60);
+  requestAnimationFrame(()=>{
+    v.style.transition='transform 1.1s cubic-bezier(.3,.7,.2,1), opacity .3s';
+    v.style.transform=`translate(${tx}px,${ty}px) rotate(${(Math.random()*40-20)}deg)`;
+  });
+  setTimeout(()=>{
+    v.remove();
+    const nv=document.createElement('div');
+    nv.className='vial';
+    nv.style.setProperty('--seed',color);
+    nv.style.transform='rotate('+(Math.random()*24-12)+'deg)';
+    cell.appendChild(nv);
+    const store={no:vialCount,text:text.slice(0,26)+'…'};
+    nv.addEventListener('mousemove',e=>{
+      tip.textContent=`样本 #${String(store.no).padStart(3,'0')} · ${store.text}`;
+      tip.style.opacity=1;
+      tip.style.left=Math.min(e.clientX+16,innerWidth-260)+'px';
+      tip.style.top=(e.clientY-14)+'px';
+    });
+    nv.addEventListener('mouseleave',()=>tip.style.opacity=0);
+  },1150);
+}
+
+/* 思考：长廊灯依次亮起 */
+async function lightSequence(){
+  document.body.classList.add('lighting');
+  const lamps=[...document.querySelectorAll('.arch')];
+  lamps.forEach((a,i)=>{a.style.transitionDelay=(i*0.18)+'s'});
+  await new Promise(r=>setTimeout(r,1500));
+  lamps.forEach(a=>a.style.transitionDelay='0s');
+  document.body.classList.remove('lighting');
+}
+
+async function send(){
+  const q=ask.value.trim();if(!q)return;
+  ask.value='';
+  addMsg('user',q);
+
+  const th=document.createElement('div');
+  th.className='think';th.textContent='RETRIEVING… 廊道照明启动 · 检索同类样本';
+  feed.appendChild(th);feed.scrollTop=feed.scrollHeight;
+
+  lightSequence();
+  await new Promise(r=>setTimeout(r,1700+Math.random()*1300));
+  th.remove();
+
+  const no=`SPECIMEN NO. ${String(vialCount+1).padStart(4,'0')} · ${new Date().toLocaleDateString('zh-CN')}`;
+  const p=addMsg('ai','',no);
+  await typeInto(p,REPLIES[ri%REPLIES.length]);
+  flyVial(q);
+  ri++;
+}
+
+document.getElementById('send').addEventListener('click',send);
+ask.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+
+(async()=>{
+  await new Promise(r=>setTimeout(r,1000));
+  const p=addMsg('ai','','CORE · 开机自检');
+  await typeInto(p,'这里是种子库。廊道两侧的每一格都是一段被冰封的对话。登记一条，看它飞入永恒。');
+})();
+</script>
+</body>
+</html>

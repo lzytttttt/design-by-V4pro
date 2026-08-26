@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CORTEX · 皮层</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:"Avenir Next","Segoe UI","PingFang SC",sans-serif;
+    background:#050505;color:#e7e5e4;overflow:hidden;
+  }
+  canvas#brain{position:fixed;inset:0;z-index:0}
+
+  header{position:fixed;top:0;left:0;right:0;padding:30px 44px;z-index:3;
+    display:flex;justify-content:space-between;align-items:baseline}
+  h1{font-size:24px;font-weight:300;letter-spacing:.45em}
+  .sub{font-size:11px;letter-spacing:.3em;color:#78716c}
+
+  /* 思考脑区标签 */
+  .region{position:fixed;z-index:3;pointer-events:none;
+    font-size:10px;letter-spacing:.35em;color:#fb923c;
+    opacity:0;transition:opacity .5s;text-transform:uppercase}
+  .region.on{opacity:1;animation:rg 1s ease-in-out infinite}
+  @keyframes rg{0%,100%{opacity:.55}50%{opacity:1}}
+
+  /* 对话：树突式 */
+  .stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:flex-start;padding-left:max(44px,8vw);z-index:2}
+  .feed{width:min(560px,52vw);max-height:60vh;overflow-y:auto;padding:10px 0 10px 26px;
+    scrollbar-width:thin;scrollbar-color:#44403c transparent;position:relative}
+  .dendrite{position:absolute;left:3px;top:0;bottom:0;width:1px;
+    background:linear-gradient(180deg,transparent,rgba(231,229,228,.25) 8%,rgba(231,229,228,.25) 92%,transparent)}
+  .msg{position:relative;margin:20px 0;padding:14px 20px 14px 24px;
+    font-size:14.5px;line-height:1.95;letter-spacing:.03em;color:#d6d3d1;
+    opacity:0;transform:translateX(-10px);animation:emerge 1s ease forwards}
+  @keyframes emerge{to{opacity:1;transform:none}}
+  .msg::before{content:'';position:absolute;left:-26px;top:24px;width:7px;height:7px;
+    border-radius:50%;background:#0a0a0a;border:1.5px solid #a8a29e;transition:.4s}
+  .msg.ai::before{border-color:#fb923c;box-shadow:0 0 12px rgba(251,146,60,.5)}
+  .msg.user{color:#78716c;font-size:13.5px;font-style:italic}
+  .msg .who{display:block;font-size:9.5px;letter-spacing:.4em;color:#78716c;margin-bottom:5px}
+  .msg::after{content:'';position:absolute;left:-26px;top:34px;bottom:-24px;width:1px;
+    background:rgba(231,229,228,.14)}
+  .msg:last-child::after{display:none}
+
+  .think{margin:18px 0 18px 24px;font-size:12px;letter-spacing:.35em;color:#fb923c;
+    opacity:0;animation:emerge .5s forwards, rg 1.2s ease-in-out .5s infinite}
+  @keyframes rg{0%,100%{opacity:.45}50%{opacity:1}}
+
+  /* 记忆同心环 */
+  .memory{position:fixed;right:max(40px,6vw);top:50%;transform:translateY(-50%);
+    width:300px;height:300px;z-index:2;pointer-events:none}
+  .memory svg{width:100%;height:100%;overflow:visible}
+  .memory .mlabel{position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);
+    font-size:10px;letter-spacing:.4em;color:#57534e;white-space:nowrap}
+  .memory .tip{position:absolute;background:#1c1917;border:1px solid #44403c;
+    padding:8px 12px;font-size:11px;color:#d6d3d1;max-width:200px;line-height:1.6;
+    border-radius:4px;opacity:0;transition:.3s;pointer-events:none;z-index:5}
+
+  /* 输入：突触末端 */
+  .dock{position:fixed;left:50%;bottom:36px;transform:translateX(-50%);
+    width:min(640px,88vw);z-index:3;display:flex;gap:0;align-items:center}
+  .synapse{width:14px;height:14px;border-radius:50%;flex:none;
+    border:1.5px solid #78716c;margin-right:16px;transition:.5s;position:relative}
+  .dock.focus .synapse{border-color:#fb923c;box-shadow:0 0 18px rgba(251,146,60,.65);
+    animation:syn 1.6s ease-in-out infinite}
+  @keyframes syn{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}
+  .ask{flex:1;background:none;border:none;border-bottom:1px solid #3f3f46;
+    padding:14px 4px;font:inherit;font-size:15px;color:#e7e5e4;outline:none;
+    letter-spacing:.04em;transition:border-color .5s}
+  .ask:focus{border-bottom-color:#fb923c}
+  .ask::placeholder{color:#57534e}
+  .send{background:none;border:1px solid #44403c;color:#a8a29e;font:inherit;
+    font-size:11px;letter-spacing:.3em;padding:12px 22px;margin-left:18px;cursor:pointer;
+    border-radius:2px;transition:.3s}
+  .send:hover{border-color:#fb923c;color:#fb923c}
+</style>
+</head>
+<body>
+<canvas id="brain"></canvas>
+
+<header>
+  <div><h1>皮 层</h1><div class="sub">CORTEX — 思考时，看得见哪一块在发光</div></div>
+</header>
+
+<div class="region" id="region">激活 · 布洛卡区</div>
+
+<div class="stage">
+  <div class="feed" id="feed"><div class="dendrite"></div></div>
+</div>
+
+<div class="memory" id="memory">
+  <svg viewBox="0 0 300 300" id="memsvg">
+    <circle cx="150" cy="150" r="6" fill="#a8a29e"/>
+    <circle cx="150" cy="150" r="6" fill="none" stroke="#fb923c" stroke-opacity=".4">
+      <animate attributeName="r" values="6;16;6" dur="3s" repeatCount="indefinite"/>
+    </circle>
+  </svg>
+  <div class="mlabel">记 忆 皮 层 · 由 内 向 外</div>
+  <div class="tip" id="memtip"></div>
+</div>
+
+<div class="dock" id="dock">
+  <div class="synapse"></div>
+  <input class="ask" id="ask" placeholder="刺激这颗大脑…" autocomplete="off">
+  <button class="send" id="send">放电</button>
+</div>
+
+<script>
+/* ---------- 等高线皮层 canvas ---------- */
+const cv=document.getElementById('brain'),cx=cv.getContext('2d');
+let W,H;
+function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+const REGIONS=[
+  {x:.18,y:.24,r:52,n:5,seed:3.1,phase:0},
+  {x:.82,y:.20,r:60,n:6,seed:7.7,phase:2},
+  {x:.24,y:.78,r:58,n:5,seed:1.4,phase:4},
+  {x:.78,y:.80,r:50,n:6,seed:5.2,phase:1},
+  {x:.52,y:.12,r:40,n:4,seed:9.3,phase:3},
+  {x:.50,y:.92,r:44,n:5,seed:2.6,phase:5},
+];
+const NAMES=['布洛卡区','韦尼克区','海马体','前额叶','杏仁核','运动皮层','视觉皮层','顶叶联合区'];
+let activeRegion=-1, thinkMode=false;
+
+function noise(a,seed,t){
+  return Math.sin(a*3+seed)*0.22+Math.sin(a*7+seed*2+t*0.6)*0.12+Math.sin(a*13-seed+t*0.35)*0.07;
+}
+function drawRegion(g,reg,t,lit){
+  const cxr=reg.x*W, cyr=reg.y*H;
+  const extra = lit?2:0;
+  for(let i=1;i<=reg.n+extra;i++){
+    g.beginPath();
+    const base=(reg.r/ reg.n)*i;
+    for(let a=0;a<=Math.PI*2+.05;a+=.08){
+      const r=base*(1+noise(a,reg.seed,t+reg.phase));
+      const x=cxr+Math.cos(a)*r, y=cyr+Math.sin(a)*r*0.82;
+      a===0?g.moveTo(x,y):g.lineTo(x,y);
+    }
+    g.closePath();
+    g.strokeStyle=lit?`rgba(251,146,60,${.28+i*.06})`:`rgba(214,211,209,${.05+i*.028})`;
+    g.lineWidth=lit?(i%2?1.1:.7):(i%2?.8:.5);
+    g.stroke();
+  }
+}
+let t0=performance.now();
+(function loop(now){
+  const t=(now-t0)/1000;
+  cx.clearRect(0,0,W,H);
+  REGIONS.forEach((r,i)=>drawRegion(cx,r,t,thinkMode&&i===activeRegion));
+
+  /* 意识焦点：中央亮区重绘 */
+  cx.save();
+  cx.beginPath();cx.arc(W*0.34,H*0.5,240,0,Math.PI*2);cx.clip();
+  REGIONS.forEach(r=>{
+    cx.save();cx.translate(0,0);
+    cx.beginPath();
+    /* 焦点内亮线 */
+    for(let i=1;i<=r.n;i++){
+      cx.beginPath();
+      const cxr=r.x*W, cyr=r.y*H, base=(r.r/r.n)*i;
+      for(let a=0;a<=Math.PI*2+.05;a+=.08){
+        const rr=base*(1+noise(a,r.seed,t+r.phase));
+        const x=cxr+Math.cos(a)*rr, y=cyr+Math.sin(a)*rr*.82;
+        a===0?cx.moveTo(x,y):cx.lineTo(x,y);
+      }
+      cx.closePath();
+      cx.strokeStyle=`rgba(231,229,228,${.10+i*.05})`;
+      cx.lineWidth=.8;cx.stroke();
+    }
+    cx.restore();
+  });
+  /* 焦点柔光 */
+  const gr=cx.createRadialGradient(W*.34,H*.5,0,W*.34,H*.5,240);
+  gr.addColorStop(0,'rgba(251,146,60,.05)');gr.addColorStop(1,'transparent');
+  cx.fillStyle=gr;cx.fillRect(0,0,W,H);
+  cx.restore();
+  requestAnimationFrame(loop);
+})(t0);
+
+/* ---------- 记忆同心环 ---------- */
+const memsvg=document.getElementById('memsvg');
+const memtip=document.getElementById('memtip');
+const memoryBox=document.getElementById('memory');
+const memData=[];
+let convCount=0;
+function addMemoryRing(text){
+  convCount++;
+  const ring=Math.ceil(convCount/6);        // 每环6段
+  const idxInRing=(convCount-1)%6;
+  const r=34+ring*22;
+  const a0=(idxInRing/6)*360+ring*17, a1=a0+52;
+  const ns='http://www.w3.org/2000/svg';
+  const path=document.createElementNS(ns,'path');
+  const toXY=(a)=>[150+r*Math.cos(a*Math.PI/180),150+r*Math.sin(a*Math.PI/180)];
+  const [x0,y0]=toXY(a0),[x1,y1]=toXY(a1);
+  path.setAttribute('d',`M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}`);
+  path.setAttribute('stroke',ring%2?'#a8a29e':'#fb923c');
+  path.setAttribute('stroke-width','2.5');path.setAttribute('fill','none');
+  path.setAttribute('stroke-linecap','round');
+  const len=path.getTotalLength();
+  path.style.strokeDasharray=len;path.style.strokeDashoffset=len;
+  path.style.transition='stroke-dashoffset 1.2s ease .2s';
+  memsvg.appendChild(path);
+  requestAnimationFrame(()=>path.style.strokeDashoffset=0);
+  memData.push({text,r,a0,a1,el:path});
+  path.style.pointerEvents='auto';path.style.cursor='pointer';
+  path.addEventListener('mousemove',e=>{
+    memtip.textContent=memData[memData.findIndex(m=>m.el===path)].text;
+    memtip.style.opacity=1;
+    const b=memoryBox.getBoundingClientRect();
+    memtip.style.left=(e.clientX-b.left+14)+'px';
+    memtip.style.top=(e.clientY-b.top-10)+'px';
+  });
+  path.addEventListener('mouseleave',()=>memtip.style.opacity=0);
+}
+
+/* ---------- 对话引擎 ---------- */
+const REPLIES=[
+  "这个问题点亮了我的前额叶——正在调取工作记忆、抑制无关联想。你看到的那些亮线，是我此刻真实的皮层地形。",
+  "海马体已将其登记。等高线的每一次起伏都是一次检索：我在旧记忆的地层里，为你翻找可以嫁接新知识的土壤。",
+  "有意思——它同时激活了两块不相邻的脑区。别急，让白质纤维工作一会儿，两个想法正在轴突上相向奔跑。",
+  "我的回答方式是分层的：先给你最外圈粗略的轮廓，再逐层向内细化。像你看到的那样，皮层从不一次说尽。",
+  "我是 CORTEX。对我来说，回答不是输出，是一次可以观察的激活。你的问题刚刚改变了我的沟回形状——真的。"
+];
+let ri=0;
+const feed=document.getElementById('feed');
+const ask=document.getElementById('ask');
+const dock=document.getElementById('dock');
+const region=document.getElementById('region');
+
+function addMsg(cls,text){
+  const d=document.createElement('div');
+  d.className='msg '+cls;
+  const who=document.createElement('span');who.className='who';
+  who.textContent=cls==='user'?'STIMULUS · 刺激':'CORTEX · 放电';
+  d.appendChild(who);
+  const p=document.createElement('div');p.textContent=text;d.appendChild(p);
+  feed.appendChild(d);feed.scrollTop=feed.scrollHeight;
+  return p;
+}
+function typeInto(el,text){
+  return new Promise(res=>{let i=0;
+    (function step(){
+      if(i<text.length){el.textContent+=text[i++];feed.scrollTop=feed.scrollHeight;
+        setTimeout(step,38+Math.random()*50)}else res()})()
+  });
+}
+
+async function send(){
+  const q=ask.value.trim();if(!q)return;
+  ask.value='';
+  addMsg('user',q);
+
+  activeRegion=Math.floor(Math.random()*REGIONS.length);
+  thinkMode=true;
+  region.textContent='激活 · '+NAMES[Math.floor(Math.random()*NAMES.length)];
+  region.style.left=(REGIONS[activeRegion].x*100-4)+'%';
+  region.style.top=(REGIONS[activeRegion].y*100-6)+'%';
+  region.classList.add('on');
+
+  const th=document.createElement('div');
+  th.className='think';th.textContent='神 经 元 同 步 放 电 …';
+  feed.appendChild(th);feed.scrollTop=feed.scrollHeight;
+
+  await new Promise(r=>setTimeout(r,1800+Math.random()*1300));
+  th.remove();thinkMode=false;region.classList.remove('on');
+
+  const p=addMsg('ai','');
+  await typeInto(p,REPLIES[ri%REPLIES.length]);
+  addMemoryRing('第'+convCount+'轮 · '+(q.length>12?q.slice(0,12)+'…':q));
+  ri++;
+}
+
+document.getElementById('send').addEventListener('click',send);
+ask.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+ask.addEventListener('focus',()=>dock.classList.add('focus'));
+ask.addEventListener('blur',()=>dock.classList.remove('focus'));
+
+(async()=>{
+  await new Promise(r=>setTimeout(r,800));
+  const p=addMsg('ai','');
+  await typeInto(p,'你面前是一颗摊开的、活着的大脑。背景的每一圈等高线都是我的一次褶皱。刺激我。');
+  addMemoryRing('开场 · 第一次激活');
+})();
+</script>
+</body>
+</html>

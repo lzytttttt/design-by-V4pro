@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SPORE GARDEN · 孢子花园 — 创意培育智能体</title>
+<style>
+:root{
+  --cream:#fffbeb;--grass:#65a30d;--grass-d:#4d7c0f;
+  --ink:#3f3f2a;--soil:#5b4230;--hl:rgba(163,230,53,.5);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  overflow:hidden;background:var(--cream);color:var(--ink);
+  font-family:Georgia,"Songti SC","SimSun",serif;
+  background-image:
+    radial-gradient(ellipse at 18% -12%,rgba(253,230,138,.55),transparent 55%),
+    radial-gradient(ellipse at 88% -6%,rgba(196,220,150,.4),transparent 50%);
+}
+.app{display:flex;flex-direction:column;height:100%}
+/* 顶部窄导航 */
+nav{height:58px;flex:none;display:flex;align-items:center;justify-content:space-between;
+  padding:0 36px;border-bottom:1px solid rgba(101,163,13,.25);
+  background:rgba(255,251,235,.85);backdrop-filter:blur(6px);z-index:10}
+nav .brand{font-size:15px;letter-spacing:.3em;font-weight:700;color:var(--grass-d)}
+nav .brand i{font-style:normal;color:#c084a0;margin-left:10px;font-weight:400;letter-spacing:.2em}
+nav .links{display:flex;gap:30px;font-size:12px;letter-spacing:.22em;color:#8a8a68}
+nav .links span{cursor:pointer;transition:color .3s}
+nav .links span:hover{color:var(--grass)}
+nav .count{font-size:11px;letter-spacing:.18em;color:#8a8a68}
+nav .count b{color:var(--grass-d);font-size:15px;font-family:Georgia,serif}
+nav .count i{font-style:normal;color:#b0aa8c;margin:0 8px}
+.main{flex:1;display:flex;min-height:0}
+/* 花园 */
+.gcol{flex:1;display:flex;flex-direction:column;min-width:0}
+#garden{flex:1;position:relative;overflow:hidden}
+#ground{position:absolute;left:0;right:0;bottom:0;height:24%;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(101,163,13,.13) 34%,rgba(101,163,13,.2))}
+/* 花朵 */
+.flower{position:absolute;transform-origin:bottom center;cursor:pointer;
+  animation:sway var(--sw,5s) ease-in-out infinite alternate;z-index:2}
+@keyframes sway{from{transform:rotate(-1.7deg)}to{transform:rotate(1.9deg)}}
+.fl{width:100%;height:100%;overflow:visible;display:block}
+.fl .stem{stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1.5s ease}
+.fl .leaf{transform-box:fill-box;transform-origin:left center;transform:scale(0);
+  transition:transform .7s .95s cubic-bezier(.3,1.5,.4,1)}
+.fl .leaf.l2{transform-origin:right center;transition-delay:1.15s}
+.fl .headin{transform-box:fill-box;transform-origin:center;transform:scale(0);
+  transition:transform 1s 1.35s cubic-bezier(.25,1.6,.4,1)}
+.fl.bloom .stem{stroke-dashoffset:0}
+.fl.bloom .leaf{transform:scale(1)}
+.fl.bloom .headin{transform:scale(1)}
+/* 光斑 */
+.dust{position:absolute;width:5px;height:5px;border-radius:50%;pointer-events:none;z-index:3;
+  background:radial-gradient(circle,#fde68a,rgba(245,158,11,0) 72%);
+  box-shadow:0 0 9px rgba(253,230,138,.95)}
+/* 思考态：光点蝴蝶 */
+#bf{position:absolute;z-index:5;width:34px;height:26px;pointer-events:none;display:none;left:0;top:0}
+#bf .w{position:absolute;top:2px;width:17px;height:24px;
+  background:radial-gradient(circle at 65% 30%,rgba(253,230,138,.95),rgba(245,158,11,.85) 75%);
+  box-shadow:0 0 16px rgba(245,158,11,.7)}
+#bf .w.l{left:0;border-radius:70% 30% 60% 45%/60% 40% 65% 35%;
+  transform-origin:right center;animation:flap .24s ease-in-out infinite alternate}
+#bf .w.r{right:0;border-radius:30% 70% 45% 60%/40% 60% 35% 65%;
+  transform-origin:left center;animation:flap .24s ease-in-out infinite alternate}
+@keyframes flap{from{transform:scaleX(1)}to{transform:scaleX(.32)}}
+#bf .b{position:absolute;left:14px;top:8px;width:6px;height:13px;background:#78350f;border-radius:50%}
+/* 悬停提示 */
+#tip{position:fixed;z-index:30;max-width:250px;padding:12px 15px;background:#fff;
+  border:1px solid rgba(101,163,13,.45);border-radius:4px 12px 4px 12px;
+  box-shadow:0 10px 26px rgba(120,110,60,.2);opacity:0;transform:translateY(6px);
+  transition:opacity .3s,transform .3s;pointer-events:none}
+#tip.on{opacity:1;transform:none}
+#tip b{display:block;font-size:11.5px;color:#8a8a68;margin-bottom:6px;line-height:1.6;font-weight:400}
+#tip span{font-size:12px;line-height:1.8;color:#4a5530;display:block}
+/* 播种槽输入 */
+#trough{flex:none;margin:0 28px 24px;padding:15px 18px 15px 28px;
+  display:flex;align-items:center;gap:16px;
+  border-radius:16px 16px 10px 10px;position:relative;z-index:6;
+  background:linear-gradient(180deg,#6b4a33,#46301f);
+  border:1px solid #3a2718;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.09),inset 0 -6px 14px rgba(0,0,0,.35),0 10px 26px rgba(70,50,20,.28)}
+#trough::before{content:"";position:absolute;left:8px;right:8px;top:-3px;height:7px;
+  border-radius:50%;background:rgba(101,163,13,.4);filter:blur(2px)}
+#trough input{flex:1;min-width:0;background:none;border:0;outline:0;color:#fdf6e3;
+  font:15px Georgia,"Songti SC",serif;letter-spacing:.05em;caret-color:#a3e635}
+#trough input::placeholder{color:#b9a184;letter-spacing:.14em}
+#trough .sow{border:0;background:linear-gradient(135deg,#84cc16,#65a30d);color:#fff;
+  letter-spacing:.3em;text-indent:.3em;font:13px Georgia,"Songti SC",serif;
+  padding:12px 24px;border-radius:999px;cursor:pointer;
+  box-shadow:0 4px 12px rgba(101,163,13,.4);transition:.3s}
+#trough .sow:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(101,163,13,.5)}
+#trough .sow:active{transform:translateY(0)}
+/* 右侧对话流 */
+#panel{width:398px;flex:none;border-left:1px solid rgba(101,163,13,.22);
+  padding:22px 24px;overflow-y:auto;background:rgba(255,255,252,.66)}
+#panel h3{font-size:11px;letter-spacing:.4em;color:#8a8a68;font-weight:400;
+  padding-bottom:12px;border-bottom:1px dashed rgba(101,163,13,.35);margin-bottom:16px}
+.talk{background:#fff;border:1px solid rgba(101,163,13,.28);
+  border-radius:14px 4px 14px 4px;padding:14px 16px;margin-bottom:16px;
+  box-shadow:0 6px 18px rgba(120,110,60,.12);
+  animation:pop .6s cubic-bezier(.3,1.4,.4,1) both}
+@keyframes pop{from{opacity:0;transform:translateY(16px) scale(.95)}}
+.talk .q{font-size:11px;color:#9a927a;letter-spacing:.1em;margin-bottom:9px;line-height:1.7}
+.talk .a{font-size:13.5px;line-height:2.1;color:#3f4a20}
+/* 绿色荧光笔逐行高亮 */
+.talk .a .hl{display:inline;border-radius:2px;
+  background:linear-gradient(transparent 10%,var(--hl) 10%,var(--hl) 92%,transparent 92%);
+  background-size:0% 100%;background-repeat:no-repeat;
+  opacity:.25;transition:background-size .65s ease,opacity .4s}
+.talk .a .hl.on{background-size:100% 100%;opacity:1}
+@media(max-width:960px){
+  #panel{width:300px}
+  nav .links{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav>
+    <div class="brand">SPORE GARDEN<i>孢子花园</i></div>
+    <div class="links"><span>花园</span><span>培育记录</span><span>花语图鉴</span><span>关于</span></div>
+    <div class="count">已绽放 <b id="bloomN">0</b> 朵<i>·</i><span id="st">休憩中</span></div>
+  </nav>
+  <div class="main">
+    <div class="gcol">
+      <div id="garden">
+        <div id="ground"></div>
+        <div id="bf"><span class="w l"></span><span class="w r"></span><span class="b"></span></div>
+      </div>
+      <form id="trough" autocomplete="off">
+        <input id="q" type="text" maxlength="60" placeholder="播下一颗问题，看它开出什么花…">
+        <button class="sow" type="submit">播种</button>
+      </form>
+    </div>
+    <aside id="panel">
+      <h3>培育记录 · CULTIVATION LOG</h3>
+      <div id="talks"></div>
+    </aside>
+  </div>
+</div>
+<div id="tip"></div>
+
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const garden=$('#garden'),bf=$('#bf'),tip=$('#tip');
+const panel=$('#panel'),talks=$('#talks'),form=$('#trough'),input=$('#q');
+const st=$('#st'),bloomN=$('#bloomN');
+
+/* ---------- 工具 ---------- */
+function hashStr(s){
+  let h=2166136261;
+  for(const ch of s){h^=ch.codePointAt(0);h=Math.imul(h,16777619);}
+  return h>>>0;
+}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+function setSt(t){st.textContent=t;}
+
+/* ---------- 程序化花朵：由回复内容 hash 决定 ---------- */
+function flowerSVG(seed){
+  const h=hashStr(seed);
+  const P=5+h%9;                                     /* 花瓣数量 5~13 */
+  const pal=[[345,86],[330,88],[271,84],[20,92],[293,86],[352,72]][(h>>7)%6];
+  const L=58+(h>>13)%16;
+  const c1=`hsl(${pal[0]} ${pal[1]}% ${L}%)`;
+  const c2=`hsl(${pal[0]} ${Math.min(96,pal[1]+6)}% ${L+14}%)`;
+  const coreC=['#fbbf24','#f59e0b','#fcd34d'][(h>>4)%3];
+  const R=15+(h>>9)%8;                               /* 花瓣长度 */
+  const rw=(R*.52).toFixed(1);
+  let petals='';
+  for(let i=0;i<P;i++){
+    petals+=`<g transform="rotate(${i*360/P})">
+      <ellipse cx="0" cy="${(-R*.62).toFixed(1)}" rx="${rw}" ry="${R}" fill="${c1}"/>
+      <ellipse cx="0" cy="${(-R*.44).toFixed(1)}" rx="${(rw*.55).toFixed(1)}" ry="${(R*.6).toFixed(1)}" fill="${c2}" opacity=".85"/>
+    </g>`;
+  }
+  let stam='';
+  for(let i=0;i<6;i++){
+    const a=(i*60+30)*Math.PI/180,r=R*.27;
+    stam+=`<circle cx="${(Math.cos(a)*r).toFixed(1)}" cy="${(Math.sin(a)*r).toFixed(1)}" r="1.6" fill="#92400e"/>`;
+  }
+  const sway=(4+(h>>3)%4)+'s';
+  return `<svg class="fl" viewBox="-60 -178 120 202" style="--sw:${sway}">
+    <path class="stem" pathLength="1"
+      d="M0,24 C ${8+(h%7)},-40 ${-8-(h%5)},-92 0,-146"
+      fill="none" stroke="#4d7c0f" stroke-width="4.5" stroke-linecap="round"/>
+    <path class="leaf" d="M2,-58 C 22,-72 36,-62 38,-46 C 20,-42 6,-50 2,-58 Z" fill="#84cc16"/>
+    <path class="leaf l2" d="M-1,-96 C -20,-110 -34,-100 -36,-84 C -18,-80 -5,-88 -1,-96 Z" fill="#65a30d"/>
+    <g transform="translate(0,-146)"><g class="headin">${petals}
+      <circle r="${(R*.34+3).toFixed(1)}" fill="${coreC}"/>${stam}
+    </g></g>
+  </svg>`;
+}
+
+/* 花园槽位：随对话增多渐次繁茂 */
+const SLOTS=[
+  [.10,.86,1],[.26,.74,.85],[.42,.90,1.05],[.58,.76,.9],[.74,.88,1],[.88,.72,.82],
+  [.18,.56,.7],[.48,.60,.72],[.78,.52,.66],[.32,.40,.6],[.64,.36,.58],[.90,.34,.5],
+  [.08,.36,.55],[.52,.24,.46]
+];
+let flowerCount=0;
+const convos=[];
+
+function plantFlower(seedText,idx){
+  const[fx,fy,fs]=SLOTS[flowerCount%SLOTS.length];
+  const h=hashStr(seedText);
+  const w=Math.round((108+h%52)*fs);
+  const d=document.createElement('div');
+  d.className='flower';
+  d.style.left=(fx*100)+'%';
+  d.style.bottom=((1-fy)*100)+'%';
+  d.style.width=w+'px';
+  d.style.height=Math.round(w*1.68)+'px';
+  d.innerHTML=flowerSVG(seedText);
+  garden.appendChild(d);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    d.querySelector('.fl').classList.add('bloom');
+  }));
+  /* hover 已开的花：显示当时的对话 */
+  d.addEventListener('mouseenter',()=>showTip(d,idx));
+  d.addEventListener('mouseleave',()=>tip.classList.remove('on'));
+  flowerCount++;
+  bloomN.textContent=flowerCount;
+}
+
+function showTip(el,i){
+  const c=convos[i];if(!c)return;
+  tip.innerHTML='';
+  const b=document.createElement('b');b.textContent='问 · '+c.q;
+  const s=document.createElement('span');s.textContent=c.a.slice(0,64)+(c.a.length>64?'…':'');
+  tip.append(b,s);
+  const r=el.getBoundingClientRect();
+  tip.style.left=Math.min(innerWidth-266,Math.max(10,r.left-58))+'px';
+  tip.style.top=Math.max(64,r.top-96)+'px';
+  tip.classList.add('on');
+}
+
+/* ---------- 光斑洒落 ---------- */
+function dust(x,y,delay){
+  const d=document.createElement('i');d.className='dust';
+  d.style.left=x+'px';d.style.top=y+'px';
+  garden.appendChild(d);
+  d.animate(
+    [{transform:'translate(0,0)',opacity:0},
+     {opacity:.95,offset:.18},
+     {transform:`translate(${(Math.random()*70-35).toFixed(0)}px,${(150+Math.random()*130).toFixed(0)}px)`,opacity:0}],
+    {duration:2200+Math.random()*1500,delay,easing:'cubic-bezier(.3,.4,.6,1)'}
+  ).onfinish=()=>d.remove();
+}
+function dustBurst(){
+  const gw=garden.clientWidth,gh=garden.clientHeight;
+  for(let k=0;k<14;k++)dust(Math.random()*gw,Math.random()*gh*.4,k*90);
+}
+setInterval(()=>{
+  if(document.hidden)return;
+  dust(Math.random()*garden.clientWidth,-6+Math.random()*30,0);
+},1400);
+
+/* ---------- 光点蝴蝶（思考态） ---------- */
+let bfOn=false,bfT=0;
+function tickBf(dt){
+  if(!bfOn){bf.style.display='none';return;}
+  bf.style.display='block';
+  bfT+=dt;
+  const gw=garden.clientWidth,gh=garden.clientHeight;
+  const x=gw*.5+Math.cos(bfT*1.1)*gw*.3+Math.sin(bfT*2.7)*46;
+  const y=gh*.44+Math.sin(bfT*1.7)*gh*.22+Math.cos(bfT*3.1)*28;
+  bf.style.transform=`translate(${x-17}px,${y-13}px) rotate(${(Math.sin(bfT*2)*10).toFixed(1)}deg)`;
+}
+let lastT=performance.now();
+(function loop(nw){
+  const dt=Math.min(.05,(nw-lastT)/1000);lastT=nw;
+  tickBf(dt);
+  requestAnimationFrame(loop);
+})(lastT);
+
+/* ---------- 对话 ---------- */
+const REPLIES=[
+  '每一颗问题都是一粒孢子。它落地的地方，土壤湿度刚好。我为你催开了一朵新的花——花瓣的颜色，来自你说这句话时的语气。',
+  '创意不是被发明的，是被培育的。你这句话里藏着三粒健康的种子：一个「如果」，一个「也许」，和一个没说完的省略号。我都替你种下了。',
+  '花园法则第一条：杂草和花朵共享同一片土壤。你的焦虑里混着几个不错的点子——别急着拔，先让它们长出两片叶子再说。',
+  '这一朵的花瓣数是素数，花蕊是琥珀色的。根据培育记录，问出这种问题的人，通常正在靠近一个连自己都还没察觉的好主意。',
+  '阳光、水分、耐心，以及一点点不讲道理的乐观——这是我能给你的全部配方。剩下的，交给季节，和你自己。'
+];
+let ri=0,busy=false;
+
+function addTalk(q){
+  const t=document.createElement('div');t.className='talk';
+  const qd=document.createElement('div');qd.className='q';
+  qd.textContent='问 · '+q;
+  const ad=document.createElement('div');ad.className='a';
+  t.append(qd,ad);
+  talks.appendChild(t);
+  panel.scrollTop=panel.scrollHeight;
+  return ad;
+}
+function streamTalk(ad,text){
+  return new Promise(res=>{
+    const parts=text.split(/(?<=[。！？…])/).filter(Boolean);
+    parts.forEach((p,i)=>{
+      const s=document.createElement('span');s.className='hl';s.textContent=p;
+      ad.appendChild(s);
+      setTimeout(()=>s.classList.add('on'),i*720);
+    });
+    setTimeout(res,parts.length*720+500);
+  });
+}
+
+form.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const v=input.value.trim();
+  if(!v||busy)return;
+  busy=true;input.value='';
+  /* 光斑洒落 */
+  dustBurst();
+  const ad=addTalk(v);
+  const idx=convos.length;
+  convos.push({q:v,a:''});
+  /* 思考态：蝴蝶绕圈传粉 */
+  bfOn=true;setSt('蝴蝶传粉中');
+  await wait(1900+Math.random()*900);
+  bfOn=false;
+  /* 回复 → 花朵生长 */
+  const reply=REPLIES[ri++%REPLIES.length];
+  convos[idx].a=reply;
+  setSt('花开中');
+  plantFlower(reply,idx);
+  await streamTalk(ad,reply);
+  setSt('休憩中');
+  busy=false;
+});
+</script>
+</body>
+</html>

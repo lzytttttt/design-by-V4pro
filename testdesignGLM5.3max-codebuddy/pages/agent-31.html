@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent 31 · CARD CATALOG 档案检索处</title>
+<style>
+:root{
+  --wood-deep:#5d2708; --wood:#78350f; --brass:#c9a227; --brass-hi:#e8c96a;
+  --paper:#fef3c7; --paper-dim:#f0dfa8; --ink:#3d2817; --ink-soft:#7a5c40;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:Georgia,'Times New Roman','Songti SC',SimSun,serif;color:var(--ink);overflow:hidden;
+  background:
+    repeating-linear-gradient(93deg,rgba(0,0,0,.16) 0 2px,transparent 2px 118px),
+    repeating-linear-gradient(88deg,rgba(255,235,200,.045) 0 1px,transparent 1px 27px),
+    repeating-linear-gradient(to bottom,rgba(0,0,0,.10) 0 3px,transparent 3px 46px),
+    linear-gradient(180deg,#7c3a10 0%,#6d3109 55%,#5d2708 100%);
+}
+.app{height:100vh;display:flex;flex-direction:column;padding:16px 26px 20px;gap:13px;position:relative}
+header{display:flex;align-items:center;justify-content:center;position:relative;flex:none}
+.lamp{position:absolute;inset:-16px -26px 0;pointer-events:none;
+  background:radial-gradient(ellipse 55% 80% at 62% 38%,rgba(255,220,150,.17),transparent 70%);
+  animation:lampBreath 7s ease-in-out infinite alternate}
+@keyframes lampBreath{from{opacity:.5}to{opacity:1}}
+.plaque{
+  background:linear-gradient(180deg,var(--brass-hi),var(--brass) 45%,#9a7a1a);
+  padding:7px 46px 8px;border-radius:6px;border:2px solid #7a5c10;color:#3d2817;
+  box-shadow:0 3px 10px rgba(0,0,0,.5),inset 0 1px 2px rgba(255,255,255,.5);
+  letter-spacing:.32em;font-size:15px;font-weight:bold;text-align:center;
+}
+.plaque small{display:block;letter-spacing:.55em;font-size:9px;opacity:.7;font-weight:normal;margin-top:2px}
+main{flex:1;display:flex;gap:22px;min-height:0}
+/* ================= 目录柜 ================= */
+.cabinet-side{width:400px;flex:none;display:flex}
+.cabinet{
+  flex:1;display:flex;flex-direction:column;padding:16px 14px 13px;border-radius:10px;
+  background:
+    repeating-linear-gradient(90deg,rgba(0,0,0,.14) 0 2px,transparent 2px 96px),
+    linear-gradient(180deg,#8a4a18,#6d3109);
+  border:10px solid #4a1d05;
+  box-shadow:inset 0 0 0 2px rgba(255,220,150,.12),0 10px 26px rgba(0,0,0,.55);
+  position:relative;z-index:6;
+}
+.drawer-grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr;gap:9px}
+.drawer{position:relative}
+.drawer.open{z-index:20}
+.drawer-face{
+  position:absolute;inset:0;border-radius:4px;cursor:pointer;z-index:2;
+  background:
+    repeating-linear-gradient(90deg,rgba(0,0,0,.10) 0 1px,transparent 1px 21px),
+    linear-gradient(180deg,#b07a3e,#96622c 70%,#7d4f21);
+  border:2px solid #4a1d05;
+  box-shadow:inset 0 1px 0 rgba(255,230,180,.35),0 3px 5px rgba(0,0,0,.4);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  transition:transform .22s ease,box-shadow .22s ease;
+}
+.drawer.open .drawer-face{
+  transform:translateY(9px) scale(1.02);
+  box-shadow:inset 0 1px 0 rgba(255,230,180,.35),0 14px 18px rgba(0,0,0,.55);
+}
+.drawer-label{
+  background:var(--paper);border:1px solid #b8955c;color:#4a3319;font-size:10px;letter-spacing:.1em;
+  padding:2px 8px;border-radius:2px;font-family:'Kaiti SC',KaiTi,STKaiti,serif;white-space:nowrap;
+  box-shadow:0 1px 2px rgba(0,0,0,.3);
+}
+.drawer-handle{
+  width:30px;height:7px;border-radius:4px;
+  background:linear-gradient(180deg,var(--brass-hi),#9a7a1a);
+  border:1px solid #6e5510;box-shadow:0 1px 2px rgba(0,0,0,.45);
+}
+.drawer-cards{
+  position:absolute;left:3px;right:3px;top:calc(100% - 5px);z-index:3;
+  background:#33200a;border:2px solid #4a1d05;border-top:none;border-radius:0 0 5px 5px;
+  padding:8px 6px 8px;display:flex;flex-direction:column;gap:4px;pointer-events:none;
+  opacity:0;transform:translateY(-14px) scaleY(.45);transform-origin:top;
+  transition:opacity .25s ease,transform .25s ease;box-shadow:0 12px 16px rgba(0,0,0,.5);
+}
+.drawer.open .drawer-cards{opacity:1;transform:translateY(0) scaleY(1)}
+.mini-card{
+  background:var(--paper-dim);border-radius:2px;padding:2px 7px;font-size:10px;color:#5a4020;
+  display:flex;justify-content:space-between;gap:6px;
+  font-family:'Kaiti SC',KaiTi,serif;box-shadow:0 1px 0 rgba(0,0,0,.25);white-space:nowrap;overflow:hidden;
+}
+.mini-card b{font-weight:normal;color:#8a6a3a;font-size:9px;font-family:'Courier New',monospace}
+.cabinet-foot{flex:none;padding-top:12px;text-align:center}
+.stat-brass{
+  display:inline-block;background:linear-gradient(180deg,var(--brass-hi),#a8861e);
+  border:1px solid #6e5510;border-radius:3px;padding:3px 16px;font-size:10.5px;letter-spacing:.18em;
+  color:#3d2817;box-shadow:inset 0 1px 1px rgba(255,255,255,.5),0 2px 4px rgba(0,0,0,.4);
+}
+.motto{margin-top:7px;font-size:11px;color:rgba(255,230,190,.5);letter-spacing:.4em;font-family:'Kaiti SC',KaiTi,serif}
+/* ================= 工作台 ================= */
+.desk{
+  flex:1;display:flex;flex-direction:column;min-width:0;border-radius:8px;padding:16px 24px 14px;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 0%,rgba(255,240,200,.10),transparent 70%),
+    repeating-radial-gradient(circle at 17% 23%,rgba(255,255,255,.028) 0 1px,transparent 1px 9px),
+    linear-gradient(180deg,#2a5440,#1d4030);
+  border:1px solid rgba(255,220,150,.16);
+  box-shadow:inset 0 0 44px rgba(0,0,0,.4);
+}
+.status-line{flex:none;display:flex;justify-content:space-between;align-items:baseline;
+  font-size:10.5px;letter-spacing:.3em;color:rgba(255,230,190,.55);padding:0 2px 9px;
+  border-bottom:1px solid rgba(255,230,190,.14)}
+#statusText{font-family:'Kaiti SC',KaiTi,serif;letter-spacing:.15em}
+.dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:#e8c96a;margin-left:7px;
+  vertical-align:1px;animation:dotPulse 2.2s ease-in-out infinite}
+@keyframes dotPulse{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+.card-flow{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding:12px 4px 10px;scroll-behavior:smooth}
+.card-flow::-webkit-scrollbar{width:8px}
+.card-flow::-webkit-scrollbar-thumb{background:#4a6b56;border-radius:4px}
+.card-flow::-webkit-scrollbar-track{background:rgba(0,0,0,.2)}
+/* 查询单 */
+.query-slip{
+  align-self:flex-end;width:72%;max-width:560px;background:#fffdf4;
+  border:1px solid #d8c8a0;border-left:4px solid #b89b5a;border-radius:2px;
+  padding:9px 14px 8px;transform:rotate(.4deg);box-shadow:0 5px 14px rgba(0,0,0,.4);
+  font-family:'Kaiti SC',KaiTi,STKaiti,serif;font-size:14px;line-height:1.75;color:#4a3a20;
+  animation:slipIn .45s ease both;
+}
+@keyframes slipIn{from{opacity:0;transform:rotate(.4deg) translateY(-16px)}to{opacity:1;transform:rotate(.4deg) translateY(0)}}
+.slip-tag{font-size:10px;letter-spacing:.45em;color:#a08a5a;font-family:Georgia,serif;margin-bottom:2px}
+/* 目录卡 */
+.catalog-card{
+  align-self:flex-start;width:86%;max-width:620px;position:relative;
+  background:
+    linear-gradient(180deg,rgba(120,80,20,.06),transparent 14%),
+    var(--paper);
+  border:1px solid #c4a55e;border-radius:2px;padding:13px 20px 10px;transform:rotate(-.35deg);
+  box-shadow:0 7px 20px rgba(0,0,0,.45),inset 0 0 26px rgba(160,120,50,.13);
+}
+.catalog-card::before{content:'';position:absolute;top:12px;left:-5px;width:8px;height:8px;border-radius:50%;
+  background:#26140a;box-shadow:inset 0 1px 2px #000}
+.catalog-card.landed{animation:cardLand .5s cubic-bezier(.3,1.5,.5,1) both}
+@keyframes cardLand{from{transform:rotate(-.35deg) translateY(-8px) scale(.985);opacity:.4}to{transform:rotate(-.35deg) translateY(0) scale(1);opacity:1}}
+.card-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  border-bottom:1px dashed #c9ab6f;padding-bottom:6px;margin-bottom:8px}
+.card-title{font-size:17px;font-weight:bold;letter-spacing:.06em}
+.card-callno{font-family:'Courier New',monospace;font-size:12px;color:#8a6a3a;white-space:nowrap}
+.card-body{font-family:'Kaiti SC',KaiTi,STKaiti,'Songti SC',serif;font-size:14.5px;line-height:1.95;min-height:58px;color:#43301a}
+.tcursor{display:inline-block;width:2px;height:1em;background:#8a5a1a;margin-left:2px;vertical-align:-2px;animation:blink .8s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.card-note{
+  margin-top:8px;padding-top:6px;border-top:1px dashed #c9ab6f;text-align:right;transform:rotate(-1deg);
+  font-family:'Segoe Script','Kaiti SC',KaiTi,cursive;font-size:13px;color:#7c5a2e;
+  opacity:0;transition:opacity .9s ease .1s;
+}
+.card-note.show{opacity:.92}
+/* 飞行卡 */
+.flying-card{
+  position:fixed;z-index:300;width:540px;background:var(--paper);
+  border:1px solid #c4a55e;border-radius:2px;padding:13px 20px;pointer-events:none;
+  box-shadow:0 20px 44px rgba(0,0,0,.55);
+  transition:transform .68s cubic-bezier(.25,.9,.3,1),opacity .25s;
+}
+.flying-card .card-head{margin-bottom:0;border-bottom:none}
+.flying-card .card-title{font-size:16px}
+/* 检索台 */
+.retrieval-desk{flex:none;margin-top:12px}
+.brass-frame{
+  display:flex;align-items:center;gap:10px;padding:7px 8px 7px 16px;border-radius:8px;
+  background:linear-gradient(180deg,var(--brass-hi),#a8861e 60%,#8a6d15);
+  border:2px solid #6e5510;
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.5),0 6px 14px rgba(0,0,0,.45);
+}
+.brass-frame input{
+  flex:1;background:#fdf6e0;border:1px solid #b89b5a;border-radius:4px;padding:9px 13px;
+  font-size:14px;font-family:'Kaiti SC',KaiTi,serif;color:#43301a;outline:none;min-width:0;
+}
+.brass-frame input::placeholder{color:#b09a68}
+.lens-btn{
+  flex:none;width:42px;height:42px;border-radius:50%;border:2px solid #6e5510;cursor:pointer;
+  background:radial-gradient(circle at 35% 30%,#f0d68a,#c9a227 70%);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:inset 0 1px 2px rgba(255,255,255,.6),0 3px 6px rgba(0,0,0,.4);transition:transform .15s;
+}
+.lens-btn:hover{transform:scale(1.07)}
+.lens-btn:active{transform:scale(.94)}
+@media (max-width:1060px){
+  body{overflow:auto}
+  .app{height:auto}
+  main{flex-direction:column}
+  .cabinet-side{width:100%}
+  .drawer-grid{grid-template-columns:repeat(4,1fr);grid-auto-rows:78px}
+  .desk{min-height:520px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="lamp"></div>
+    <div class="plaque">CARD CATALOG<small>档 案 检 索 处</small></div>
+  </header>
+  <main>
+    <aside class="cabinet-side">
+      <div class="cabinet">
+        <div class="drawer-grid" id="drawerGrid"></div>
+        <div class="cabinet-foot">
+          <div class="stat-brass">馆藏卡片 88,422 张</div>
+          <div class="motto">读档案 · 如晤故人</div>
+        </div>
+      </div>
+    </aside>
+    <section class="desk">
+      <div class="status-line">
+        <span>· ARCHIVE DESK · 检索工作台 ·</span>
+        <span id="statusText">静候垂询<i class="dot"></i></span>
+      </div>
+      <div class="card-flow" id="cardFlow"></div>
+      <div class="retrieval-desk">
+        <div class="brass-frame">
+          <input id="queryInput" placeholder="输入检索词，向档案员提问……" autocomplete="off">
+          <button class="lens-btn" id="sendBtn" title="检索">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#4a3208" stroke-width="2.4" stroke-linecap="round">
+              <circle cx="8.5" cy="8.5" r="5.5"/><line x1="12.8" y1="12.8" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const flow=$('#cardFlow'), input=$('#queryInput'), statusText=$('#statusText');
+
+const DRAWERS=['哲学 A–C','哲学 D–F','哲学 G–Z','科学 A–C','科学 D–F','科学 G–Z',
+               '文学 A–F','文学 G–Z','艺术 A–Z','档案 总目','索引 补编','特藏 手稿'];
+const CATALOG=[
+  ['《沉默史》','MS.221.A3'],['《分类的暴政》','PH.118.B7'],['《纸的余生》','PP.301.C2'],
+  ['《检索者说》','SK.055.D9'],['《未完成之书》','LT.242.E4'],['《索引之梦》','IN.176.F1'],
+  ['《遗忘学概论》','MS.310.G8'],['《档案馆之夜》','AR.208.H5'],['《批注者传》','LT.423.J6'],
+  ['《问与答之间》','PH.262.K4'],['《藏书记》','PP.188.L2'],['《卡片的一生》','AI.512.C37'],
+];
+const REPLIES=[
+  {drawer:9,title:'论卡片目录之编排术',callNo:'AI.512.C37',
+   body:'经核馆藏总目第叁卷：卡片编排之要义，在三级递进——先辨其类，次查其号，终核其版。凡问一事，先归其类，如落叶归根；再循号索架，如按图索骥。阁下之问，已依此例录入晨间新卡，存于总目柜第十屉，可随时调阅。',
+   note:'已核对，无误。'},
+  {drawer:0,title:'沉默与提问之关系考',callNo:'PH.114.F65',
+   body:'哲学区甲柜藏残卷一册，载云：凡善问者，必先守默。默者非空无也，乃问题之酝酿。阁下此问虽只数言，其中已含三重追问，足见默功。本档谨录其问，编号存疑，俟他日阁下携新证再来，当合并归档。',
+   note:'存疑待考。'},
+  {drawer:3,title:'检索之熵减原理',callNo:'SC.207.K12',
+   body:'科学区丁柜图谱载：世界之乱，本自增熵；而检索者，逆熵之行也。每一次提问，皆自混沌中裁出秩序一角。本馆估算，阁下此问约耗灵感三钱，得秩序七分，账面大盈。详情可调阅图谱原本，在架东叁排。',
+   note:'数字系馆估，仅供参考。'},
+  {drawer:6,title:'答问如还书札',callNo:'LT.363.T08',
+   body:'文学区戊柜书札篇有云：答问如还札，贵在称手。问重则答重，问轻则答轻。阁下之问，本馆已以馆笺誊录一通，附于原问之后。他日重检此卡，当见问与答相邻而卧，如札之往返，不觉其隔。',
+   note:'馆笺已附。'},
+  {drawer:11,title:'未编目者之编目',callNo:'MS.001.X99',
+   body:'特藏室手稿散页有言：凡未编目者，非无序也，乃序未显也。阁下此问，暂归特藏"待编目"一屉。依本馆旧例，凡入此屉者，三日之内必有回响——或为一新卡，或为一新类，或为一声轻叹。且拭目以待。',
+   note:'已入特藏，编号暂缺。'},
+];
+let replyIdx=0, busy=false;
+const drawerEls=[];
+
+/* ---------- 建柜 ---------- */
+function buildCabinet(){
+  const grid=$('#drawerGrid');
+  DRAWERS.forEach((label,i)=>{
+    const d=document.createElement('div');
+    d.className='drawer';
+    const items=[CATALOG[i%12],CATALOG[(i+4)%12],CATALOG[(i+8)%12]]
+      .map(c=>`<div class="mini-card"><span>${c[0]}</span><b>${c[1]}</b></div>`).join('');
+    d.innerHTML=`
+      <div class="drawer-cards">${items}</div>
+      <div class="drawer-face">
+        <div class="drawer-label">${label}</div>
+        <div class="drawer-handle"></div>
+      </div>`;
+    d.querySelector('.drawer-face').addEventListener('click',()=>{
+      if(busy)return;
+      d.classList.toggle('open');
+    });
+    grid.appendChild(d);
+    drawerEls.push(d);
+  });
+}
+function setStatus(html){statusText.innerHTML=html}
+
+/* ---------- 初始欢迎卡 ---------- */
+function appendWelcome(){
+  const card=document.createElement('div');
+  card.className='catalog-card landed';
+  card.innerHTML=`
+    <div class="card-head"><span class="card-title">馆藏须知</span><span class="card-callno">MS.000.GUIDE</span></div>
+    <div class="card-body">本馆收录一切曾被问过的问题，与一部分尚未有人问过的答案。阁下可点击左侧目录柜任意抽屉先行浏览馆藏；亦可在下方检索台直接落笔提问——档案员将为您翻检全馆，誊录新卡一张，夹入此台。</div>
+    <div class="card-note show">新客首问，免收茶资。</div>`;
+  flow.appendChild(card);
+}
+
+/* ---------- 查询单 ---------- */
+function appendQuery(q){
+  const slip=document.createElement('div');
+  slip.className='query-slip';
+  slip.innerHTML=`<div class="slip-tag">检索请求单 · RETRIEVAL SLIP</div>${escapeHtml(q)}`;
+  flow.appendChild(slip);
+  flow.scrollTop=flow.scrollHeight;
+}
+function escapeHtml(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ---------- 思考：抽屉翻检 ---------- */
+async function searchDrawers(target){
+  const pool=[...Array(12).keys()].filter(i=>i!==target);
+  const seq=[];
+  for(let k=0;k<4;k++) seq.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+  seq.push(target);
+  for(let i=0;i<seq.length;i++){
+    const el=drawerEls[seq[i]];
+    el.classList.add('open');
+    if(i<seq.length-1){ await wait(310); el.classList.remove('open'); await wait(90); }
+    else await wait(400);
+  }
+}
+
+/* ---------- 卡片飞出（标志性瞬间） ---------- */
+async function flyOutCard(reply){
+  const card=document.createElement('div');
+  card.className='catalog-card';
+  card.style.visibility='hidden';
+  card.innerHTML=`
+    <div class="card-head"><span class="card-title">${reply.title}</span><span class="card-callno">${reply.callNo}</span></div>
+    <div class="card-body"></div>
+    <div class="card-note">${reply.note}</div>`;
+  flow.appendChild(card);
+  flow.scrollTop=flow.scrollHeight;
+  await wait(80);
+  const dr=drawerEls[reply.drawer].getBoundingClientRect();
+  const cr=card.getBoundingClientRect();
+  const fly=document.createElement('div');
+  fly.className='flying-card';
+  fly.innerHTML=`<div class="card-head"><span class="card-title">${reply.title}</span><span class="card-callno">${reply.callNo}</span></div>`;
+  document.body.appendChild(fly);
+  const sx=dr.left+dr.width/2-270, sy=Math.max(12,dr.top+dr.height/2-36);
+  fly.style.left=sx+'px'; fly.style.top=sy+'px';
+  fly.style.transform='scale(.42) rotate(10deg)';
+  fly.getBoundingClientRect();
+  await wait(40);
+  fly.style.transform=`translate(${cr.left-sx}px,${cr.top-sy}px) scale(1) rotate(0deg)`;
+  await wait(700);
+  fly.remove();
+  card.style.visibility='visible';
+  card.classList.add('landed');
+  flow.scrollTop=flow.scrollHeight;
+  return card;
+}
+
+/* ---------- 打字机正文 ---------- */
+async function typeBody(card,text){
+  const body=card.querySelector('.card-body');
+  const cursor=document.createElement('span');
+  cursor.className='tcursor';
+  body.appendChild(cursor);
+  for(const ch of text){
+    cursor.insertAdjacentText('beforebegin',ch);
+    flow.scrollTop=flow.scrollHeight;
+    let d=24+Math.random()*36;
+    if('，；：、'.includes(ch))d+=130;
+    if('。！？'.includes(ch))d+=250;
+    await wait(d);
+  }
+  cursor.remove();
+}
+
+/* ---------- 主流程 ---------- */
+async function onSend(){
+  if(busy)return;
+  const q=input.value.trim();
+  if(!q)return;
+  busy=true;
+  input.value='';
+  appendQuery(q);
+  const reply=REPLIES[replyIdx++%REPLIES.length];
+  setStatus('翻检目录中···');
+  await searchDrawers(reply.drawer);
+  setStatus('誊录卡片中···');
+  const card=await flyOutCard(reply);
+  await typeBody(card,reply.body);
+  card.querySelector('.card-note').classList.add('show');
+  setStatus('静候垂询<i class="dot"></i>');
+  busy=false;
+  input.focus();
+}
+
+$('#sendBtn').addEventListener('click',onSend);
+input.addEventListener('keydown',e=>{if(e.key==='Enter')onSend()});
+
+buildCabinet();
+appendWelcome();
+input.focus();
+</script>
+</body>
+</html>

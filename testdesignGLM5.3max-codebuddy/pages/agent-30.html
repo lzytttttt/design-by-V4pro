@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON FORGE · 霓虹锻炉</title>
+<style>
+/* ============================================================
+   NEON FORGE 「霓虹锻炉」— 赛博霓虹招牌美学
+   品红/青/暖黄三色霓虹 · 坏灯管闪烁 · 电弧思考态 · 通电输入
+   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --magenta: #ff2d95;
+  --cyan: #00e5ff;
+  --amber: #facc15;
+  --void: #0a0a0f;
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: "Consolas", "Courier New", "Microsoft YaHei", "PingFang SC", sans-serif;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% -8%, rgba(255, 45, 149, .12), transparent 65%),
+    var(--void);
+  color: #e8f6ff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* —— 城市天际线剪影 —— */
+#skyline {
+  position: fixed;
+  bottom: 0; left: 0;
+  width: 100%; height: 185px;
+  z-index: 0;
+  pointer-events: none;
+}
+.win-flick { animation: winFlick 2.8s ease-in-out infinite; }
+@keyframes winFlick { 0%, 100% { opacity: 1; } 50% { opacity: .12; } }
+
+/* —— 地面霓虹反光 —— */
+#ground {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 120px;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 34% 90% at 18% 0%, rgba(255, 45, 149, .13), transparent 70%),
+    radial-gradient(ellipse 30% 80% at 78% 0%, rgba(0, 229, 255, .10), transparent 70%),
+    linear-gradient(180deg, transparent, rgba(6, 8, 16, .85));
+  filter: blur(1px);
+}
+
+/* —— 招牌头部 —— */
+header {
+  flex-shrink: 0;
+  padding: 34px 20px 10px;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+.sign {
+  font-family: "Arial Black", "Arial", sans-serif;
+  font-weight: 900;
+  font-size: clamp(44px, 8.2vw, 104px);
+  letter-spacing: .04em;
+  line-height: 1;
+  user-select: none;
+  display: inline-flex;
+  align-items: baseline;
+}
+.sign span {
+  color: #fff;
+  text-shadow:
+    0 0 6px #fff,
+    0 0 16px var(--magenta),
+    0 0 36px var(--magenta),
+    0 0 70px var(--magenta),
+    0 0 110px rgba(209, 0, 111, .8);
+  transition: color .06s, text-shadow .06s;
+}
+.sign span.sp { width: .38em; }
+/* 坏灯管三态：熄灭 / 挣扎 / 亮 */
+.sign span.dead {
+  color: #2e1830;
+  text-shadow: 0 0 2px rgba(255, 45, 149, .12);
+}
+.sign span.dim {
+  color: #c05f8f;
+  text-shadow: 0 0 5px rgba(255, 45, 149, .45);
+}
+body.thinking .sign { animation: signShake .12s linear infinite; }
+@keyframes signShake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(1px, -1px); }
+  50% { transform: translate(-1px, 1px); }
+  75% { transform: translate(1px, 1px); }
+}
+.sign-sub {
+  margin-top: 14px;
+  font-size: 13px;
+  letter-spacing: .55em;
+  padding-left: .55em;
+  color: #bff7ff;
+  text-shadow: 0 0 8px rgba(0, 229, 255, .8), 0 0 22px rgba(0, 229, 255, .35);
+}
+#status {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 11px;
+  letter-spacing: .3em;
+  color: var(--amber);
+  text-shadow: 0 0 8px rgba(250, 204, 21, .6);
+}
+#status::before { content: '▮ '; animation: statusBlink 1.1s steps(2) infinite; }
+@keyframes statusBlink { 50% { opacity: .2; } }
+
+/* —— 对话流 —— */
+main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 56px 18px;
+  width: min(860px, 100%);
+  margin: 0 auto;
+  z-index: 2;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, .35) transparent;
+}
+
+.bubble {
+  position: relative;
+  max-width: 78%;
+  margin: 13px 0;
+  padding: 14px 19px;
+  border-radius: 20px;
+  background: rgba(9, 11, 20, .8);
+  backdrop-filter: blur(4px);
+  border: 2px solid;
+  font-size: 15.5px;
+  line-height: 1.9;
+  animation: popIn .35s cubic-bezier(.2, .9, .3, 1.3) both;
+}
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(10px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+.bubble.user {
+  margin-left: auto;
+  border-color: var(--magenta);
+  box-shadow: 0 0 12px rgba(255, 45, 149, .45),
+              inset 0 0 16px rgba(255, 45, 149, .08);
+  color: #ffe6f2;
+  text-shadow: 0 0 6px rgba(255, 45, 149, .35);
+}
+.bubble.ai {
+  border-color: var(--cyan);
+  box-shadow: 0 0 12px rgba(0, 229, 255, .45),
+              inset 0 0 16px rgba(0, 229, 255, .08);
+  color: #d9fbff;
+}
+.tag {
+  display: block;
+  font-size: 10px;
+  letter-spacing: .3em;
+  opacity: .6;
+  margin-bottom: 5px;
+}
+/* 回复分句：青色辉光渐显 */
+.nb { animation: neonIn .75s ease both; }
+.bubble.ai .nb {
+  text-shadow: 0 0 7px rgba(0, 229, 255, .6), 0 0 18px rgba(0, 229, 255, .28);
+}
+@keyframes neonIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* —— 思考态：电弧杂讯 —— */
+.arc {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 60;
+}
+
+/* —— 输入：霓虹灯管 + 点火 —— */
+.neon-tube {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(840px, calc(100% - 80px));
+  margin: 0 auto 40px;
+  padding: 8px 8px 8px 26px;
+  border: 2px solid rgba(0, 229, 255, .45);
+  border-radius: 999px;
+  background: rgba(10, 12, 22, .72);
+  box-shadow: 0 0 10px rgba(0, 229, 255, .18), inset 0 0 12px rgba(0, 229, 255, .05);
+  position: relative;
+  overflow: hidden;
+  z-index: 2;
+  animation: neonIdle 4.5s ease-in-out infinite;
+  transition: border-color .4s, box-shadow .4s;
+}
+@keyframes neonIdle {
+  0%, 100% { box-shadow: 0 0 8px rgba(0, 229, 255, .15), inset 0 0 10px rgba(0, 229, 255, .04); }
+  50%      { box-shadow: 0 0 16px rgba(0, 229, 255, .35), inset 0 0 14px rgba(0, 229, 255, .09); }
+}
+/* 通电：光从左端亮到右端 */
+.neon-tube::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0;
+  background: linear-gradient(90deg,
+    rgba(0, 229, 255, .30),
+    rgba(0, 229, 255, .06) 78%,
+    transparent);
+  border-right: 2px solid rgba(0, 255, 255, .95);
+  box-shadow: 0 0 18px rgba(0, 255, 255, .85);
+  transition: width .55s cubic-bezier(.3, .7, .4, 1);
+  pointer-events: none;
+}
+.neon-tube:focus-within {
+  animation: none;
+  border-color: rgba(0, 255, 255, .95);
+  box-shadow: 0 0 22px rgba(0, 229, 255, .55), inset 0 0 18px rgba(0, 229, 255, .12);
+}
+.neon-tube:focus-within::before { width: 100%; }
+#input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: #dffcff;
+  font-family: inherit;
+  font-size: 16px;
+  letter-spacing: .03em;
+  padding: 10px 4px;
+  position: relative;
+}
+#input::placeholder { color: rgba(150, 220, 235, .38); }
+
+/* 点火按钮：黄色发光脉冲 */
+.ignite {
+  flex-shrink: 0;
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: 2px solid #fde047;
+  background: radial-gradient(circle at 34% 30%, #fffbe6, var(--amber) 46%, #ca8a04 82%);
+  color: #4a3200;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  cursor: pointer;
+  animation: ignitePulse 1.9s ease-in-out infinite;
+  transition: transform .12s;
+}
+@keyframes ignitePulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(250, 204, 21, .6), 0 0 26px rgba(250, 204, 21, .25); }
+  50%      { box-shadow: 0 0 18px rgba(250, 204, 21, .95), 0 0 48px rgba(250, 204, 21, .45); }
+}
+.ignite:hover { transform: scale(1.07); }
+.ignite:active { transform: scale(.94); }
+.ignite:disabled { opacity: .5; cursor: default; animation: none; transform: none; }
+
+/* —— 自适应 —— */
+@media (max-width: 900px) {
+  header { padding: 22px 12px 6px; }
+  .sign { font-size: clamp(36px, 11vw, 64px); }
+  main { padding: 10px 20px 14px; }
+  .bubble { max-width: 94%; font-size: 14.5px; }
+  .neon-tube { width: calc(100% - 32px); margin-bottom: 26px; padding-left: 20px; }
+  #skyline { height: 120px; }
+}
+</style>
+</head>
+<body>
+
+<svg id="skyline" viewBox="0 0 1600 185" preserveAspectRatio="xMidYMax slice" aria-hidden="true"></svg>
+<div id="ground"></div>
+
+<header>
+  <div class="sign" aria-label="NEON FORGE">
+    <span>N</span><span>E</span><span>O</span><span>N</span><span class="sp"></span><span>F</span><span>O</span><span>R</span><span>G</span><span>E</span>
+  </div>
+  <div class="sign-sub">霓 虹 锻 炉 · 夜 之 城 工 匠</div>
+  <div><span id="status">系统就绪 · 等待指令</span></div>
+</header>
+
+<main id="chat" aria-live="polite"></main>
+
+<footer class="neon-tube">
+  <input id="input" type="text" placeholder="接入回路，说点什么……" autocomplete="off">
+  <button id="send" class="ignite" title="点火">点火</button>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+  var NS = 'http://www.w3.org/2000/svg';
+  var chat = document.getElementById('chat');
+  var input = document.getElementById('input');
+  var sendBtn = document.getElementById('send');
+  var statusEl = document.getElementById('status');
+
+  var REPLIES = [
+    '灯管断了可以再弯一根，字坏了可以重新充气。夜之城里没有修不好的招牌，只有不肯再通电的人。你的问题我看了——不是灯管坏了，是电压不稳。',
+    '霓虹的真面目：玻璃管里封着一撮稀有气体，通了电就发光。氖气是红，氩气配荧光粉是蓝。人也一样——接到什么电压，就发什么光。',
+    '锻炉这行有句老话：火候到了，金属自己会开口。你这份方案火候还差三成，别急着出炉，回炉再烧。',
+    '我在天际线上找了一圈参照。你要做的东西像巷子深处那块半死不活的招牌：白天看是破铜烂铁，一到夜里通电，整条街都得看它的脸色。建议保留。',
+    '品红配青是江湖，配黄是生意。你这个问题是生意，不是江湖——按生意的规矩办：算清成本，留好退路。霓虹再亮，也得交电费。'
+  ];
+
+  var replyIdx = 0;
+  var busy = false;
+  var arcTimer = null;
+
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function scrollChat() { chat.scrollTop = chat.scrollHeight; }
+
+  function splitPhrases(text) {
+    var marks = '，。；：！？、';
+    var parts = [], cur = '';
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      cur += ch;
+      if (marks.indexOf(ch) >= 0) { parts.push(cur); cur = ''; }
+    }
+    if (cur) parts.push(cur);
+    return parts;
+  }
+
+  /* ================= 城市天际线 ================= */
+  (function buildSkyline() {
+    var svg = document.getElementById('skyline');
+    var W = 1600, H = 185;
+    var parts = [];
+    var x = -10;
+    while (x < W) {
+      var bw = 28 + Math.random() * 72;
+      var bh = 34 + Math.random() * 128;
+      var top = H - bh;
+      parts.push('<rect x="' + x.toFixed(0) + '" y="' + top.toFixed(0) +
+        '" width="' + bw.toFixed(0) + '" height="' + bh.toFixed(0) + '" fill="#06060d"/>');
+      /* 楼顶霓虹描边 */
+      if (Math.random() < 0.34) {
+        var c = Math.random() < 0.5 ? '#ff2d95' : '#00e5ff';
+        parts.push('<line x1="' + x.toFixed(0) + '" y1="' + top.toFixed(0) +
+          '" x2="' + (x + bw).toFixed(0) + '" y2="' + top.toFixed(0) +
+          '" stroke="' + c + '" stroke-width="2.5" opacity="0.72"/>');
+      }
+      /* 窗 */
+      for (var wy = top + 9; wy < H - 8; wy += 15) {
+        for (var wx = x + 5; wx < x + bw - 7; wx += 11) {
+          if (Math.random() < 0.10) {
+            var wc = Math.random() < 0.5 ? 'rgba(255,45,149,.75)' : 'rgba(0,229,255,.65)';
+            var anim = Math.random() < 0.25
+              ? ' class="win-flick" style="animation-delay:' + (Math.random() * 3).toFixed(2) + 's"'
+              : '';
+            parts.push('<rect x="' + wx.toFixed(0) + '" y="' + wy.toFixed(0) +
+              '" width="4" height="6" fill="' + wc + '"' + anim + '/>');
+          }
+        }
+      }
+      x += bw + 2 + Math.random() * 16;
+    }
+    svg.innerHTML = parts.join('');
+  })();
+
+  /* ================= 坏灯管闪烁 ================= */
+  var signSpans = Array.prototype.slice.call(
+    document.querySelectorAll('.sign span')).filter(function (s) {
+    return !s.classList.contains('sp');
+  });
+
+  async function runFlicker(elm) {
+    await wait(320);  elm.classList.add('dead'); elm.classList.remove('dim');
+    await wait(340);  elm.classList.remove('dead');
+    await wait(110);  elm.classList.add('dead');
+    await wait(170);  elm.classList.remove('dead'); elm.classList.add('dim');
+    await wait(430);  elm.classList.remove('dim');
+  }
+
+  (function flickerLoop() {
+    var delay = 3800 + Math.random() * 5200;
+    setTimeout(function () {
+      runFlicker(signSpans[Math.floor(Math.random() * signSpans.length)]);
+      flickerLoop();
+    }, delay);
+  })();
+
+  /* ================= 电弧杂讯 ================= */
+  function spawnArc() {
+    var svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'arc');
+    var w = window.innerWidth, h = window.innerHeight;
+    var x = Math.random() * w, y = Math.random() * h;
+    var pts = x.toFixed(0) + ',' + y.toFixed(0);
+    var n = 5 + Math.floor(Math.random() * 4);
+    for (var i = 0; i < n; i++) {
+      x += (Math.random() - 0.5) * 200;
+      y += (Math.random() - 0.5) * 130;
+      pts += ' ' + x.toFixed(0) + ',' + y.toFixed(0);
+    }
+    svg.innerHTML = '<polyline points="' + pts +
+      '" fill="none" stroke="#fff" stroke-width="1.6" style="filter:drop-shadow(0 0 6px #0ff)"/>';
+    document.body.appendChild(svg);
+    setTimeout(function () { svg.remove(); }, 80 + Math.random() * 70);
+  }
+
+  function startArcs() {
+    arcTimer = setInterval(function () {
+      if (Math.random() < 0.85) spawnArc();
+    }, 165);
+  }
+  function stopArcs() {
+    clearInterval(arcTimer);
+    arcTimer = null;
+    document.querySelectorAll('.arc').forEach(function (a) { a.remove(); });
+  }
+
+  /* ================= 对话 ================= */
+  function addUser(text) {
+    var b = document.createElement('div');
+    b.className = 'bubble user';
+    var tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = 'CALLER · 来电';
+    var body = document.createElement('div');
+    body.textContent = text;
+    b.appendChild(tag);
+    b.appendChild(body);
+    chat.appendChild(b);
+    scrollChat();
+  }
+
+  function mountAi(text) {
+    var b = document.createElement('div');
+    b.className = 'bubble ai';
+    var tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = 'FORGE · 输出';
+    var body = document.createElement('div');
+    var parts = splitPhrases(text);
+    parts.forEach(function (p, i) {
+      var s = document.createElement('span');
+      s.className = 'nb';
+      s.textContent = p;
+      s.style.animationDelay = (0.15 + i * 0.42) + 's';
+      body.appendChild(s);
+    });
+    b.appendChild(tag);
+    b.appendChild(body);
+    chat.appendChild(b);
+
+    var total = 300 + parts.length * 420 + 700;
+    var iv = setInterval(scrollChat, 280);
+    setTimeout(function () { clearInterval(iv); }, total);
+    return total;
+  }
+
+  async function respond() {
+    busy = true;
+    sendBtn.disabled = true;
+    statusEl.textContent = '电弧校准中';
+    document.body.classList.add('thinking');
+    startArcs();
+    await wait(1600 + Math.random() * 1100);
+    stopArcs();
+    document.body.classList.remove('thinking');
+    statusEl.textContent = '信号输出中';
+
+    var text = REPLIES[replyIdx % REPLIES.length];
+    replyIdx++;
+    var total = mountAi(text);
+    await wait(total);
+    statusEl.textContent = '系统就绪 · 等待指令';
+    busy = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+
+  function submit() {
+    var text = input.value.trim();
+    if (!text || busy) return;
+    input.value = '';
+    addUser(text);
+    respond();
+  }
+
+  sendBtn.addEventListener('click', submit);
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') submit();
+  });
+
+  /* —— 开炉通电 —— */
+  setTimeout(function () {
+    statusEl.textContent = '信号输出中';
+    var total = mountAi('供电正常。我是 NEON FORGE——夜之城最老的霓虹匠人。招牌、灯管、字牌，坏掉的梦都能重新充气。说吧，今晚要点亮什么？');
+    setTimeout(function () {
+      if (!busy) statusEl.textContent = '系统就绪 · 等待指令';
+    }, total);
+  }, 1200);
+})();
+</script>
+</body>
+</html>

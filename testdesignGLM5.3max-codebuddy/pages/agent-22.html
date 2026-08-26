@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>琉璃工坊 GLASSWORK · 透明思维AI</title>
+<style>
+:root{
+  --glass: rgba(255,255,255,0.34);
+  --glass-border: rgba(255,255,255,0.55);
+  --ink-dark: #3a3550;
+  --ink-soft: #6b6488;
+  --sans: "Segoe UI", "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:var(--sans);
+  color:var(--ink-dark);
+  overflow:hidden;
+  background:#e9e6f5;
+  position:relative;
+}
+
+/* ============ 背景漂移色块 ============ */
+.bg-blobs{position:fixed;inset:-15%;z-index:0;filter:blur(70px)}
+.blob{
+  position:absolute;border-radius:50%;
+  will-change:transform;
+}
+.b1{
+  width:58vmax;height:58vmax;left:-12%;top:-18%;
+  background:radial-gradient(circle,#c9b8f5 0%,rgba(201,184,245,0) 68%);
+  animation:drift1 34s ease-in-out infinite alternate;
+}
+.b2{
+  width:52vmax;height:52vmax;right:-15%;top:6%;
+  background:radial-gradient(circle,#a8ede0 0%,rgba(168,237,224,0) 68%);
+  animation:drift2 41s ease-in-out infinite alternate;
+}
+.b3{
+  width:55vmax;height:55vmax;left:14%;bottom:-26%;
+  background:radial-gradient(circle,#fbd3ea 0%,rgba(251,211,234,0) 68%);
+  animation:drift3 38s ease-in-out infinite alternate;
+}
+.b4{
+  width:34vmax;height:34vmax;right:8%;bottom:-8%;
+  background:radial-gradient(circle,#fde8c8 0%,rgba(253,232,200,0) 70%);
+  animation:drift1 46s ease-in-out infinite alternate-reverse;
+}
+@keyframes drift1{
+  0%{transform:translate(0,0) scale(1)}
+  50%{transform:translate(9vw,7vh) scale(1.14)}
+  100%{transform:translate(-6vw,12vh) scale(.92)}
+}
+@keyframes drift2{
+  0%{transform:translate(0,0) scale(1) rotate(0deg)}
+  50%{transform:translate(-10vw,10vh) scale(.9) rotate(12deg)}
+  100%{transform:translate(5vw,-8vh) scale(1.16)}
+}
+@keyframes drift3{
+  0%{transform:translate(0,0) scale(1)}
+  50%{transform:translate(8vw,-9vh) scale(1.18)}
+  100%{transform:translate(-9vw,-4vh) scale(.94)}
+}
+
+/* ============ 玻璃折射光斑（caustics） ============ */
+.caustics{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  mix-blend-mode:screen;overflow:hidden;
+}
+.caustic{
+  position:absolute;
+  background:radial-gradient(ellipse,rgba(255,255,255,.5),rgba(255,255,255,0) 68%);
+  filter:blur(14px);
+  will-change:transform;
+}
+.c1{width:340px;height:190px;left:12%;top:16%;animation:caustic-a 23s ease-in-out infinite alternate}
+.c2{width:280px;height:160px;right:16%;top:26%;animation:caustic-b 29s ease-in-out infinite alternate}
+.c3{width:380px;height:210px;left:34%;bottom:18%;animation:caustic-a 33s ease-in-out infinite alternate-reverse}
+.c4{width:230px;height:140px;right:32%;bottom:34%;animation:caustic-b 25s ease-in-out infinite alternate-reverse}
+.c5{width:300px;height:170px;left:52%;top:8%;animation:caustic-a 37s ease-in-out infinite alternate}
+@keyframes caustic-a{
+  0%{transform:translate(0,0) rotate(-14deg) scale(1);opacity:.5}
+  50%{transform:translate(14vw,9vh) rotate(10deg) scale(1.25);opacity:.85}
+  100%{transform:translate(-8vw,16vh) rotate(-6deg) scale(.9);opacity:.55}
+}
+@keyframes caustic-b{
+  0%{transform:translate(0,0) rotate(18deg) scale(1.1);opacity:.7}
+  50%{transform:translate(-12vw,-10vh) rotate(-12deg) scale(.85);opacity:.4}
+  100%{transform:translate(9vw,7vh) rotate(6deg) scale(1.2);opacity:.8}
+}
+
+/* ============ 主结构 ============ */
+.app{
+  position:relative;z-index:2;height:100%;
+  display:flex;flex-direction:column;
+}
+
+/* 头部玻璃标签 */
+.header{
+  padding:26px 0 18px;
+  display:flex;justify-content:center;
+  flex:none;
+}
+.header-tag{
+  display:flex;align-items:center;gap:14px;
+  padding:12px 30px;
+  border-radius:999px;
+  background:var(--glass);
+  backdrop-filter:blur(20px) saturate(1.5);
+  -webkit-backdrop-filter:blur(20px) saturate(1.5);
+  border:1px solid var(--glass-border);
+  box-shadow:0 10px 30px rgba(120,100,180,.14),inset 0 1px 0 rgba(255,255,255,.65);
+  animation:hover-float 7s ease-in-out infinite;
+}
+.header-tag .prism{width:22px;height:22px;flex:none}
+.header-tag h1{
+  font-size:19px;font-weight:600;letter-spacing:2px;
+}
+.header-tag .divider{width:1px;height:18px;background:rgba(255,255,255,.7)}
+.header-tag p{font-size:12.5px;color:var(--ink-soft);letter-spacing:1px}
+@keyframes hover-float{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-5px)}
+}
+
+/* ============ 对话流 ============ */
+.chat{
+  flex:1;overflow-y:auto;
+  padding:18px 24px 20px;
+  scrollbar-width:none;
+}
+.chat::-webkit-scrollbar{display:none}
+.chat-inner{
+  max-width:780px;margin:0 auto;
+  display:flex;flex-direction:column;gap:16px;
+}
+
+/* 玻璃卡片基础 */
+.glass{
+  position:relative;
+  background:var(--glass);
+  backdrop-filter:blur(20px) saturate(1.5);
+  -webkit-backdrop-filter:blur(20px) saturate(1.5);
+  border:1px solid var(--glass-border);
+  border-radius:22px;
+  box-shadow:0 12px 34px rgba(120,100,180,.13),inset 0 1px 0 rgba(255,255,255,.65);
+}
+/* 顶部内侧高光 */
+.glass::before{
+  content:"";position:absolute;left:2%;right:2%;top:0;height:42%;
+  border-radius:22px 22px 0 0;
+  background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,0));
+  pointer-events:none;
+}
+/* 彩虹光谱边框（hover） */
+.glass::after{
+  content:"";position:absolute;inset:-1.5px;
+  border-radius:24px;padding:2px;
+  background:conic-gradient(from 0deg,#ff7ab8,#ffd28a,#7ff0c3,#7ab8ff,#d09bff,#ff7ab8);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask-composite:exclude;
+  opacity:0;
+  transition:opacity .5s ease;
+  pointer-events:none;
+}
+.glass:hover::after{
+  opacity:1;
+  animation:spectrum-rotate 2.6s linear infinite;
+}
+@keyframes spectrum-rotate{to{filter:hue-rotate(360deg)}}
+
+.card{
+  padding:16px 22px;
+  max-width:82%;
+  font-size:15.5px;line-height:1.85;
+  animation:condense .7s cubic-bezier(.2,.9,.3,1) both;
+}
+@keyframes condense{
+  from{opacity:0;transform:translateY(22px);filter:blur(8px)}
+  to{opacity:1;transform:translateY(0);filter:blur(0)}
+}
+.card.user{
+  align-self:flex-end;
+  border-radius:22px 22px 6px 22px;
+  font-size:14.5px;
+  color:#4d4768;
+}
+.card.ai{
+  align-self:flex-start;
+  border-radius:22px 22px 22px 6px;
+  padding-left:58px;
+  max-width:88%;
+}
+.card .who{
+  position:absolute;left:16px;top:14px;
+  width:32px;height:32px;border-radius:50%;
+  background:rgba(255,255,255,.5);
+  border:1px solid rgba(255,255,255,.7);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+}
+.card .who svg{width:16px;height:16px}
+.card .name{
+  display:block;font-size:11px;letter-spacing:2px;
+  color:var(--ink-soft);margin-bottom:4px;
+}
+/* 折射感文字 */
+.card.ai .body{
+  text-shadow:.5px .5px 0 rgba(255,255,255,.9),-.5px 0 1px rgba(130,100,220,.18);
+}
+/* 分块渐显 */
+.piece{
+  opacity:0;transform:translateY(5px);filter:blur(5px);
+  display:inline;
+  transition:opacity .5s ease,transform .5s ease,filter .5s ease;
+}
+.piece.on{opacity:1;transform:translateY(0);filter:blur(0)}
+
+/* ============ 思考态：液体色带 ============ */
+.bands{
+  display:flex;flex-direction:column;gap:9px;
+  padding:4px 0 2px;
+  transition:opacity .6s ease;
+}
+.bands.fade{opacity:0;filter:blur(6px)}
+.band{
+  height:13px;border-radius:999px;
+  opacity:.62;
+}
+.band1{
+  width:74%;
+  background:linear-gradient(90deg,#c9b8f5,#a8ede0,#fbd3ea,#c9b8f5);
+  background-size:300% 100%;
+  animation:band-flow 2.1s linear infinite;
+}
+.band2{
+  width:52%;
+  background:linear-gradient(90deg,#a8ede0,#fde8c8,#c9b8f5,#a8ede0);
+  background-size:300% 100%;
+  animation:band-flow 2.8s linear infinite reverse;
+}
+.band3{
+  width:88%;
+  height:9px;
+  background:linear-gradient(90deg,#fbd3ea,#c9b8f5,#a8ede0,#fbd3ea);
+  background-size:300% 100%;
+  animation:band-flow 1.7s linear infinite;
+}
+@keyframes band-flow{
+  from{background-position:0% 0}
+  to{background-position:-300% 0}
+}
+.thinking-label{
+  font-size:12px;color:var(--ink-soft);letter-spacing:3px;
+  margin-top:2px;
+  animation:label-breathe 1.6s ease-in-out infinite;
+}
+@keyframes label-breathe{0%,100%{opacity:.45}50%{opacity:.95}}
+
+/* ============ 输入胶囊 ============ */
+.input-zone{
+  flex:none;padding:10px 24px 30px;
+  display:flex;justify-content:center;
+  position:relative;
+}
+.input-capsule{
+  width:min(760px,100%);
+  display:flex;align-items:center;gap:8px;
+  padding:9px 9px 9px 26px;
+  border-radius:999px;
+  background:var(--glass);
+  backdrop-filter:blur(22px) saturate(1.5);
+  -webkit-backdrop-filter:blur(22px) saturate(1.5);
+  border:1px solid var(--glass-border);
+  box-shadow:0 14px 40px rgba(120,100,180,.16),inset 0 1px 0 rgba(255,255,255,.7);
+  transition:box-shadow .4s ease,transform .4s ease;
+}
+.input-capsule:focus-within{
+  box-shadow:0 18px 52px rgba(120,100,180,.24),inset 0 1px 0 rgba(255,255,255,.8);
+  transform:translateY(-2px);
+}
+.input-capsule .hint{
+  font-size:12px;color:var(--ink-soft);letter-spacing:2px;
+  white-space:nowrap;
+  opacity:.85;
+}
+#glassInput{
+  flex:1;background:transparent;border:none;outline:none;
+  font-family:var(--sans);font-size:15.5px;color:var(--ink-dark);
+  padding:8px 4px;
+}
+#glassInput::placeholder{color:#9b94b8}
+.send-ball{
+  width:46px;height:46px;border-radius:50%;flex:none;
+  border:1px solid rgba(255,255,255,.75);
+  background:rgba(255,255,255,.45);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 4px 12px rgba(120,100,180,.2);
+  transition:transform .25s cubic-bezier(.3,1.5,.5,1),box-shadow .25s;
+}
+.send-ball:hover{transform:scale(1.1)}
+.send-ball:active{transform:scale(.9)}
+.send-ball svg{width:19px;height:19px}
+.send-ball:disabled{opacity:.5;cursor:default;transform:none}
+
+/* 输入胶囊上的流动微光 */
+.input-capsule .sheen{
+  position:absolute;left:24px;right:70px;top:8px;height:4px;
+  border-radius:999px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent);
+  width:120px;
+  opacity:0;
+  pointer-events:none;
+}
+
+/* ============ 自适应 ============ */
+@media (max-width:720px){
+  .header-tag{padding:10px 18px}
+  .header-tag h1{font-size:16px}
+  .header-tag p{display:none}
+  .header-tag .divider{display:none}
+  .card{max-width:94%}
+  .card.ai{padding-left:20px;padding-top:44px}
+  .card .who{top:10px;left:14px}
+  .input-capsule{padding-left:18px}
+  .input-capsule .hint{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- 背景色块 -->
+<div class="bg-blobs" aria-hidden="true">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+  <div class="blob b4"></div>
+</div>
+
+<!-- 折射光斑 -->
+<div class="caustics" aria-hidden="true">
+  <div class="caustic c1"></div>
+  <div class="caustic c2"></div>
+  <div class="caustic c3"></div>
+  <div class="caustic c4"></div>
+  <div class="caustic c5"></div>
+</div>
+
+<div class="app">
+  <!-- 头部 -->
+  <header class="header">
+    <div class="header-tag">
+      <svg class="prism" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 3 L21 19 L3 19 Z" stroke="#7a6fae" stroke-width="1.6" stroke-linejoin="round" fill="rgba(255,255,255,.4)"/>
+        <path d="M4 10 L14 15" stroke="#f09ac0" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M14 15 L20 12" stroke="#8fd8c6" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M14 15 L20 17" stroke="#f0c98a" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <h1>GLASSWORK · 琉璃工坊</h1>
+      <span class="divider"></span>
+      <p>透明思维 —— 让想法透过棱镜</p>
+    </div>
+  </header>
+
+  <!-- 对话流 -->
+  <main class="chat" id="chat">
+    <div class="chat-inner" id="chatInner"></div>
+  </main>
+
+  <!-- 输入胶囊 -->
+  <footer class="input-zone">
+    <div class="input-capsule">
+      <span class="hint">向琉璃提问</span>
+      <input id="glassInput" type="text" placeholder="把一个想法放进来，看它如何折射……" autocomplete="off" maxlength="80">
+      <button id="sendBall" class="send-ball" title="发送">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 12 h13 M13 6 l6 6 -6 6" stroke="#5d5480" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const $ = s => document.querySelector(s);
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const rand = (a,b) => a + Math.random()*(b-a);
+
+  const chat = $('#chat');
+  const chatInner = $('#chatInner');
+  const input = $('#glassInput');
+  const sendBall = $('#sendBall');
+
+  /* ---------- 预置回复 ---------- */
+  const REPLIES = [
+    "我把你的问题举到光里看了一会儿——它内部有三道折射：一道通往「想要」，一道通往「应该」，中间那道最亮，才是你真正想问的。要不要听听中间那道光的颜色？",
+    "想法穿过我这块玻璃时会慢下来，慢到可以看清纹路。你的这句话里有一条细小的气泡，我猜那是一个没说出口的期待——注意看，它正在往上浮。",
+    "透明的好处是：你看得见我在想什么。此刻我的思绪是一束白光，正被拆成七种可能——赤橙黄绿青蓝紫，各自代表一条路。我先把最暖的两条递给你，剩下五条冷藏备用。",
+    "玻璃从不说谎：光从哪个角度来，就在哪个角度留下影子。你这句话的入射角有点斜，我轻轻把它转正了一点——看，答案自己落在了焦点上。",
+    "折射率告诉我：光改变方向，是因为速度变了。你最近是不是也慢了下来？别担心，物理定律站在你这边——慢下来的地方，恰好是转弯的地方。"
+  ];
+  let lastIdx = -1;
+  function pickReply(){
+    let i;
+    do { i = Math.floor(Math.random()*REPLIES.length); } while(i === lastIdx);
+    lastIdx = i;
+    return REPLIES[i];
+  }
+
+  let busy = false;
+
+  /* ---------- 分块切词 ---------- */
+  function chunkText(text){
+    const chunks = [];
+    let buf = '';
+    for(const ch of text){
+      buf += ch;
+      const isPunct = '，。？！；：、—…「」'.includes(ch);
+      if(isPunct || buf.length >= 3){
+        chunks.push(buf);
+        buf = '';
+      }
+    }
+    if(buf) chunks.push(buf);
+    return chunks;
+  }
+
+  /* ---------- 流式渐显 ---------- */
+  function flowText(container, text){
+    return new Promise(resolve => {
+      const chunks = chunkText(text);
+      let i = 0;
+      const timer = setInterval(() => {
+        const s = document.createElement('span');
+        s.className = 'piece';
+        s.textContent = chunks[i];
+        container.appendChild(s);
+        requestAnimationFrame(() => requestAnimationFrame(() => s.classList.add('on')));
+        i++;
+        if(i >= chunks.length){
+          clearInterval(timer);
+          setTimeout(resolve, 550);
+        }
+      }, 95);
+    });
+  }
+
+  /* ---------- 卡片构建 ---------- */
+  function userCard(text){
+    const el = document.createElement('div');
+    el.className = 'glass card user';
+    el.textContent = text;
+    chatInner.appendChild(el);
+    return el;
+  }
+
+  function aiCard(){
+    const el = document.createElement('div');
+    el.className = 'glass card ai';
+    el.innerHTML =
+      '<div class="who">' +
+        '<svg viewBox="0 0 24 24" fill="none">' +
+          '<path d="M12 4 L20 18 L4 18 Z" stroke="#7a6fae" stroke-width="1.7" stroke-linejoin="round" fill="rgba(255,255,255,.5)"/>' +
+        '</svg>' +
+      '</div>' +
+      '<span class="name">GLASSWORK</span>' +
+      '<div class="bands"><div class="band band1"></div><div class="band band2"></div><div class="band band3"></div></div>' +
+      '<p class="thinking-label" style="margin-top:8px">折射思考中……</p>' +
+      '<div class="body" style="display:none"></div>';
+    chatInner.appendChild(el);
+    return el;
+  }
+
+  function scrollBottom(smooth){
+    chat.scrollTo({ top: chat.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  }
+
+  /* ---------- 发送主流程 ---------- */
+  async function handleSend(){
+    const text = input.value.trim();
+    if(!text || busy) return;
+    busy = true;
+    sendBall.disabled = true;
+    input.value = '';
+
+    userCard(text);
+    scrollBottom(true);
+    await sleep(420);
+
+    /* 思考卡：液体色带流动 */
+    const card = aiCard();
+    scrollBottom(true);
+    const thinkMs = rand(1700, 2600);
+    await sleep(thinkMs);
+
+    /* 色带淡出 → 文字流入 */
+    const bands = card.querySelector('.bands');
+    const label = card.querySelector('.thinking-label');
+    const body = card.querySelector('.body');
+    bands.classList.add('fade');
+    label.style.transition = 'opacity .5s';
+    label.style.opacity = '0';
+    await sleep(500);
+    bands.remove();
+    label.remove();
+    body.style.display = 'block';
+    scrollBottom(true);
+
+    await flowText(body, pickReply());
+    scrollBottom(true);
+
+    busy = false;
+    sendBall.disabled = false;
+    input.focus();
+  }
+
+  sendBall.addEventListener('click', handleSend);
+  input.addEventListener('keydown', e => {
+    if(e.key === 'Enter') handleSend();
+  });
+
+  /* ---------- 开场白 ---------- */
+  async function opening(){
+    await sleep(900);
+    const card = aiCard();
+    scrollBottom(true);
+    await sleep(1900);
+    const bands = card.querySelector('.bands');
+    const label = card.querySelector('.thinking-label');
+    const body = card.querySelector('.body');
+    bands.classList.add('fade');
+    label.style.transition = 'opacity .5s';
+    label.style.opacity = '0';
+    await sleep(500);
+    bands.remove();
+    label.remove();
+    body.style.display = 'block';
+    await flowText(body, '你好，我是琉璃工坊。在这里，思维是透明的——你能看见它在色带里流动、分解、重新凝结。随便对我说点什么吧。');
+    input.focus();
+  }
+  opening();
+})();
+</script>
+</body>
+</html>

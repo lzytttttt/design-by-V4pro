@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WEAVE · 织机 — 上下文编织 AI</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --wood:#4a2f16; --wood-deep:#2c1a0b;
+  --cream:#f5f0e6; --cream-dim:#d8cdb4;
+  --indigo:#1e40af; --crimson:#b91c1c;
+  --gold:#d9b45b;
+}
+html,body{height:100%;}
+body{
+  font-family:"Songti SC","STSong","SimSun",Georgia,serif;
+  color:var(--cream);
+  background:
+    repeating-linear-gradient(92deg, rgba(0,0,0,.12) 0 2px, transparent 2px 83px),
+    repeating-linear-gradient(88deg, rgba(255,210,140,.045) 0 1px, transparent 1px 137px),
+    radial-gradient(1100px 640px at 50% 12%, rgba(255,205,135,.10), transparent 62%),
+    linear-gradient(180deg,var(--wood) 0%,var(--wood-deep) 100%);
+  overflow:hidden;
+}
+/* ---------- 经线 canvas ---------- */
+#warp{position:fixed;inset:0;z-index:0;pointer-events:none;}
+#app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;}
+
+/* ---------- 顶部机架 ---------- */
+#loomHead{
+  display:flex;align-items:center;gap:34px;padding:15px 30px 13px;
+  background:linear-gradient(180deg,rgba(18,9,2,.6),rgba(18,9,2,.18));
+  border-bottom:2px solid rgba(217,180,91,.42);
+  box-shadow:0 3px 18px rgba(0,0,0,.35);
+}
+.brand{display:flex;align-items:center;gap:13px;}
+.brand > svg{width:44px;flex:none;}
+.brand h1{font-size:22px;letter-spacing:.34em;color:var(--gold);font-weight:700;}
+.brand p{font-size:11px;color:var(--cream-dim);letter-spacing:.24em;margin-top:2px;}
+.density{display:flex;align-items:center;gap:12px;flex:1;max-width:430px;}
+.d-label{font-size:12px;letter-spacing:.28em;color:var(--cream-dim);white-space:nowrap;}
+.d-track{flex:1;height:12px;border:1px solid rgba(217,180,91,.55);border-radius:7px;padding:2px;background:rgba(0,0,0,.32);}
+.d-fill{height:100%;width:4%;border-radius:4px;background:repeating-linear-gradient(45deg,var(--gold) 0 6px,#a8843a 6px 12px);transition:width .9s ease;}
+.d-num{font-size:13px;color:var(--gold);min-width:46px;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:.05em;}
+.status{font-size:12px;color:var(--cream-dim);letter-spacing:.14em;border-left:1px solid rgba(217,180,91,.35);padding-left:22px;white-space:nowrap;}
+
+/* ---------- 织成的布（对话历史） ---------- */
+#cloth{flex:1;overflow-y:auto;padding:16px 0 26px;scrollbar-width:none;}
+#cloth::-webkit-scrollbar{width:0;height:0;}
+.turn{position:relative;margin:30px 0 6px;}
+.t-meta{padding:0 60px;font-size:11px;letter-spacing:.28em;color:var(--cream-dim);display:flex;align-items:center;gap:10px;}
+.t-dot{width:9px;height:9px;transform:rotate(45deg);display:inline-block;border:1px solid rgba(245,240,230,.55);flex:none;}
+.t-meta span:last-child{opacity:.85;}
+.t-text{padding:8px 60px 2px;line-height:2.05;font-size:15.5px;letter-spacing:.03em;animation:segIn .55s ease both;}
+.seg{display:inline-block;opacity:0;animation:segIn .5s ease forwards;}
+@keyframes segIn{from{opacity:0;transform:translateY(7px);}to{opacity:1;transform:none;}}
+.weft{display:block;width:100%;height:58px;overflow:visible;}
+.weft .wline{fill:none;stroke-width:2.4;stroke-linecap:round;filter:drop-shadow(0 1px 3px rgba(0,0,0,.45));}
+
+/* ---------- 编织中（思考态） ---------- */
+.turn.weaving{min-height:132px;}
+.wv-strip{position:relative;height:58px;margin-top:12px;}
+.wv-strip .dash-svg{position:absolute;inset:0;width:100%;height:100%;}
+.dash-svg path{fill:none;stroke:rgba(217,180,91,.75);stroke-width:2;stroke-dasharray:11 9;animation:march .42s linear infinite;}
+@keyframes march{to{stroke-dashoffset:-20;}}
+.shuttle-run{position:absolute;top:16px;left:0;width:62px;height:26px;animation:runShuttle .5s ease-in-out infinite alternate;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5));}
+@keyframes runShuttle{from{transform:translateX(6px) scaleX(1);}to{transform:translateX(calc(100vw - 78px)) scaleX(-1);}}
+.wv-note{padding:8px 60px 0;font-size:12px;letter-spacing:.24em;color:var(--gold);animation:notePulse 1.2s ease-in-out infinite;}
+@keyframes notePulse{0%,100%{opacity:.5;}50%{opacity:1;}}
+
+/* ---------- 底部投梭台 ---------- */
+#loomInput{padding:13px 30px 16px;background:linear-gradient(0deg,rgba(14,7,1,.75),rgba(14,7,1,.25));border-top:2px solid rgba(217,180,91,.42);}
+.bar{
+  display:flex;align-items:center;gap:16px;max-width:1040px;margin:0 auto;
+  background:linear-gradient(180deg,#5d3b1d,#38230e);
+  border:1px solid rgba(217,180,91,.5);border-radius:14px;
+  padding:10px 12px 10px 22px;
+  box-shadow:inset 0 2px 6px rgba(255,220,160,.14), 0 8px 22px rgba(0,0,0,.45);
+}
+.bar input{flex:1;min-width:0;background:transparent;border:none;outline:none;color:var(--cream);font-family:inherit;font-size:15.5px;letter-spacing:.05em;}
+.bar input::placeholder{color:rgba(216,205,180,.42);}
+#shuttleBtn{background:transparent;border:none;cursor:pointer;padding:4px 10px;border-radius:10px;transition:transform .18s ease, background .18s;flex:none;}
+#shuttleBtn:hover{background:rgba(217,180,91,.14);transform:translateX(3px);}
+#shuttleBtn:active{transform:translateY(3px);}
+#shuttleBtn svg{width:62px;height:26px;display:block;animation:idleBob 3.4s ease-in-out infinite;}
+@keyframes idleBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-2.5px);}}
+.hint{text-align:center;font-size:10.5px;color:rgba(216,205,180,.38);letter-spacing:.34em;margin-top:9px;}
+
+@media(max-width:900px){
+  #loomHead{flex-wrap:wrap;gap:12px 18px;padding:12px 18px;}
+  .brand h1{font-size:18px;}
+  .density{max-width:none;order:3;flex-basis:100%;}
+  .status{border:none;padding:0;margin-left:auto;}
+  .t-text{padding:8px 26px 2px;font-size:14.5px;}
+  .t-meta,.wv-note{padding-left:26px;padding-right:26px;}
+}
+</style>
+</head>
+<body>
+<canvas id="warp"></canvas>
+<div id="app">
+  <header id="loomHead">
+    <div class="brand">
+      <svg viewBox="0 0 90 32" aria-hidden="true">
+        <path d="M4 16 Q18 4 45 4 Q72 4 78 16 Q72 28 45 28 Q18 28 4 16 Z" fill="#d9b45b" stroke="#8a6a26" stroke-width="1.2"/>
+        <circle cx="45" cy="16" r="3.6" fill="#4a2f16"/>
+        <path d="M78 16 Q86 24 82 28 T90 31" stroke="#e46a6a" stroke-width="1.8" fill="none"/>
+      </svg>
+      <div>
+        <h1>WEAVE</h1>
+        <p>织机 · 上下文编织</p>
+      </div>
+    </div>
+    <div class="density">
+      <span class="d-label">已织密度</span>
+      <div class="d-track"><div class="d-fill" id="dFill"></div></div>
+      <span class="d-num" id="dNum">4%</span>
+    </div>
+    <div class="status" id="status">经线就绪 · 等待投梭</div>
+  </header>
+
+  <main id="cloth"></main>
+
+  <footer id="loomInput">
+    <div class="bar">
+      <input id="yarn" type="text" placeholder="纺出一句想法，掷入织机…" autocomplete="off">
+      <button id="shuttleBtn" title="掷梭（Enter）">
+        <svg viewBox="0 0 90 32">
+          <path d="M4 16 Q18 4 45 4 Q72 4 78 16 Q72 28 45 28 Q18 28 4 16 Z" fill="#e8dfc8" stroke="#8a6a26" stroke-width="1.2"/>
+          <circle cx="45" cy="16" r="3.6" fill="#b91c1c"/>
+          <path d="M78 16 Q86 24 82 28 T90 31" stroke="#e46a6a" stroke-width="1.8" fill="none"/>
+        </svg>
+      </button>
+    </div>
+    <p class="hint">ENTER 掷梭 · 每段对话织入一根新纬线</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+var WARP=44, SEG=96;
+var cloth=document.getElementById('cloth');
+var input=document.getElementById('yarn');
+var btn=document.getElementById('shuttleBtn');
+var statusEl=document.getElementById('status');
+var dFill=document.getElementById('dFill');
+var dNum=document.getElementById('dNum');
+var NS='http://www.w3.org/2000/svg';
+
+/* 纱线色系：按话题轮换 */
+var pals=[
+  {base:'#1e40af', line:'#7d9bff', lt:'#c2cfff', name:'靛蓝 · 事实之线'},
+  {base:'#b91c1c', line:'#ef7676', lt:'#ffc0c0', name:'绯红 · 情绪之线'},
+  {base:'#e8dfc8', line:'#e8dfc8', lt:'#f2ecd9', name:'本白 · 灵感之线'}
+];
+
+/* 预置回复（随机起点循环） */
+var replies=[
+  '我把你这句话纺成了一根新纬线。它正穿过三百根经线，与更早的语境交织——你上次提到的那个念头，被我压在第三层布纹里，此刻被这根新线轻轻带了起来。布越织越密，上下文就不会散。',
+  '这根线的交织点比预想的多：它和三条旧纬线产生了七个交点，其中两个连着你最初的那个问题。我已在节点上做了记号，往后你可以顺着任何一个节点，回溯当时的语境。',
+  '有意思。你这句话在我这里不是一根孤立的纱——它和更早的几股拧在了一起。我把它们重新排了序：最粗的一股是你的核心意图，最细的一股是情绪。奇怪的是，织进去之后，布面反而更平整了。',
+  '我暂缓了这根纬线的编织。因为线上还挂着一个松动的纱头——你说的『下一步』，是指本周之内，还是更远的将来？我先把它绕在梭子上，等你补一句话，我立刻织入。',
+  '织完了。这一小节布，用了你的四句话和我的三次梳理，密度上升到了可观的程度。再织两层，我们就能在这块布上裁出一份完整的方案。手感不错，继续。'
+];
+var welcome='经线已经张好。在这里，每一句对话都会成为一根纬线，与更早的语境交织成布。说点什么，让织机开始工作。';
+var busy=false, weftCount=0, convIdx=0;
+var replyIdx=Math.floor(Math.random()*replies.length);
+
+/* ---------------- 经线（warp）canvas ---------------- */
+var cv=document.getElementById('warp'), ctx=cv.getContext('2d');
+var warpLines=[];
+function sizeWarp(){
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=innerWidth*dpr; cv.height=innerHeight*dpr;
+  cv.style.width=innerWidth+'px'; cv.style.height=innerHeight+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  warpLines=[];
+  for(var x=WARP/2;x<innerWidth;x+=WARP){
+    warpLines.push({x:x, ph:Math.random()*6.28, b:.05+Math.random()*.05});
+  }
+}
+function drawWarp(t){
+  ctx.clearRect(0,0,innerWidth,innerHeight);
+  ctx.lineWidth=1;
+  for(var i=0;i<warpLines.length;i++){
+    var l=warpLines[i];
+    var a=Math.max(.015, l.b+Math.sin(t*.00045+l.ph)*.03);
+    ctx.strokeStyle='rgba(245,240,230,'+a.toFixed(3)+')';
+    ctx.beginPath(); ctx.moveTo(l.x,0); ctx.lineTo(l.x,innerHeight); ctx.stroke();
+  }
+  requestAnimationFrame(drawWarp);
+}
+sizeWarp(); requestAnimationFrame(drawWarp);
+
+/* ---------------- 工具函数 ---------------- */
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function el(n,at){var e=document.createElementNS(NS,n);for(var k in at)e.setAttribute(k,at[k]);return e;}
+function scrollBottom(){cloth.scrollTop=cloth.scrollHeight;}
+function updateDensity(){
+  var p=Math.min(100,Math.round(weftCount/24*100));
+  dFill.style.width=p+'%'; dNum.textContent=p+'%';
+}
+function weftGeom(W,y,amp,phase){
+  var n=Math.ceil(W/SEG), d='M 0 '+y;
+  for(var i=0;i<n;i++){
+    var x0=i*SEG, x1=Math.min((i+1)*SEG,W), dir=((i+phase)%2===0)?-1:1;
+    d+=' Q '+(((x0+x1)/2).toFixed(1))+' '+(y+dir*amp).toFixed(1)+' '+x1.toFixed(1)+' '+y;
+  }
+  return d;
+}
+function weftYAt(x,W,y,amp,phase){
+  var n=Math.ceil(W/SEG), i=Math.max(0,Math.min(Math.floor(x/SEG),n-1));
+  var x0=i*SEG, x1=Math.max(x0+1,Math.min((i+1)*SEG,W));
+  var t=Math.max(0,Math.min(1,(x-x0)/(x1-x0)));
+  var dir=((i+phase)%2===0)?-1:1, cy=y+dir*amp;
+  return (1-t)*(1-t)*y + 2*(1-t)*t*cy + t*t*y;
+}
+
+/* ---------------- 纬线渲染 ---------------- */
+function renderWeft(sec,animate){
+  var svg=sec.querySelector('svg.weft'); if(!svg)return;
+  var W=svg.clientWidth||innerWidth, H=58, y=29;
+  if(!sec._geom) sec._geom={amp:8+Math.random()*6, phase:Math.floor(Math.random()*2)};
+  var amp=sec._geom.amp, phase=sec._geom.phase;
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  var path=svg.querySelector('.wline');
+  path.setAttribute('d',weftGeom(W,y,amp,phase));
+  var knots=svg.querySelector('g');
+  while(knots.firstChild)knots.removeChild(knots.firstChild);
+  /* 交织节点：与经线对齐的菱形小点 */
+  for(var x=88;x<W-34;x+=88){
+    var yy=weftYAt(x,W,y,amp,phase);
+    var k=el('path',{d:'M '+x+' '+(yy-4.6)+' L '+(x+3.4)+' '+yy+' L '+x+' '+(yy+4.6)+' L '+(x-3.4)+' '+yy+' Z', fill:sec._pal.line});
+    if(animate){
+      k.style.opacity=0;
+      k.style.transition='opacity .3s ease';
+      k.style.transitionDelay=(x/W*1.5+.2).toFixed(2)+'s';
+      (function(kk){requestAnimationFrame(function(){kk.style.opacity=.95;});})(k);
+    }else k.style.opacity=.95;
+    knots.appendChild(k);
+  }
+  if(animate){
+    var L=path.getTotalLength();
+    path.style.transition='';
+    path.style.strokeDasharray=L; path.style.strokeDashoffset=L;
+    path.getBoundingClientRect();
+    requestAnimationFrame(function(){
+      path.style.transition='stroke-dashoffset 1.7s cubic-bezier(.35,0,.25,1)';
+      path.style.strokeDashoffset='0';
+    });
+    setTimeout(function(){path.style.strokeDasharray='none';path.style.transition='';},2000);
+  }
+}
+
+/* ---------------- 追加一轮对话 ---------------- */
+function addTurn(kind,text,pal,animate){
+  var sec=document.createElement('section');
+  sec.className='turn '+kind; sec._pal=pal;
+  var meta=document.createElement('div'); meta.className='t-meta';
+  var dot=document.createElement('span'); dot.className='t-dot'; dot.style.background=pal.base;
+  var label=document.createTextNode(kind==='user'?'投梭':'纬 · 第'+(weftCount+1)+'根');
+  var tag=document.createElement('span'); tag.textContent=pal.name; tag.style.color=pal.lt;
+  meta.appendChild(dot); meta.appendChild(label); meta.appendChild(tag);
+  var txt=document.createElement('div'); txt.className='t-text';
+  txt.style.color=(kind==='user')?pal.lt:'var(--cream)';
+  if(kind==='agent'&&animate){
+    var parts=text.match(/[^。！？；]+[。！？；]?/g)||[text];
+    parts.forEach(function(p,i){
+      var s=document.createElement('span'); s.className='seg'; s.textContent=p;
+      s.style.animationDelay=(1.05+i*.42)+'s'; txt.appendChild(s);
+    });
+    txt.style.animation='none';
+  }else{
+    txt.textContent=text;
+  }
+  var svg=el('svg',{class:'weft'});
+  svg.appendChild(el('path',{class:'wline',stroke:pal.line}));
+  svg.appendChild(el('g',{}));
+  sec.appendChild(meta); sec.appendChild(txt); sec.appendChild(svg);
+  cloth.appendChild(sec);
+  renderWeft(sec,animate);
+  weftCount++; updateDensity(); scrollBottom();
+  return sec;
+}
+
+/* 思考态：梭子往返 + 虚线推进 */
+function addWeaving(){
+  var sec=document.createElement('section');
+  sec.className='turn weaving';
+  sec.innerHTML='<div class="wv-strip">'+
+    '<svg class="dash-svg" viewBox="0 0 1000 58" preserveAspectRatio="none"><path d="M0 30 H1000"/></svg>'+
+    '<svg class="shuttle-run" viewBox="0 0 90 32">'+
+      '<path d="M8 16 Q22 6 45 6 Q68 6 74 16 Q68 26 45 26 Q22 26 8 16 Z" fill="#d9b45b" stroke="#8a6a26" stroke-width="1.2"/>'+
+      '<circle cx="45" cy="16" r="3.2" fill="#4a2f16"/>'+
+      '<path d="M74 16 Q82 24 78 28 T86 31" stroke="#e46a6a" stroke-width="1.8" fill="none"/>'+
+    '</svg></div>'+
+    '<p class="wv-note">— 梭子往返 · 正在编织回应 —</p>';
+  cloth.appendChild(sec); scrollBottom();
+  return sec;
+}
+
+/* ---------------- 发送回路 ---------------- */
+async function send(){
+  var text=input.value.trim();
+  if(!text||busy)return;
+  busy=true; input.value='';
+  var pal=pals[convIdx%pals.length];
+  statusEl.textContent='梭子往返穿梭…';
+  addTurn('user',text,pal,true);
+  var wv=addWeaving();
+  await sleep(1500+Math.random()*1300);
+  wv.remove();
+  var reply=replies[replyIdx%replies.length]; replyIdx++;
+  addTurn('agent',reply,pal,true);
+  convIdx++;
+  statusEl.textContent='一纬织入 · 布渐成形';
+  setTimeout(function(){ if(!busy)statusEl.textContent='经线就绪 · 等待投梭'; },2800);
+  busy=false;
+}
+input.addEventListener('keydown',function(e){ if(e.key==='Enter')send(); });
+btn.addEventListener('click',send);
+
+/* ---------------- 窗口变化：重排经线与所有纬线 ---------------- */
+var rzT=null;
+window.addEventListener('resize',function(){
+  clearTimeout(rzT);
+  rzT=setTimeout(function(){
+    sizeWarp();
+    var secs=document.querySelectorAll('#cloth .turn:not(.weaving)');
+    secs.forEach(function(sec){ renderWeft(sec,false); });
+  },200);
+});
+
+/* 初始：欢迎纬线（本白） */
+addTurn('agent',welcome,pals[2],true);
+})();
+</script>
+</body>
+</html>

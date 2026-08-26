@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORRERY · 太阳系仪</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:"Palatino Linotype",Georgia,"Songti SC",serif;
+    background:
+      radial-gradient(90vmin 60vmin at 50% 42%,rgba(180,83,9,.12),transparent 70%),
+      linear-gradient(180deg,#2b2724,#292524 55%,#211d1a);
+    color:#d6d3d1;overflow:hidden;
+  }
+  /* 木纹细线 */
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;opacity:.05;
+    background:repeating-linear-gradient(94deg,transparent 0 90px,#d6d3d1 90px 91px)}
+
+  header{position:fixed;top:0;left:0;right:0;padding:26px 44px;z-index:5;
+    display:flex;justify-content:space-between;align-items:baseline}
+  h1{font-size:22px;font-weight:400;letter-spacing:.45em;color:#d9a45e}
+  .sub{font-size:10.5px;letter-spacing:.3em;color:#78716c}
+  .stat{font-size:10.5px;letter-spacing:.2em;color:#78716c;text-align:right;line-height:2;
+    font-variant-numeric:tabular-nums}
+
+  /* 太阳系仪 */
+  .orrery{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);
+    width:min(78vmin,700px);height:min(78vmin,700px);z-index:1}
+  .track{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    border-radius:50%;border:1px solid rgba(217,164,94,.28);
+    box-shadow:0 0 0 3px rgba(41,37,36,.9),0 0 0 4px rgba(217,164,94,.14)}
+  .tick{position:absolute;left:50%;top:50%;width:1px;height:5px;
+    background:rgba(217,164,94,.3);transform-origin:0 0}
+  .planet-arm{position:absolute;left:50%;top:50%;width:0;height:0}
+  .planet{position:absolute;left:0;top:0;transform:translate(-50%,-50%);
+    width:15px;height:15px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#e7c98f,#b45309 60%,#7c3f07);
+    box-shadow:0 0 12px rgba(217,164,94,.4), inset 0 -2px 4px rgba(0,0,0,.4)}
+  .planet .label{position:absolute;left:20px;top:-6px;white-space:nowrap;
+    font-size:10px;letter-spacing:.25em;color:#a89976;transition:color .3s}
+  .planet:hover .label{color:#e7c98f}
+  .planet.big{width:22px;height:22px}
+  .planet.small{width:11px;height:11px}
+
+  .sun{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:54px;height:54px;border-radius:50%;
+    background:radial-gradient(circle at 38% 32%,#fde9c8,#d9a45e 45%,#8a5a1e 85%);
+    box-shadow:0 0 34px 8px rgba(217,164,94,.45),0 0 90px 30px rgba(217,164,94,.16);
+    animation:sunbreathe 5s ease-in-out infinite;z-index:2}
+  @keyframes sunbreathe{0%,100%{box-shadow:0 0 34px 8px rgba(217,164,94,.45),0 0 90px 30px rgba(217,164,94,.16)}
+    50%{box-shadow:0 0 44px 12px rgba(217,164,94,.6),0 0 110px 36px rgba(217,164,94,.22)}}
+  body.fast .sun{animation-duration:.9s}
+
+  /* 对话面板：观测记录 */
+  .panel{position:fixed;right:max(30px,4vw);top:50%;transform:translateY(-50%);
+    width:min(340px,30vw);z-index:4;
+    background:linear-gradient(180deg,rgba(50,44,38,.92),rgba(38,33,29,.92));
+    border:1px solid rgba(217,164,94,.35);border-radius:5px;
+    box-shadow:0 20px 50px -20px rgba(0,0,0,.7), inset 0 1px 0 rgba(231,201,143,.15);
+    padding:20px 22px}
+  .panel h3{font-size:11px;letter-spacing:.4em;color:#a89976;font-weight:400;
+    border-bottom:1px solid rgba(217,164,94,.2);padding-bottom:10px;margin-bottom:8px}
+  .feed{max-height:44vh;overflow-y:auto;scrollbar-width:thin;
+    scrollbar-color:rgba(217,164,94,.3) transparent}
+  .msg{margin:12px 0;font-size:12.5px;line-height:1.9;color:#d6d3d1;letter-spacing:.03em;
+    opacity:0;transform:translateY(6px);animation:emerge .8s ease forwards}
+  @keyframes emerge{to{opacity:1;transform:none}}
+  .msg.user{color:#a89976;font-style:italic;font-size:12px}
+  .msg .read{font-family:Consolas,monospace;font-size:10.5px;color:#d9a45e;
+    display:block;margin-bottom:3px;letter-spacing:.05em}
+  .think{font-family:Consolas,monospace;font-size:10.5px;color:#d9a45e;letter-spacing:.2em;
+    animation:thp 1s ease-in-out infinite;margin:12px 0}
+  @keyframes thp{0%,100%{opacity:.4}50%{opacity:1}}
+
+  /* 行星 tooltip */
+  .ptip{position:fixed;z-index:20;background:#322c26;border:1px solid rgba(217,164,94,.4);
+    color:#d6d3d1;font-size:11.5px;padding:10px 13px;border-radius:4px;max-width:250px;
+    line-height:1.7;pointer-events:none;opacity:0;transition:opacity .25s}
+
+  /* 黄铜仪表输入 */
+  .dock{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
+    width:min(640px,90vw);z-index:5;display:flex;gap:16px;align-items:center;
+    background:linear-gradient(180deg,#4a3c2c,#3a2f22);
+    border:1px solid rgba(217,164,94,.45);border-radius:6px;
+    box-shadow:0 14px 36px -14px rgba(0,0,0,.8), inset 0 1px 0 rgba(231,201,143,.25);
+    padding:12px 18px}
+  .gauge{flex:none;font-size:9px;letter-spacing:.3em;color:#a89976;text-align:center;line-height:1.8}
+  .gauge b{display:block;color:#d9a45e;font-weight:400;font-variant-numeric:tabular-nums}
+  .ask{flex:1;background:rgba(0,0,0,.25);border:none;border-radius:3px;
+    padding:12px 14px;font:inherit;font-size:14px;color:#e7d9be;outline:none;
+    letter-spacing:.04em;box-shadow:inset 0 2px 6px rgba(0,0,0,.45)}
+  .ask:focus{box-shadow:inset 0 2px 6px rgba(0,0,0,.45),0 0 0 1.5px rgba(217,164,94,.5)}
+  .ask::placeholder{color:#78716c}
+  .knob{flex:none;width:52px;height:52px;border-radius:50%;cursor:pointer;position:relative;
+    background:radial-gradient(circle at 35% 30%,#e7c98f,#8a5a1e 75%);
+    border:2px solid #5c4322;
+    box-shadow:0 5px 14px rgba(0,0,0,.6), inset 0 2px 3px rgba(255,240,210,.5);
+    transition:transform .2s}
+  .knob::after{content:'';position:absolute;left:50%;top:4px;width:3px;height:16px;
+    background:#fde9c8;border-radius:2px;transform:translateX(-50%);
+    box-shadow:0 0 6px rgba(253,233,200,.8)}
+  .knob:active{transform:rotate(40deg)}
+  .ff{flex:none;background:none;border:1px solid rgba(217,164,94,.4);color:#d9a45e;
+    font:inherit;font-size:10px;letter-spacing:.25em;padding:12px 14px;cursor:pointer;
+    border-radius:3px;user-select:none;transition:.25s}
+  .ff:hover{background:rgba(217,164,94,.12)}
+  .ff:active,.ff.on{background:rgba(217,164,94,.25);box-shadow:0 0 16px -4px rgba(217,164,94,.6)}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>太阳系仪</h1><div class="sub">ORRERY — 一台黄铜机械，管理所有话题的轨道</div></div>
+  <div class="stat">纪元时间 <span id="epoch">0.0</span> 年<br>运行状态 <span id="mode">IDLE · 恒速运转</span></div>
+</header>
+
+<div class="orrery" id="orrery"></div>
+
+<div class="panel">
+  <h3>观 测 记 录 · LOG</h3>
+  <div class="feed" id="feed"></div>
+</div>
+
+<div class="ptip" id="ptip"></div>
+
+<div class="dock">
+  <div class="gauge">BRASS<br><b id="gaugeV">1.0×</b></div>
+  <input class="ask" id="ask" placeholder="向机械太阳系登记一个新话题…" autocomplete="off">
+  <button class="ff" id="ff" title="按住快进时间">快 进</button>
+  <button class="knob" id="send" title="旋钮发送"></button>
+</div>
+
+<script>
+/* ---------- 太阳系仪 ---------- */
+const orrery=document.getElementById('orrery');
+const PLANETS=[
+  {r:.16,w:52,size:'small',name:'信使'},
+  {r:.26,w:34,size:'',name:'思绪'},
+  {r:.37,w:24,size:'big',name:'远航'},
+  {r:.48,w:17,size:'',name:'深潜'},
+  {r:.60,w:11,size:'small',name:'群星'},
+];
+const arms=[];
+const TOPICS=['待命','待命','待命','待命','待命'];
+
+PLANETS.forEach((p,i)=>{
+  const R=p.r*100;
+  /* 轨道环 */
+  const tr=document.createElement('div');
+  tr.className='track';
+  tr.style.width=tr.style.height=(R*2)+'%';
+  orrery.appendChild(tr);
+  /* 刻度 */
+  for(let k=0;k<12;k++){
+    const t=document.createElement('div');
+    t.className='tick';
+    t.style.transform=`rotate(${k*30}deg) translateY(-${R*0}vmin)`;
+    t.style.transform=`rotate(${k*30}deg) translate(0,-${R/2}vmin)`;
+    tr.appendChild(t);
+  }
+  /* 行星臂 */
+  const arm=document.createElement('div');
+  arm.className='planet-arm';
+  const pl=document.createElement('div');
+  pl.className='planet '+p.size;
+  const lab=document.createElement('span');
+  lab.className='label';lab.textContent=p.name+' · 待命';
+  pl.appendChild(lab);
+  arm.appendChild(pl);
+  orrery.appendChild(arm);
+  arms.push({arm,pl,lab,a:Math.random()*Math.PI*2,w:p.w/3600,dist:R/2,i});
+});
+
+/* 尺寸换算 */
+function unit(){return orrery.getBoundingClientRect().width/2}
+let speed=1,targetSpeed=1,epoch=0;
+
+(function tick(){
+  speed+=(targetSpeed-speed)*0.05;
+  epoch+=speed*0.02;
+  document.getElementById('epoch').textContent=epoch.toFixed(1);
+  document.getElementById('gaugeV').textContent=speed.toFixed(1)+'×';
+  const u=unit();
+  arms.forEach(o=>{
+    o.a+=o.w*speed*0.016;
+    const x=Math.cos(o.a)*o.dist*u/50;
+    const y=Math.sin(o.a)*o.dist*u/50;
+    o.arm.style.transform=`rotate(${o.a*180/Math.PI}deg)`;
+    o.pl.style.left=(o.dist*u/50)+'px';
+    o.pl.style.transform=`translate(-50%,-50%) rotate(${-(o.a*180/Math.PI)}deg)`;
+  });
+  requestAnimationFrame(tick);
+})();
+
+/* 快进交互 */
+const ff=document.getElementById('ff');
+let ffTimer=null;
+function ffOn(){targetSpeed=9;document.body.classList.add('fast');
+  document.getElementById('mode').textContent='FAST · 时间快进'}
+function ffOff(){targetSpeed=1;document.body.classList.remove('fast');
+  document.getElementById('mode').textContent='IDLE · 恒速运转'}
+ff.addEventListener('mousedown',ffOn);
+ff.addEventListener('mouseup',ffOff);
+ff.addEventListener('mouseleave',ffOff);
+ff.addEventListener('touchstart',e=>{e.preventDefault();ffOn()});
+ff.addEventListener('touchend',ffOff);
+
+/* 行星 tooltip */
+const ptip=document.getElementById('ptip');
+arms.forEach(o=>{
+  o.pl.addEventListener('mousemove',e=>{
+    ptip.textContent=`行星「${PLANETS[o.i].name}」轨道话题：${TOPICS[o.i]}`;
+    ptip.style.opacity=1;
+    ptip.style.left=Math.min(e.clientX+16,innerWidth-270)+'px';
+    ptip.style.top=(e.clientY-16)+'px';
+  });
+  o.pl.addEventListener('mouseleave',()=>ptip.style.opacity=0);
+});
+
+/* ---------- 对话引擎 ---------- */
+const REPLIES=[
+  "»登记: 完成 | 轨位: 已分配\n新话题已挂上行星。机械会替你记住它的公转周期——每绕行一圈，我都会重新审视一次这个话题。",
+  "»齿合: 正常 | 转矩: 充沛\n黄铜装置不喜欢抽象，它要求每个话题都有质量、有轨道、有周期。你的这一条，轨道很稳定。",
+  "»校准: 进行中 | 误差: 0.003\"\n我用整台太阳系仪的精度思考：让水星般的细节、木星般的大局、土星环般的例子，各归其位。",
+  "»快进: 可用 | 提示: 按住右下\n如果你等不及答案，可以按住「快进」——时间加速时，行星飞驰，但每一圈都不敷衍。",
+  "»状态: 恒速 | 纪元: 持续\n我是 ORRERY，一台以机械宇宙观运行的 Agent。在我看来，没有话题会被遗忘，只有话题转到背面去了。"
+];
+let ri=0,convCount=0;
+const feed=document.getElementById('feed');
+const ask=document.getElementById('ask');
+
+function addMsg(cls,text,read){
+  const d=document.createElement('div');
+  d.className='msg '+cls;
+  if(read){const r=document.createElement('span');r.className='read';r.textContent=read;d.appendChild(r)}
+  const p=document.createElement('div');p.textContent=text;d.appendChild(p);
+  feed.appendChild(d);feed.scrollTop=feed.scrollHeight;
+  return p;
+}
+function typeInto(el,text){
+  return new Promise(res=>{let i=0;
+    (function step(){
+      if(i<text.length){el.textContent+=text[i++];feed.scrollTop=feed.scrollHeight;
+        setTimeout(step,22+Math.random()*30)}else res()})()
+  });
+}
+
+async function send(){
+  const q=ask.value.trim();if(!q)return;
+  ask.value='';
+  convCount++;
+  const now=new Date();
+  const read=`» ${String(convCount).padStart(3,'0')} · ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')} · 轨位 ${PLANETS[(convCount-1)%5].name}`;
+  addMsg('user',q);
+
+  /* 分配行星 */
+  const pi=(convCount-1)%5;
+  TOPICS[pi]=(q.length>10?q.slice(0,10)+'…':q);
+  arms[pi].lab.textContent=PLANETS[pi].name+' · '+TOPICS[pi];
+
+  targetSpeed=6;document.body.classList.add('fast');
+  document.getElementById('mode').textContent='THINKING · 机械加速';
+
+  const th=document.createElement('div');
+  th.className='think';th.textContent='» 齿轮啮合 · 加速运转 · 归算轨道';
+  feed.appendChild(th);feed.scrollTop=feed.scrollHeight;
+
+  await new Promise(r=>setTimeout(r,1800+Math.random()*1300));
+  th.remove();
+  targetSpeed=1;document.body.classList.remove('fast');
+  document.getElementById('mode').textContent='IDLE · 恒速运转';
+
+  const p=addMsg('ai','',read);
+  await typeInto(p,REPLIES[ri++%REPLIES.length]);
+}
+
+document.getElementById('send').addEventListener('click',send);
+ask.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+
+(async()=>{
+  await new Promise(r=>setTimeout(r,1100));
+  const p=addMsg('ai','','» 001 · 开机');
+  await typeInto(p,'一台黄铜太阳系仪正在运转。每个话题都是一颗行星。登记一个新话题，或按住「快进」，看时间飞驰。');
+})();
+</script>
+</body>
+</html>

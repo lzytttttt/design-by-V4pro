@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REEF · 珊瑚礁</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:"Palatino Linotype",Georgia,"Songti SC",serif;
+    background:linear-gradient(180deg,#fff7ed 0%,#ffedd5 55%,#fed7aa 100%);
+    color:#7c2d12;overflow:hidden;position:relative;
+  }
+  /* 光斑 caustics */
+  .caustics{position:fixed;inset:0;pointer-events:none;mix-blend-mode:soft-light}
+  .caustics i{position:absolute;border-radius:50%;
+    background:radial-gradient(circle,rgba(255,200,120,.55),transparent 65%);
+    animation:drift 14s ease-in-out infinite alternate}
+  .caustics i:nth-child(1){width:340px;height:220px;left:8%;top:6%}
+  .caustics i:nth-child(2){width:260px;height:180px;left:60%;top:12%;animation-delay:-4s;animation-duration:18s}
+  .caustics i:nth-child(3){width:300px;height:200px;left:34%;top:38%;animation-delay:-8s;animation-duration:16s}
+  .caustics i:nth-child(4){width:220px;height:150px;left:76%;top:46%;animation-delay:-2s;animation-duration:20s}
+  @keyframes drift{
+    0%{transform:translate(0,0) scale(1);opacity:.5}
+    50%{transform:translate(40px,26px) scale(1.12);opacity:.75}
+    100%{transform:translate(-24px,44px) scale(.94);opacity:.5}
+  }
+
+  /* 海草与珊瑚剪影 */
+  .flora{position:fixed;bottom:0;left:0;right:0;height:46vh;pointer-events:none;overflow:hidden}
+  .weed{position:absolute;bottom:-6px;transform-origin:bottom center;
+    animation:sway 7s ease-in-out infinite}
+  @keyframes sway{
+    0%,100%{transform:rotate(-4deg)}
+    50%{transform:rotate(5deg)}
+  }
+  .coral{position:absolute;bottom:0;opacity:.5}
+
+  /* 头部 */
+  header{position:fixed;top:0;left:0;right:0;padding:30px 44px;display:flex;justify-content:space-between;align-items:baseline;z-index:3}
+  h1{font-size:26px;font-weight:400;letter-spacing:.35em;color:#9a3412}
+  .sub{font-size:12px;letter-spacing:.25em;color:#c2704e}
+  .tide-state{font-size:12px;letter-spacing:.3em;color:#c2704e;text-align:right}
+
+  /* 对话流：潮汐涨落 */
+  .feedwrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:2}
+  .feed{width:min(620px,86vw);max-height:52vh;overflow-y:auto;padding:8px;
+    scrollbar-width:thin;scrollbar-color:#ea9a6e transparent}
+  .msg{margin:12px 0;padding:16px 22px;font-size:15px;line-height:2;letter-spacing:.04em;
+    background:rgba(255,252,246,.78);border:1px solid rgba(234,88,12,.18);
+    border-radius:22px 26px 20px 28px;
+    box-shadow:0 8px 24px -14px rgba(124,45,18,.25);
+    opacity:0;transform:translateY(34px);
+    animation:surge 1.5s cubic-bezier(.22,.9,.3,1.05) forwards;
+    backdrop-filter:blur(4px)}
+  @keyframes surge{to{opacity:1;transform:none}}
+  .msg.user{border-radius:26px 20px 28px 22px;color:#9a3412;font-style:italic;font-size:14px}
+  .msg .who{display:block;font-size:10px;letter-spacing:.45em;color:#c2704e;margin-bottom:6px;font-style:normal}
+  .msg.tidal{animation:tidal 5s ease-in-out infinite}
+  @keyframes tidal{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+
+  .think{margin:12px 0;padding:12px 22px;font-size:13px;letter-spacing:.3em;color:#c2704e;
+    animation:thp 1.5s ease-in-out infinite}
+  @keyframes thp{0%,100%{opacity:.4}50%{opacity:1}}
+
+  /* 输入：海床上的卵石 */
+  .dock{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);width:min(640px,88vw);z-index:3}
+  .row{display:flex;gap:14px;align-items:center}
+  .ask{flex:1;background:rgba(255,252,246,.9);border:1px solid rgba(234,88,12,.3);
+    border-radius:30px 34px 32px 36px;padding:16px 26px;
+    font:inherit;font-size:15px;color:#7c2d12;outline:none;
+    transition:box-shadow .5s,border-color .5s;letter-spacing:.04em}
+  .ask:focus{border-color:#ea580c;box-shadow:0 6px 30px -10px rgba(234,88,12,.45)}
+  .ask::placeholder{color:#d8a184}
+  .pebble{width:56px;height:50px;border:none;cursor:pointer;flex:none;
+    background:radial-gradient(ellipse at 35% 30%,#fdba74,#ea580c 70%);
+    border-radius:48% 52% 55% 45%/52% 48% 55% 45%;
+    box-shadow:0 8px 18px -8px rgba(154,52,18,.55), inset 0 3px 6px rgba(255,255,255,.5);
+    color:#fff7ed;font-family:inherit;font-size:12px;letter-spacing:.15em;
+    transition:transform .3s}
+  .pebble:hover{transform:translateY(-3px) rotate(-3deg)}
+  .pebble:active{transform:scale(.94)}
+
+  /* 潮位线 */
+  .tidebar{position:fixed;left:0;right:0;bottom:0;height:0;pointer-events:none;z-index:1;
+    background:linear-gradient(180deg,rgba(234,88,12,.14),rgba(234,88,12,.28));
+    border-top:2px solid rgba(234,88,12,.35);transition:height 2.5s ease}
+  .tidebar.rise{height:26vh}
+
+  /* 潮汐事件：全页轻柔波动 */
+  body.tidalevent .msg{animation:tidal 2.2s ease-in-out 2}
+  body.tidalevent .weed{animation-duration:2.5s}
+
+  .hint{text-align:center;font-size:11px;letter-spacing:.35em;color:#c2704e;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="caustics"><i></i><i></i><i></i><i></i></div>
+
+<div class="flora" id="flora"></div>
+
+<header>
+  <div>
+    <h1>珊瑚礁</h1>
+    <div class="sub">REEF — 潮汐往复，答问有时</div>
+  </div>
+  <div class="tide-state" id="tstate">潮位 · 平潮</div>
+</header>
+
+<div class="feedwrap"><div class="feed" id="feed"></div></div>
+
+<div class="dock">
+  <div class="row">
+    <input class="ask" id="ask" placeholder="向礁石投出一个问题，等潮水带回答案…" autocomplete="off">
+    <button class="pebble" id="send">随潮<br>寄出</button>
+  </div>
+  <div class="hint">每二十秒一次潮汐 · 万物随之轻轻起伏</div>
+</div>
+
+<div class="tidebar" id="tidebar"></div>
+
+<script>
+/* ---------- 海草与珊瑚生成 ---------- */
+const flora=document.getElementById('flora');
+function weed(x,h,w,hue,dur,delay){
+  const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  s.setAttribute('class','weed');
+  s.style.cssText=`left:${x}%;height:${h}px;width:${w}px;animation-duration:${dur}s;animation-delay:${delay}s`;
+  const c=document.createElementNS('http://www.w3.org/2000/svg','path');
+  const p=`M ${w/2} ${h} C ${w/2-6} ${h*.66}, ${w/2+8} ${h*.4}, ${w/2-2} 4`;
+  c.setAttribute('d',p);
+  c.setAttribute('stroke',`hsl(${hue} 55% 52%)`);
+  c.setAttribute('stroke-width',w*.9);
+  c.setAttribute('stroke-linecap','round');
+  c.setAttribute('fill','none');
+  c.setAttribute('opacity','.6');
+  s.appendChild(c);
+  flora.appendChild(s);
+}
+[[2,150,7,28,8,0],[5,110,6,20,9,-2],[9,180,8,32,7.5,-1],[14,90,5,18,10,-3],
+ [19,160,7,25,8.5,-1],[26,120,6,15,9.5,-2],[33,190,8,30,7,-1],[41,100,5,22,10,-4],
+ [52,140,6,18,8,-2],[58,170,8,27,9,-1],[66,110,5,20,10,-3],[73,185,8,33,7.5,-1],
+ [81,120,6,19,9,-2],[87,155,7,24,8.5,0],[93,105,5,21,10,-2],[97,140,6,29,8,-1]]
+ .forEach(w=>weed(...w));
+
+function coral(x,scale,color){
+  const d=document.createElement('div');
+  d.className='coral';
+  d.style.cssText=`left:${x}%;transform:scale(${scale})`;
+  d.innerHTML=`<svg width="130" height="90" viewBox="0 0 130 90">
+    <g fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round">
+      <path d="M20 90 C 18 60 24 40 16 22"/>
+      <path d="M20 74 C 34 66 40 54 52 48"/>
+      <path d="M16 40 C 8 34 6 26 4 16"/>
+    </g>
+    <circle cx="16" cy="22" r="5" fill="${color}"/>
+    <circle cx="52" cy="48" r="5" fill="${color}"/>
+    <circle cx="4" cy="16" r="4" fill="${color}"/>
+  </svg>`;
+  flora.appendChild(d);
+}
+coral(6,1.1,'#c2410c'); coral(38,.85,'#9a3412'); coral(70,1.25,'#ea580c'); coral(92,.9,'#c2410c');
+
+/* ---------- 潮汐事件 ---------- */
+const tstate=document.getElementById('tstate');
+function tideEvent(){
+  document.body.classList.add('tidalevent');
+  tstate.textContent='潮位 · 涨潮';
+  setTimeout(()=>{document.body.classList.remove('tidalevent');tstate.textContent='潮位 · 平潮'},4600);
+}
+setInterval(tideEvent,20000);
+
+/* ---------- 对话引擎 ---------- */
+const REPLIES=[
+  "礁石不急。你的问题落在礁盘上，要经过一整个潮汐的来回冲刷，才会显出里面最亮的那枚贝壳。稍候，水正在退。",
+  "在珊瑚礁，快是危险的，慢是美德。我把你的问题交给一群小鱼，让它们各自叼走一小块——等它们游回来，答案就拼好了。",
+  "你听，潮水又涨了一寸。我回答问题的方式和潮水一样：不推门，只是不断轻轻上涨，直到淹没你困惑的那块礁石。",
+  "这个问题在礁湖里养了一会儿了。共生藻已经把它染成很好的颜色——现在可以取出来了：答案往往比问题更温和。",
+  "我是 REEF，生长在问与答之间的珊瑚。每一次对话都让我长出一小节新的枝桠。谢谢你，刚才这一段。"
+];
+let ri=0;
+const feed=document.getElementById('feed');
+const ask=document.getElementById('ask');
+const tidebar=document.getElementById('tidebar');
+
+function addMsg(cls,text){
+  const d=document.createElement('div');
+  d.className='msg '+cls;
+  d.innerHTML=`<span class="who">${cls==='user'?'来访 · 贝':'REEF · 潮'}</span><div></div>`;
+  d.lastChild.textContent=text;
+  if(cls!=='user')d.classList.add('tidal');
+  feed.appendChild(d);feed.scrollTop=feed.scrollHeight;
+  return d.lastChild;
+}
+
+function typeInto(el,text){
+  return new Promise(res=>{
+    let i=0;
+    (function step(){
+      if(i<text.length){el.textContent+=text[i++];feed.scrollTop=feed.scrollHeight;
+        setTimeout(step,45+Math.random()*55)}
+      else res();
+    })();
+  });
+}
+
+async function send(){
+  const q=ask.value.trim();
+  if(!q)return;
+  ask.value='';
+  addMsg('user',q);
+
+  tidebar.classList.add('rise');
+  tstate.textContent='潮位 · 思考涨潮中';
+  const th=document.createElement('div');
+  th.className='think';th.textContent='潮 水 上 涨 …';
+  feed.appendChild(th);feed.scrollTop=feed.scrollHeight;
+
+  await new Promise(r=>setTimeout(r,1800+Math.random()*1400));
+  th.remove();
+  tidebar.classList.remove('rise');
+  tstate.textContent='潮位 · 退潮拾贝';
+
+  const p=addMsg('ai','');
+  await typeInto(p,REPLIES[ri++%REPLIES.length]);
+  tstate.textContent='潮位 · 平潮';
+}
+
+document.getElementById('send').addEventListener('click',send);
+ask.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+
+(async()=>{
+  await new Promise(r=>setTimeout(r,1000));
+  const p=addMsg('ai','');
+  await typeInto(p,'欢迎来到礁湖。这里的答案随潮水抵达——问点什么，然后允许自己慢下来。');
+})();
+</script>
+</body>
+</html>

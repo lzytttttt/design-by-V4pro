@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent 33 · SCORE 节奏编排室</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:#faf9f6;color:#22221e;overflow:hidden;
+  font-family:Georgia,'Times New Roman','Songti SC',SimSun,serif;
+  display:flex;flex-direction:column;
+}
+/* ============ 头部 ============ */
+header{flex:none;display:flex;align-items:center;justify-content:space-between;
+  padding:15px 30px 13px;border-bottom:1px solid #d8d2c4;background:#f4f1ea}
+.title h1{font-size:19px;letter-spacing:.16em}
+.title h1 b{color:#b8860b}
+.title small{display:block;font-size:11px;color:#8a8478;letter-spacing:.34em;margin-top:3px}
+#playBtn{
+  display:flex;align-items:center;gap:9px;cursor:pointer;
+  background:#faf9f6;border:1.5px solid #b8860b;border-radius:20px;
+  padding:8px 20px 8px 16px;font-family:inherit;font-size:13.5px;color:#8a6a0a;letter-spacing:.14em;
+  transition:all .2s;
+}
+#playBtn:hover{background:#b8860b;color:#fffdf4;box-shadow:0 4px 14px rgba(184,134,11,.35)}
+#playBtn:disabled{opacity:.5;cursor:default}
+#playBtn svg{display:block}
+/* ============ 谱面 ============ */
+.score-wrap{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+.score-wrap::-webkit-scrollbar{width:8px}
+.score-wrap::-webkit-scrollbar-thumb{background:#d8d2c4;border-radius:4px}
+.score-canvas{position:relative;padding:18px 30px 40px}
+.staff{position:relative;height:246px}
+.staff-lines{
+  position:absolute;left:78px;right:6px;top:50%;height:112px;transform:translateY(-50%);
+  background:repeating-linear-gradient(to bottom,#cfc9bd 0 1px,transparent 1px 28px);
+}
+.clef{position:absolute;left:12px;top:50%;transform:translateY(-50%);height:128px;
+  animation:clefGlow 5.5s ease-in-out infinite alternate}
+@keyframes clefGlow{from{opacity:.72}to{opacity:1}}
+/* 消息块（音符文字） */
+.note-msg{
+  position:absolute;display:inline-block;max-width:250px;
+  font-size:15px;line-height:1.55;color:#22221e;letter-spacing:.02em;
+  transform:translateY(50%);
+  animation:noteIn .5s cubic-bezier(.3,1.6,.4,1) both;
+}
+@keyframes noteIn{from{opacity:0;transform:translateY(calc(50% + 10px)) scale(.85)}to{opacity:1;transform:translateY(50%) scale(1)}}
+.note-msg.user{
+  color:#8a8478;font-size:12.5px;font-family:'Kaiti SC',KaiTi,STKaiti,serif;
+  border:1px solid #c5bfb0;border-radius:3px;padding:3px 9px;background:rgba(255,255,255,.55);
+}
+.note-msg.ai::after{content:'';position:absolute;left:2px;right:2px;bottom:-7px;height:1px;
+  background:rgba(184,134,11,.38)}
+.note-msg .ch{animation:chIn .18s ease both}
+@keyframes chIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+/* 音符装饰 */
+.note-msg .deco{position:absolute;top:-26px;right:-17px;width:16px;opacity:.8;pointer-events:none}
+.deco-play{animation:decoJump .6s ease}
+@keyframes decoJump{40%{transform:translateY(-9px) rotate(14deg)}100%{transform:none}}
+/* 终止小节线 */
+.final-bar{position:absolute;width:9px;height:58px;border-left:2.5px solid #3a3630;
+  border-right:6px solid #3a3630;transform:translateY(50%);animation:noteIn .5s ease both}
+/* 播放光标 */
+.play-cursor{position:absolute;top:0;bottom:0;left:0;width:2px;z-index:60;pointer-events:none;
+  background:#c9940a;box-shadow:0 0 14px 3px rgba(201,148,10,.5);transition:opacity .5s}
+.play-cursor.fade{opacity:0}
+.note-msg.played{animation:msgPop .6s ease both;color:#a3720a;
+  text-shadow:0 0 12px rgba(212,165,23,.65)}
+@keyframes msgPop{0%{transform:translateY(50%) scale(1)}35%{transform:translateY(50%) scale(1.22)}100%{transform:translateY(50%) scale(1.05)}}
+.note-msg.past{color:#8a6a0a}
+/* 音符雨 */
+.rain-layer{position:fixed;top:58px;bottom:74px;left:0;right:0;overflow:hidden;
+  pointer-events:none;z-index:50}
+.rain-note{position:absolute;top:-42px;animation:fallNote linear forwards}
+@keyframes fallNote{
+  0%{transform:translateY(0) rotate(var(--r,15deg));opacity:1}
+  78%{opacity:.85}
+  100%{transform:translateY(64vh) rotate(var(--r,15deg));opacity:0}
+}
+.rise-note{position:absolute;pointer-events:none;animation:riseUp .8s ease-out forwards}
+@keyframes riseUp{from{opacity:0;transform:translateY(8px)}30%{opacity:.9}to{opacity:0;transform:translateY(-32px)}}
+/* ============ 底部输入 ============ */
+.lyrics-bar{flex:none;display:flex;align-items:center;gap:16px;padding:13px 30px;
+  border-top:1px solid #d8d2c4;background:#f4f1ea}
+.lyrics-bar .bass{flex:none;opacity:.85;height:40px}
+.lyrics-bar input{
+  flex:1;min-width:0;border:none;border-bottom:1.5px solid #b8a97e;background:transparent;
+  font-size:15px;font-family:Georgia,'Kaiti SC',KaiTi,serif;font-style:italic;
+  padding:8px 4px;outline:none;color:#33322c;
+}
+.lyrics-bar input::placeholder{color:#b3ac99}
+.lyrics-bar input:focus{border-bottom-color:#b8860b}
+#composeBtn{
+  flex:none;cursor:pointer;background:none;border:1.5px solid #3a3630;border-radius:3px;
+  font-family:inherit;font-size:13.5px;letter-spacing:.3em;padding:9px 20px 9px 24px;color:#3a3630;
+  transition:all .2s;
+}
+#composeBtn:hover{background:#3a3630;color:#faf9f6}
+@media (max-width:900px){
+  .note-msg{max-width:170px;font-size:13.5px}
+  .staff-lines{left:60px}
+  .clef{left:4px;height:104px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="title">
+    <h1>SCORE <b>·</b> 节奏编排室</h1>
+    <small>EVERY QUESTION, A MELODY</small>
+  </div>
+  <button id="playBtn">
+    <svg width="13" height="14" viewBox="0 0 13 14"><path d="M1 1 L12 7 L1 13 Z" fill="currentColor"/></svg>
+    <span id="playLabel">回放演奏</span>
+  </button>
+</header>
+<main class="score-wrap" id="scoreWrap">
+  <div class="score-canvas" id="scoreCanvas"></div>
+</main>
+<div class="rain-layer" id="rainLayer"></div>
+<footer class="lyrics-bar">
+  <svg class="bass" viewBox="0 0 36 62" width="30">
+    <path d="M10 6 C22 2 28 12 21 20 C31 17 35 28 28 37 C21 46 11 46 8 39 M10 6 L8 46"
+      fill="none" stroke="#3a3630" stroke-width="2.6" stroke-linecap="round"/>
+    <circle cx="6.5" cy="49" r="2.6" fill="#3a3630"/>
+    <circle cx="13" cy="56" r="2.6" fill="#3a3630"/>
+  </svg>
+  <input id="qInput" placeholder="在此写下你的乐句，向节拍师提问……" autocomplete="off">
+  <button id="composeBtn">谱写</button>
+</footer>
+<script>
+const $=s=>document.querySelector(s);
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const canvas=$('#scoreCanvas'), wrap=$('#scoreWrap'), rainLayer=$('#rainLayer'), input=$('#qInput');
+
+const CLEF_SVG=`<svg class="clef" viewBox="0 0 44 118">
+  <path d="M28 6 C13 12 8 24 17 30 C28 37 32 43 25 51 C18 59 10 63 12 74 C14 87 28 91 33 80 C36 72 29 65 22 69 C15 73 15 84 19 94 C22 102 27 107 30 110"
+  fill="none" stroke="#b8860b" stroke-width="3.2" stroke-linecap="round"/></svg>`;
+const NOTE_SVGS=[
+ `<svg viewBox="0 0 22 32" width="100%"><path d="M14 3 L14 24" stroke="#3a3630" stroke-width="2" fill="none"/><path d="M14 3 C20 6 19 11 15 14" stroke="#3a3630" stroke-width="2" fill="none"/><ellipse cx="10" cy="25" rx="6" ry="4.4" fill="#3a3630" transform="rotate(-16 10 25)"/></svg>`,
+ `<svg viewBox="0 0 22 32" width="100%"><path d="M13 3 L13 24" stroke="#3a3630" stroke-width="2" fill="none"/><path d="M13 4 C19 7 18 12 14 15 M13 9 C19 12 18 17 14 20" stroke="#3a3630" stroke-width="1.6" fill="none"/><ellipse cx="9" cy="25" rx="5" ry="4" fill="#3a3630" transform="rotate(-16 9 25)"/></svg>`,
+ `<svg viewBox="0 0 20 32" width="100%"><path d="M12 2 C6 8 16 10 10 16 C5 21 15 24 9 30" stroke="#3a3630" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>`
+];
+const MELODY=[2,1,3,1,2,0,-1,1,2,0,-2,-1,3,2,1];
+let melodyIdx=0, aiBlockIdx=0, busy=false, playing=false;
+let curStaff=null, curX=0;
+const STAFF_START=100, STAFF_END=44;
+
+function newStaff(){
+  const s=document.createElement('div');
+  s.className='staff';
+  s.innerHTML=CLEF_SVG+'<div class="staff-lines"></div>';
+  canvas.appendChild(s);
+  curStaff=s; curX=STAFF_START;
+  wrap.scrollTop=wrap.scrollHeight;
+  return s;
+}
+function nextPitch(isUser){
+  if(isUser)return -2.6+((melodyIdx++)%2)*0.8;
+  return MELODY[(melodyIdx++)%MELODY.length];
+}
+function placeBlock(text,isUser){
+  if(!curStaff)newStaff();
+  const el=document.createElement('div');
+  el.className='note-msg '+(isUser?'user':'ai');
+  el.textContent=text;
+  curStaff.appendChild(el);
+  const availW=curStaff.clientWidth-STAFF_START-STAFF_END;
+  if(curX+el.offsetWidth>availW){
+    newStaff();
+    curStaff.appendChild(el);
+  }
+  el.style.left=curX+'px';
+  el.style.bottom=(123+nextPitch(isUser)*22)+'px';
+  curX+=el.offsetWidth+26;
+  return el;
+}
+function riseNote(block){
+  const n=document.createElement('div');
+  n.className='rise-note';
+  n.innerHTML=NOTE_SVGS[0];
+  n.style.left=(block.offsetLeft+block.offsetWidth/2)+'px';
+  n.style.bottom=(parseInt(block.style.bottom)+44)+'px';
+  block.parentElement.appendChild(n);
+  setTimeout(()=>n.remove(),850);
+}
+/* ============ 思考：音符雨 ============ */
+function noteRain(dur){
+  const t0=Date.now();
+  (function spawn(){
+    if(Date.now()-t0>dur)return;
+    const n=document.createElement('div');
+    n.className='rain-note';
+    n.style.left=(Math.random()*94+3)+'%';
+    n.style.animationDuration=(1.1+Math.random()*1.3)+'s';
+    n.style.width=(13+Math.random()*8)+'px';
+    n.style.setProperty('--r',(Math.random()*40-20)+'deg');
+    n.innerHTML=NOTE_SVGS[Math.floor(Math.random()*NOTE_SVGS.length)];
+    rainLayer.appendChild(n);
+    setTimeout(()=>n.remove(),2700);
+    setTimeout(spawn,110+Math.random()*170);
+  })();
+}
+/* ============ 节奏流式（模仿乐句节奏） ============ */
+async function rhythmicType(el,text){
+  const w=el.offsetWidth;
+  el.style.width=w+'px';
+  el.textContent='';
+  for(const ch of text){
+    const s=document.createElement('span');
+    s.className='ch';s.textContent=ch;
+    el.appendChild(s);
+    let d=56+Math.random()*34;
+    if('、'.includes(ch))d+=110;
+    if('，；：'.includes(ch))d+=240;
+    if('。！？'.includes(ch))d+=470;
+    await wait(d);
+  }
+}
+/* ============ 回放演奏（标志性瞬间） ============ */
+async function playBack(){
+  if(playing||busy)return;
+  const msgs=[...canvas.querySelectorAll('.note-msg')];
+  if(!msgs.length)return;
+  playing=true;
+  const btn=$('#playBtn');
+  btn.disabled=true;$('#playLabel').textContent='演奏中…';
+  const cursor=document.createElement('div');
+  cursor.className='play-cursor';
+  canvas.appendChild(cursor);
+  const W=canvas.clientWidth;
+  const dur=Math.max(1600,W/0.42);
+  const marks=msgs.map(m=>({m,x:m.offsetLeft+m.offsetWidth/2,top:m.offsetTop,done:false}));
+  let lastTop=-1;
+  await new Promise(res=>{
+    const t0=performance.now();
+    function frame(t){
+      const k=Math.min(1,(t-t0)/dur);
+      const x=W*k;
+      cursor.style.transform=`translateX(${x}px)`;
+      marks.forEach(mk=>{
+        if(!mk.done&&mk.x<=x){
+          mk.done=true;
+          mk.m.classList.add('played');
+          const deco=mk.m.querySelector('.deco');
+          if(deco)deco.classList.add('deco-play');
+          if(mk.top!==lastTop){lastTop=mk.top;wrap.scrollTo({top:mk.top-90,behavior:'smooth'})}
+        }
+      });
+      if(k<1)requestAnimationFrame(frame);else res();
+    }
+    requestAnimationFrame(frame);
+  });
+  await wait(450);
+  cursor.classList.add('fade');
+  setTimeout(()=>cursor.remove(),550);
+  marks.forEach(mk=>{mk.m.classList.remove('played');mk.m.classList.add('past')});
+  btn.disabled=false;$('#playLabel').textContent='回放演奏';
+  playing=false;
+}
+/* ============ 回复数据 ============ */
+const REPLIES=[
+ ['您的问题是一个轻快的四分音符，','落在谱面上时，','溅起了三个泛音：','好奇、怀疑，','还有一点不肯罢休。','我已把它们依次记谱，','请在上方按下回放，','听听这段问答的旋律。'],
+ ['此问节奏稍缓，宜用行板。','我在小节线旁批注了两个字——','"且慢"。','快音符适合灵感，','慢音符适合真相，','而您的这个问题，','适合在休止符之后，','再轻轻起跳。'],
+ ['检测到一段渐强。','您连续的追问像上行的音阶，','一级一级，','逼近某个高音。','别怕破音，','高音区的问题，','往往挂着最亮的答案。'],
+ ['这个问句自带切分节奏。','重音落在"为什么"上，','而答案常常就藏在，','重音与重音之间的缝隙里。','我已用连线把它们串起，','请回放细听。'],
+ ['您的问题是一段未完成的对位。','我在下方补了一条低音线，','不喧宾夺主，','只托着您的旋律，','往更远处走。','祝创作顺利，','随时再来落笔。'],
+];
+let replyIdx=0;
+/* ============ 主流程 ============ */
+async function onSend(){
+  if(busy)return;
+  const q=input.value.trim();
+  if(!q)return;
+  busy=true;input.value='';
+  /* 用户问题：最多两块，低音区 */
+  placeBlock(q.slice(0,10),true);
+  if(q.length>10)placeBlock(q.slice(10,24),true);
+  wrap.scrollTop=wrap.scrollHeight;
+  await wait(350);
+  /* 思考：音符雨 */
+  noteRain(1650);
+  await wait(1900);
+  /* 回复：按句成块，逐块按节奏奏出 */
+  const sentences=REPLIES[replyIdx++%REPLIES.length];
+  for(let i=0;i<sentences.length;i++){
+    const block=placeBlock(sentences[i],false);
+    if(aiBlockIdx%3===1){
+      const d=document.createElement('span');
+      d.className='deco';
+      d.innerHTML=NOTE_SVGS[i%NOTE_SVGS.length];
+      block.appendChild(d);
+    }
+    aiBlockIdx++;
+    riseNote(block);
+    wrap.scrollTop=wrap.scrollHeight;
+    await rhythmicType(block,sentences[i]);
+    await wait(430);
+  }
+  /* 终止小节线 */
+  if(curX+20<curStaff.clientWidth-STAFF_END){
+    const fb=document.createElement('div');
+    fb.className='final-bar';
+    fb.style.left=curX+'px';
+    fb.style.bottom='123px';
+    curStaff.appendChild(fb);
+  }
+  busy=false;input.focus();
+}
+/* ============ 初始欢迎 ============ */
+newStaff();
+['你好，我是节拍师 SCORE——','把你的每个问题，','谱写成一段可以回放的旋律。'].forEach(t=>placeBlock(t,false));
+$('#playBtn').addEventListener('click',playBack);
+$('#composeBtn').addEventListener('click',onSend);
+input.addEventListener('keydown',e=>{if(e.key==='Enter')onSend()});
+input.focus();
+</script>
+</body>
+</html>

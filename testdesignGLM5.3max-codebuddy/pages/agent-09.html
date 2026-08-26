@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHLOROPHYLL · 叶绿素</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:Georgia,"Songti SC","SimSun",serif;
+    background:radial-gradient(140vmax 90vmax at 50% 120%,#0b4a24,#052e16 55%,#022011);
+    color:#d9f7e3;overflow:hidden;
+  }
+  /* 游走光斑 */
+  .sunbeam{position:fixed;border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle,rgba(255,244,214,.34),rgba(255,244,214,.08) 45%,transparent 70%);
+    mix-blend-mode:screen;transition:transform 2s cubic-bezier(.4,.1,.3,.9)}
+  .sunbeam.b1{width:420px;height:420px}
+  .sunbeam.b2{width:300px;height:300px}
+  .sunbeam.b3{width:520px;height:520px}
+  body.gather .sunbeam{transform:translate(var(--gx),var(--gy)) scale(.6)}
+
+  header{position:fixed;top:0;left:0;right:0;padding:30px 44px;display:flex;justify-content:space-between;z-index:3}
+  h1{font-size:25px;font-weight:400;letter-spacing:.4em;color:#a7f3c4}
+  .sub{font-size:11px;letter-spacing:.3em;color:#4d8a63}
+  .energy{font-size:11px;letter-spacing:.25em;color:#4d8a63;text-align:right;line-height:2}
+  .energy b{color:#a7f3c4;font-weight:400;font-variant-numeric:tabular-nums}
+
+  /* 叶脉分隔 */
+  .vein{position:fixed;left:50%;top:14%;bottom:22%;transform:translateX(-50%);z-index:1;
+    transition:filter 1s,opacity 1s}
+  body.gather .vein{filter:drop-shadow(0 0 14px #4ade80) brightness(1.5)}
+
+  /* 双室布局 */
+  .labs{position:fixed;inset:0;display:grid;grid-template-columns:1fr 1fr;
+    gap:0;padding:120px 6vw 150px;z-index:2}
+  .lab{overflow-y:auto;padding:10px 26px;scrollbar-width:thin;scrollbar-color:#14532d transparent}
+  .lab h2{font-size:11px;letter-spacing:.5em;color:#4d8a63;margin:6px 0 18px;font-weight:400}
+  .lab.co2 h2{text-align:right}
+
+  /* CO₂气泡问题 */
+  .bubble{position:relative;margin:0 0 18px auto;max-width:78%;
+    padding:13px 20px;font-size:14px;font-style:italic;color:#bbf0cb;
+    background:rgba(190,242,203,.07);border:1px dashed rgba(165,243,196,.3);
+    border-radius:20px 20px 20px 6px;
+    opacity:0;transform:translateY(50px);
+    animation:rise 1.8s cubic-bezier(.2,.8,.3,1) forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+  .bubble::after{content:'CO₂';position:absolute;right:12px;top:-9px;font-size:9px;
+    letter-spacing:.2em;color:#4d8a63;font-style:normal}
+
+  /* O₂回复 */
+  .oxy{max-width:100%;margin-bottom:20px;padding:15px 20px;
+    font-size:14.5px;line-height:2;letter-spacing:.04em;color:#dcfce7;
+    border-left:2px solid #4ade80;
+    opacity:0;animation:rise 1.6s ease forwards}
+  .oxy .tag{display:block;font-size:9.5px;letter-spacing:.4em;color:#4d8a63;margin-bottom:6px}
+  .oxy em{color:#86efac;font-style:normal;text-shadow:0 0 12px rgba(74,222,128,.45)}
+  .think{font-size:12px;letter-spacing:.35em;color:#4ade80;
+    animation:thp 1.4s ease-in-out infinite;margin-bottom:18px}
+  @keyframes thp{0%,100%{opacity:.35}50%{opacity:1}}
+
+  /* 光粒子释放 */
+  .photons{position:fixed;inset:0;pointer-events:none;z-index:4}
+  .ph{position:absolute;width:5px;height:5px;border-radius:50%;
+    background:#bbf7d0;box-shadow:0 0 10px 2px rgba(74,222,128,.8);
+    animation:fly var(--d) cubic-bezier(.3,.1,.4,1) forwards}
+  @keyframes fly{
+    0%{transform:translate(0,0) scale(1);opacity:0}
+    12%{opacity:1}
+    100%{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0}
+  }
+
+  /* 土壤层输入 */
+  .soil{position:fixed;left:0;right:0;bottom:0;z-index:5;
+    background:linear-gradient(180deg,transparent,#1c1410 26%,#140d09);
+    padding:40px 8vw 30px;display:flex;gap:20px;align-items:flex-end}
+  .soil::before{content:'';position:absolute;left:0;right:0;top:0;height:2px;
+    background:linear-gradient(90deg,transparent,#3f2d1d,transparent)}
+  .seed-label{font-size:10px;letter-spacing:.4em;color:#7a5c3e;writing-mode:vertical-rl;padding-bottom:14px}
+  .ask{flex:1;background:rgba(217,247,227,.06);border:none;
+    border-bottom:1px solid #3f2d1d;padding:14px 10px;
+    font:inherit;font-size:15px;color:#d9f7e3;outline:none;letter-spacing:.05em;
+    transition:border-color .6s}
+  .ask:focus{border-bottom-color:#4ade80}
+  .ask::placeholder{color:#5c7a66}
+  .plant{background:none;border:1px solid #3f6e4b;color:#a7f3c4;font:inherit;
+    font-size:11px;letter-spacing:.35em;padding:13px 26px;cursor:pointer;
+    border-radius:2px;transition:.35s}
+  .plant:hover{border-color:#4ade80;box-shadow:0 0 22px -6px rgba(74,222,128,.6)}
+
+  .hint{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);
+    font-size:10px;letter-spacing:.4em;color:#4d8a63;z-index:5}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>叶绿素</h1><div class="sub">CHLOROPHYLL — 将问题转化为光</div></div>
+  <div class="energy">光反应效率 <b id="eff">97.3</b>%<br>今日固碳 <b id="fix">12.6</b> g</div>
+</header>
+
+<svg class="vein" width="90" height="560" viewBox="0 0 90 560">
+  <g stroke="#2f7a4d" stroke-width="2" fill="none" stroke-linecap="round" opacity=".8">
+    <path d="M45 0 L45 560"/>
+    <path d="M45 70 C 30 90 20 110 12 140"/>
+    <path d="M45 70 C 60 90 70 110 78 140"/>
+    <path d="M45 160 C 32 178 24 196 18 222"/>
+    <path d="M45 160 C 58 178 66 196 72 222"/>
+    <path d="M45 260 C 34 276 27 292 22 315"/>
+    <path d="M45 260 C 56 276 63 292 68 315"/>
+    <path d="M45 360 C 36 374 30 388 26 408"/>
+    <path d="M45 360 C 54 374 60 388 64 408"/>
+    <path d="M45 450 C 38 462 33 474 30 490"/>
+    <path d="M45 450 C 52 462 57 474 60 490"/>
+  </g>
+  <circle cx="12" cy="140" r="3" fill="#4ade80"/>
+  <circle cx="78" cy="140" r="3" fill="#4ade80"/>
+  <circle cx="18" cy="222" r="3" fill="#4ade80"/>
+  <circle cx="72" cy="222" r="3" fill="#4ade80"/>
+  <circle cx="22" cy="315" r="3" fill="#4ade80"/>
+  <circle cx="68" cy="315" r="3" fill="#4ade80"/>
+  <circle cx="26" cy="408" r="3" fill="#4ade80"/>
+  <circle cx="64" cy="408" r="3" fill="#4ade80"/>
+  <circle cx="30" cy="490" r="3" fill="#4ade80"/>
+  <circle cx="60" cy="490" r="3" fill="#4ade80"/>
+</svg>
+
+<div class="labs">
+  <div class="lab co2" id="co2"><h2>二氧化碳室 · 你的提问</h2></div>
+  <div class="lab o2l" id="o2l"><h2>氧气室 · 我的光合产物</h2></div>
+</div>
+
+<div class="photons" id="photons"></div>
+
+<div class="soil">
+  <div class="seed-label">土壤 · 播种提问</div>
+  <input class="ask" id="ask" placeholder="把一个问题埋进土里…" autocomplete="off">
+  <button class="plant" id="send">光 合</button>
+</div>
+<div class="hint">左室进气 · 右室释氧 · 完成的回答会化作光</div>
+
+<script>
+/* ---------- 游走光斑 ---------- */
+const beams=[];
+[['b1',18,12],['b2',66,30],['b3',40,68]].forEach(([cls,x,y])=>{
+  const d=document.createElement('div');
+  d.className='sunbeam '+cls;
+  d.style.left=x+'vw';d.style.top=y+'vh';
+  document.body.appendChild(d);beams.push(d);
+});
+setInterval(()=>{
+  beams.forEach(b=>{
+    b.style.left=(10+Math.random()*70)+'vw';
+    b.style.top=(8+Math.random()*55)+'vh';
+  });
+},3200);
+setTimeout(()=>{
+  beams[0].style.left='38vw';beams[0].style.top='20vh';
+  beams[1].style.left='52vw';beams[1].style.top='30vh';
+  beams[2].style.left='44vw';beams[2].style.top='26vh';
+},2000);
+
+/* ---------- 对话引擎 ---------- */
+const REPLIES=[
+  "你的问题已经进入气孔。光照充足时，我把它拆成电子与质子——你会看到右边逐渐合成出带着糖分的答案。",
+  "暗反应进行中。并非所有思考都需要光：有一部分工作在叶绿体基质里安静发生，像夜里的植物仍在生长。",
+  "这个问题的碳骨架很好，可以固定。我沿着电子传递链走了一遍，答案是：让它先发芽，再修剪。",
+  "检测到强光——你的提问很亮。我打开了部分的散热通道，以免答案被灼伤。深呼吸，光合作用从不着急。",
+  "我是 CHLOROPHYLL。我不生产答案，我只是把问题里的二氧化碳，还原成你可以呼吸的氧气。"
+];
+let ri=0;
+const co2=document.getElementById('co2');
+const o2l=document.getElementById('o2l');
+const ask=document.getElementById('ask');
+const eff=document.getElementById('eff'),fix=document.getElementById('fix');
+const photons=document.getElementById('photons');
+
+function releasePhotons(){
+  const r=o2l.getBoundingClientRect();
+  for(let i=0;i<26;i++){
+    const p=document.createElement('div');
+    p.className='ph';
+    p.style.left=(r.left+r.width*.3+Math.random()*r.width*.5)+'px';
+    p.style.top=(r.top+r.height*.4+Math.random()*60)+'px';
+    p.style.setProperty('--dx',(Math.random()*160-80)+'px');
+    p.style.setProperty('--dy',(-140-Math.random()*260)+'px');
+    p.style.setProperty('--d',(1.4+Math.random()*1.6)+'s');
+    p.style.animationDelay=(Math.random()*.5)+'s';
+    photons.appendChild(p);
+    setTimeout(()=>p.remove(),3600);
+  }
+}
+
+function typeInto(el,text){
+  return new Promise(res=>{let i=0;
+    (function step(){
+      if(i<text.length){el.textContent+=text[i++];
+        o2l.scrollTop=o2l.scrollHeight;
+        setTimeout(step,40+Math.random()*55)}else res()})()
+  });
+}
+
+async function send(){
+  const q=ask.value.trim();if(!q)return;
+  ask.value='';
+
+  const b=document.createElement('div');
+  b.className='bubble';b.textContent=q;
+  co2.appendChild(b);co2.scrollTop=co2.scrollHeight;
+
+  document.body.classList.add('gather');
+  beams.forEach(b=>{
+    b.style.setProperty('--gx',(innerWidth*.45-parseFloat(b.style.left)/100*innerWidth)+'px');
+    b.style.setProperty('--gy',(innerHeight*.3-parseFloat(b.style.top)/100*innerHeight)+'px');
+  });
+
+  const th=document.createElement('div');
+  th.className='think';th.textContent='光 反 应 · 转 化 中';
+  o2l.appendChild(th);o2l.scrollTop=o2l.scrollHeight;
+
+  await new Promise(r=>setTimeout(r,1900+Math.random()*1300));
+  th.remove();document.body.classList.remove('gather');
+
+  const d=document.createElement('div');
+  d.className='oxy';
+  d.innerHTML='<span class="tag">O₂ · 光合产物</span><div></div>';
+  o2l.appendChild(d);o2l.scrollTop=o2l.scrollHeight;
+
+  const p=d.lastChild;
+  const text=REPLIES[ri++%REPLIES.length];
+  const typing=typeInto(p,text);
+  await typing;
+  releasePhotons();
+  eff.textContent=(94+Math.random()*5).toFixed(1);
+  fix.textContent=(12.6+ri*1.7).toFixed(1);
+}
+
+document.getElementById('send').addEventListener('click',send);
+ask.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+
+(async()=>{
+  await new Promise(r=>setTimeout(r,1100));
+  const d=document.createElement('div');
+  d.className='oxy';d.innerHTML='<span class="tag">O₂ · 光合产物</span><div></div>';
+  o2l.appendChild(d);
+  await typeInto(d.lastChild,'欢迎来到这株植物的绿色工厂。埋下一个问题，看我把它变成光。');
+  releasePhotons();
+})();
+</script>
+</body>
+</html>

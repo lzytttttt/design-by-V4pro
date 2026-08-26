@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AMOEBA · 变形虫 — 液态智能体</title>
+<style>
+:root{--mag:#ec4899;--cy:#22d3ee}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  overflow:hidden;color:#f5e9ff;
+  font-family:Georgia,"Songti SC","SimSun",serif;
+  background:linear-gradient(148deg,#1e1b4b 0%,#3b1d5e 38%,#6d1f4f 72%,#831843 100%);
+}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+  background:radial-gradient(ellipse at 50% 40%,transparent 55%,rgba(10,5,30,.5))}
+/* 背景游离小泡 */
+.drift{position:fixed;border-radius:50%;pointer-events:none;z-index:0;
+  background:radial-gradient(circle at 35% 35%,rgba(244,114,182,.35),rgba(34,211,238,.12) 70%);
+  filter:blur(3px);animation:drift 22s ease-in-out infinite alternate}
+.drift.d1{width:90px;height:90px;left:12%;top:18%;animation-duration:26s}
+.drift.d2{width:56px;height:56px;left:80%;top:24%;animation-duration:19s;animation-delay:-6s}
+.drift.d3{width:120px;height:120px;left:66%;top:64%;animation-duration:32s;animation-delay:-12s}
+@keyframes drift{
+  from{transform:translate(0,0) scale(1)}
+  50%{transform:translate(50px,-40px) scale(1.15)}
+  to{transform:translate(-40px,50px) scale(.95)}
+}
+header{position:fixed;top:36px;left:48px;z-index:9}
+.brand{font-size:16px;letter-spacing:.5em;color:#f9a8d4}
+.brand em{font-style:normal;display:block;font-size:10.5px;letter-spacing:.35em;color:#9d8fc9;margin-top:9px}
+.status{position:fixed;top:40px;right:48px;z-index:9;font-size:10px;letter-spacing:.32em;
+  color:#c4b5fd;text-align:right}
+.status b{display:block;margin-top:7px;font-size:13px;font-weight:400;letter-spacing:.28em;color:#f0abfc}
+/* 液态 blob 本体 */
+#blobWrap{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);z-index:2;
+  pointer-events:none;
+  filter:drop-shadow(0 30px 60px rgba(236,72,153,.35));
+  transition:transform .9s cubic-bezier(.3,.7,.3,1),filter .8s}
+/* 倾听（输入聚焦）：拉长贴近输入框 */
+#blobWrap.listen{transform:translate(-50%,-50%) translateY(74px) scaleY(1.16) scaleX(.9)}
+/* 思考：颜色变深 */
+#blobWrap.think{filter:drop-shadow(0 30px 60px rgba(236,72,153,.55)) brightness(.68) saturate(1.5)}
+#blob{width:440px;height:440px;display:block}
+/* 液态气泡 */
+.bubble{
+  position:fixed;z-index:5;max-width:340px;padding:16px 20px;
+  font-size:14px;line-height:1.95;color:#fdf4ff;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);
+  backdrop-filter:blur(10px);
+  box-shadow:0 14px 40px rgba(20,5,40,.38);
+  opacity:0;transform:scale(.2);
+  transition:opacity .9s cubic-bezier(.25,.9,.3,1.05),transform .9s cubic-bezier(.25,.9,.3,1.05)}
+.bubble.in{opacity:1;transform:none}
+.bubble.user{
+  background:linear-gradient(135deg,rgba(236,72,153,.32),rgba(168,85,247,.24));
+  border-color:rgba(249,168,212,.55)}
+.bubble .tag{display:block;font-size:9.5px;letter-spacing:.35em;color:#e9d5ff;opacity:.75;margin-bottom:6px}
+.bubble.user .tag{color:#fbcfe8}
+.bubble .txt span{opacity:0;display:inline-block;transform:translateY(7px) scale(.8);
+  transition:opacity .45s,transform .45s cubic-bezier(.3,1.3,.4,1)}
+.bubble .txt span.on{opacity:1;transform:none}
+.bubble.gone{opacity:0;transform:scale(.5) translateY(34px);transition:all .7s}
+/* 液态输入条 */
+#hint{position:fixed;left:50%;bottom:118px;transform:translateX(-50%);z-index:9;
+  font-size:10px;letter-spacing:.42em;color:#b8a3d6;text-indent:.42em;transition:opacity .8s;pointer-events:none}
+#ask{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:9;
+  display:flex;align-items:center;gap:12px;width:min(560px,90vw);
+  padding:8px 10px 8px 26px;
+  border:1.5px solid rgba(244,114,182,.55);
+  background:linear-gradient(120deg,rgba(236,72,153,.16),rgba(34,211,238,.12));
+  backdrop-filter:blur(12px);
+  border-radius:36px 44px 40px 48px/44px 34px 48px 38px;
+  box-shadow:0 16px 44px rgba(20,5,40,.4);
+  animation:morph 7s ease-in-out infinite}
+@keyframes morph{
+  0%,100%{border-radius:36px 44px 40px 48px/44px 34px 48px 38px}
+  33%{border-radius:46px 34px 48px 38px/34px 46px 38px 44px}
+  66%{border-radius:38px 48px 34px 46px/48px 38px 44px 34px}
+}
+#ask input{flex:1;min-width:0;background:none;border:0;outline:0;color:#fff;
+  font:15px Georgia,"Songti SC",serif;letter-spacing:.05em;caret-color:#f9a8d4}
+#ask input::placeholder{color:#c9a6d8;letter-spacing:.16em}
+#ask button{width:46px;height:46px;flex:none;border:0;cursor:pointer;
+  border-radius:50% 46% 52% 48%/48% 52% 46% 54%;
+  background:linear-gradient(135deg,var(--mag),#a855f7);color:#fff;
+  font-size:17px;font-family:Georgia,serif;
+  transition:transform .4s,box-shadow .4s;
+  box-shadow:0 6px 18px rgba(236,72,153,.45)}
+#ask button:hover{transform:scale(1.1) rotate(8deg)}
+#ask button:active{transform:scale(.92)}
+/* 被吞掉的问题文字 */
+.flytxt{position:fixed;z-index:20;font-size:15px;color:#fce7f3;pointer-events:none;
+  white-space:nowrap;letter-spacing:.05em}
+@media(max-width:900px){
+  #blob{width:280px;height:280px}
+  .bubble{max-width:min(300px,72vw);font-size:13px}
+  header{left:20px;top:20px}.status{right:20px;top:22px}
+}
+</style>
+</head>
+<body>
+<span class="drift d1"></span><span class="drift d2"></span><span class="drift d3"></span>
+
+<header>
+  <div class="brand">AMOEBA<em>变形虫 · 液态智能体</em></div>
+</header>
+
+<div class="status">LIQUID STATE<b id="stLab">液态巡游中</b></div>
+
+<div id="blobWrap">
+  <svg id="blob" viewBox="0 0 400 400" aria-hidden="true">
+    <defs>
+      <linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="50" y1="50" x2="350" y2="350">
+        <stop offset="0" stop-color="#f472b6"/>
+        <stop offset=".5" stop-color="#d946ef"/>
+        <stop offset="1" stop-color="#22d3ee"/>
+      </linearGradient>
+      <filter id="goo">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="b"/>
+        <feColorMatrix in="b" mode="matrix" result="g"
+          values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -12"/>
+        <feBlend in="SourceGraphic" in2="g"/>
+      </filter>
+    </defs>
+    <g id="cells" filter="url(#goo)"></g>
+    <ellipse cx="158" cy="128" rx="58" ry="30" fill="rgba(255,255,255,.28)"
+      transform="rotate(-24 158 128)"/>
+  </svg>
+</div>
+
+<div id="hint">它没有形状 · 你问什么，它就变成什么</div>
+
+<form id="ask" autocomplete="off">
+  <input id="q" type="text" maxlength="60" placeholder="丢一个问题给它吞掉…">
+  <button type="submit" aria-label="投喂">◉</button>
+</form>
+
+<script>
+'use strict';
+const TAU=Math.PI*2;
+const $=s=>document.querySelector(s);
+const wrap=$('#blobWrap'),cellsG=$('#cells'),svg=$('#blob');
+const form=$('#ask'),input=$('#q'),stLab=$('#stLab'),hint=$('#hint');
+const NS='http://www.w3.org/2000/svg';
+
+/* ---------- 液态 blob：多圆叠加 + gooey 滤镜 ---------- */
+const cells=[];
+const CELLDEF=[[0,0,104],[68,38,78],[-62,50,74],[28,-68,80],[-56,-44,70],[84,-28,66]];
+for(const[ox,oy,r]of CELLDEF){
+  const el=document.createElementNS(NS,'circle');
+  el.setAttribute('r',r);
+  el.setAttribute('fill','url(#g1)');
+  cellsG.appendChild(el);
+  cells.push({el,bx:200+ox,by:200+oy,ph:Math.random()*TAU,f:.28+Math.random()*.4,
+    ax:24+Math.random()*20,ay:18+Math.random()*18});
+}
+
+const M={think:0};
+let mode='idle',busy=false;
+
+function tickBlob(dt,now){
+  const t=now/1000;
+  M.think+=(((mode==='think')?1:0)-M.think)*Math.min(1,dt*2.5);
+  const spd=1+M.think*3.4;                 /* 思考：快速搅动 */
+  const rot=M.think*now*.0018;             /* 涡旋角 */
+  const ca=Math.cos(rot),sa=Math.sin(rot);
+  for(const c of cells){
+    let x=c.bx+Math.cos(t*c.f*spd+c.ph)*c.ax*(1+M.think*.7);
+    let y=c.by+Math.sin(t*c.f*1.21*spd+c.ph)*c.ay*(1+M.think*.7);
+    const dx=x-200,dy=y-200;
+    x=200+dx*ca-dy*sa*M.think;
+    y=200+dx*sa*M.think+dy*ca;
+    c.el.setAttribute('cx',x.toFixed(1));
+    c.el.setAttribute('cy',y.toFixed(1));
+  }
+}
+let lastT=performance.now();
+(function loop(nw){
+  const dt=Math.min(.05,(nw-lastT)/1000);lastT=nw;
+  tickBlob(dt,nw);
+  requestAnimationFrame(loop);
+})(lastT);
+
+/* 倾听：输入聚焦 → blob 拉长贴近 */
+input.addEventListener('focus',()=>wrap.classList.add('listen'));
+input.addEventListener('blur',()=>wrap.classList.remove('listen'));
+
+function setSt(t){stLab.textContent=t;}
+function blobCenter(){
+  const r=wrap.getBoundingClientRect();
+  return{x:r.left+r.width/2,y:r.top+r.height/2};
+}
+
+/* ---------- 液态气泡 ---------- */
+const RADII=[
+  '26px 44px 30px 50px/44px 30px 50px 26px',
+  '44px 28px 50px 32px/30px 50px 26px 44px',
+  '32px 50px 26px 44px/50px 26px 44px 32px',
+  '48px 30px 40px 26px/26px 44px 30px 50px'
+];
+const USER_SLOTS=[[-460,-140],[430,-110],[-470,60],[440,110]];
+const AI_SLOTS=[[-430,40],[470,-40],[-400,190],[420,200]];
+const bubbles=[];
+let bubbleCount=0;
+
+function slotPos(slots,i){
+  const bc=blobCenter();
+  let x=bc.x+slots[i%slots.length][0];
+  let y=bc.y+slots[i%slots.length][1];
+  const maxW=Math.min(340,innerWidth-40);
+  x=Math.max(12,Math.min(innerWidth-maxW-12,x));
+  y=Math.max(76,Math.min(innerHeight-250,y));
+  return{x,y,bc};
+}
+function trimBubbles(){
+  if(bubbles.length>5){
+    const old=bubbles.shift();
+    old.classList.add('gone');
+    setTimeout(()=>old.remove(),720);
+  }
+}
+/* 从 blob 中心"吐出"的入场动画 */
+function enterFromBlob(el,pos){
+  el.style.transform=`translate(${pos.bc.x-pos.x}px,${pos.bc.y-pos.y}px) scale(.1)`;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    el.style.transform='';
+    el.classList.add('in');
+  }));
+}
+function addUserBubble(q,i){
+  const pos=slotPos(USER_SLOTS,i);
+  const el=document.createElement('div');
+  el.className='bubble user';
+  el.style.borderRadius=RADII[i%RADII.length];
+  el.style.left=pos.x+'px';el.style.top=pos.y+'px';
+  const tag=document.createElement('span');tag.className='tag';tag.textContent='你 · ASKED';
+  const txt=document.createElement('div');txt.className='txt';txt.textContent=q;
+  el.append(tag,txt);
+  document.body.appendChild(el);
+  bubbles.push(el);trimBubbles();
+  enterFromBlob(el,pos);
+}
+function addAIBubble(text,i,done){
+  const pos=slotPos(AI_SLOTS,i);
+  const el=document.createElement('div');
+  el.className='bubble';
+  el.style.borderRadius=RADII[(i+1)%RADII.length];
+  el.style.left=pos.x+'px';el.style.top=pos.y+'px';
+  const tag=document.createElement('span');tag.className='tag';tag.textContent='AMOEBA · 答';
+  const txt=document.createElement('div');txt.className='txt';
+  el.append(tag,txt);
+  document.body.appendChild(el);
+  bubbles.push(el);trimBubbles();
+  enterFromBlob(el,pos);
+  /* 文字逐字涌出 */
+  const sp=[...text].map(ch=>{
+    const s=document.createElement('span');s.textContent=ch;txt.appendChild(s);return s;
+  });
+  sp.forEach((s,k)=>setTimeout(()=>s.classList.add('on'),520+k*26));
+  setTimeout(done,520+sp.length*26+700);
+}
+
+/* ---------- 对话 ---------- */
+const REPLIES=[
+  '咕嘟——你的问题被我吸收啦。它正在体内流动，和昨天剩下的一个问题搅在一起。等它们融合好，答案会自己浮出表面。',
+  '我没有固定形状，所以也没有固定答案。你的问题流进来时是方形的，现在我把它揉圆了一点——大多数问题，圆一点会更好回答。',
+  '变形虫的生存策略是：遇到东西就包住它、消化它、长出新的自己。我建议你对新想法也这样。别挑食，都包住试试看。',
+  '我刚分裂了一个小号的我去处理你的问题。它回来报告说：答案是「流动的」——你越想抓住它，它溜得越快；你放松下来，它就自己聚过来。',
+  '液态记忆里泡着一句旧话：水从不害怕改变形状，因为它从未失去自己。把这句话多泡一会儿，对你的问题有效。'
+];
+let ri=0;
+
+form.addEventListener('submit',e=>{
+  e.preventDefault();
+  const v=input.value.trim();
+  if(!v||busy)return;
+  busy=true;input.value='';input.blur();
+  wrap.classList.remove('listen');
+  hint.style.opacity='0';
+
+  /* 标志性瞬间：问题文字缩小飞入 blob 中心被吞掉 */
+  const ir=input.getBoundingClientRect();
+  const f=document.createElement('div');
+  f.className='flytxt';f.textContent=v;
+  f.style.left=(ir.left+10)+'px';
+  f.style.top=(ir.top+ir.height/2-9)+'px';
+  document.body.appendChild(f);
+  const bc=blobCenter();
+  f.animate(
+    [{transform:'translate(0,0) scale(1)',opacity:1},
+     {transform:`translate(${bc.x-(ir.left+40)}px,${bc.y-(ir.top+ir.height/2)}px) scale(.05)`,opacity:0}],
+    {duration:760,easing:'cubic-bezier(.5,0,.4,1)'}
+  ).onfinish=()=>{
+    f.remove();
+    /* 吞咽脉冲 */
+    wrap.animate(
+      [{transform:'translate(-50%,-50%) scale(1)'},
+       {transform:'translate(-50%,-50%) scale(1.09)'},
+       {transform:'translate(-50%,-50%) scale(1)'}],
+      {duration:520,easing:'ease-out'}
+    );
+    mode='think';
+    wrap.classList.add('think');
+    setSt('消化问题中');
+    setTimeout(()=>{
+      wrap.classList.remove('think');
+      mode='reply';setSt('涌出回答中');
+      const i=bubbleCount++;
+      addUserBubble(v,i);
+      setTimeout(()=>{
+        addAIBubble(REPLIES[ri++%REPLIES.length],i,()=>{
+          mode='idle';setSt('液态巡游中');busy=false;
+        });
+      },420);
+    },1600+Math.random()*1200);
+  };
+});
+</script>
+</body>
+</html>

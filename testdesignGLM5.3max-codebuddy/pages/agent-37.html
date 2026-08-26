@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CONSTELLATION · 星图 — 记忆星图 AI</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --sky:#0a1128; --star:#e8f0ff; --dim:#8b97b8; --bright:#cfe0ff;
+  --line:rgba(200,220,255,.32);
+}
+html,body{height:100%;}
+body{
+  font-family:Georgia,"Songti SC","STSong","SimSun",serif;
+  color:var(--star);
+  background:radial-gradient(1300px 850px at 62% 8%, #101b3f 0%, var(--sky) 55%, #05091a 100%);
+  overflow:hidden;
+}
+#skyCv{position:fixed;inset:0;z-index:0;pointer-events:none;}
+#app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;}
+
+/* ---------- 页眉 ---------- */
+header{display:flex;align-items:baseline;gap:16px;padding:15px 34px 13px;border-bottom:1px solid rgba(255,255,255,.09);}
+h1{font-size:19px;letter-spacing:.42em;color:var(--bright);font-weight:400;}
+header .zh{font-size:11.5px;color:var(--dim);letter-spacing:.32em;}
+header .right{margin-left:auto;font-size:12px;color:var(--dim);letter-spacing:.14em;white-space:nowrap;}
+header .right b{color:var(--bright);font-weight:400;font-variant-numeric:tabular-nums;}
+
+/* ---------- 星图区 ---------- */
+#mapWrap{position:relative;height:47vh;min-height:290px;border-bottom:1px solid rgba(255,255,255,.09);overflow:hidden;}
+#mapSvg{width:100%;height:100%;display:block;}
+#rotG{transform-origin:500px 215px;animation:mapSpin 260s linear infinite;filter:brightness(1);transition:filter .35s ease;}
+@keyframes mapSpin{to{transform:rotate(360deg);}}
+#rotG.flash{filter:brightness(2.2) drop-shadow(0 0 8px rgba(180,215,255,.9));}
+.link{stroke:var(--line);stroke-width:1;}
+.star{cursor:pointer;}
+.star .halo{fill:url(#glowG);opacity:.55;transition:opacity .25s;}
+.star:hover .halo{opacity:1;}
+.star .body{fill:#eef4ff;transition:r .2s;}
+.star:hover .body{fill:#ffffff;}
+.star .cross{stroke:rgba(230,240,255,.6);stroke-width:.8;}
+.star-label{font-size:11px;fill:#9fb4dd;letter-spacing:2px;opacity:.7;}
+#candDot{fill:rgba(207,224,255,.9);}
+#candRing{fill:none;stroke:#cfe0ff;stroke-width:1.1;stroke-dasharray:3 3;}
+#toast{
+  position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);
+  font-size:30px;letter-spacing:.5em;color:#eef4ff;
+  text-shadow:0 0 26px rgba(160,200,255,.85);
+  opacity:0;pointer-events:none;white-space:nowrap;text-align:center;
+}
+#toast.show{animation:toastIn 3.8s ease forwards;}
+#toast small{display:block;font-size:11px;letter-spacing:.42em;color:var(--dim);margin-top:12px;}
+@keyframes toastIn{
+  0%{opacity:0;transform:translate(-50%,-30%) scale(.94);}
+  12%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  78%{opacity:1;transform:translate(-50%,-52%) scale(1);}
+  100%{opacity:0;transform:translate(-50%,-66%) scale(1);}
+}
+#tooltip{
+  position:fixed;z-index:50;pointer-events:none;
+  background:rgba(8,14,34,.94);border:1px solid rgba(200,220,255,.35);
+  padding:8px 12px;font-size:12px;color:#dbe6ff;max-width:250px;line-height:1.7;
+  border-radius:4px;opacity:0;transition:opacity .18s;letter-spacing:.04em;
+}
+#mapHint{position:absolute;left:34px;bottom:12px;font-size:10.5px;color:rgba(139,151,184,.55);letter-spacing:.3em;pointer-events:none;}
+
+/* ---------- 对话流 ---------- */
+#flow{flex:1;overflow-y:auto;padding:18px 44px 22px;scrollbar-width:thin;scrollbar-color:rgba(140,160,210,.3) transparent;}
+#flow::-webkit-scrollbar{width:8px;}
+#flow::-webkit-scrollbar-thumb{background:rgba(140,160,210,.28);border-radius:4px;}
+.msg{max-width:840px;margin:0 auto 15px;font-size:14.5px;line-height:2.0;letter-spacing:.03em;}
+.msg.user{color:#aebfe8;font-size:13.5px;animation:sentIn .45s ease both;}
+.msg.user::before{content:'问';display:inline-block;border:1px solid rgba(174,191,232,.4);font-size:10px;padding:1px 7px;margin-right:12px;letter-spacing:.2em;vertical-align:2px;}
+.msg.ai{color:#e6ecfa;}
+.msg.ai::before{content:'✦';display:inline-block;color:var(--dim);font-size:11px;margin-right:12px;}
+.sent{display:inline-block;opacity:0;animation:sentIn .5s ease forwards;}
+@keyframes sentIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+/* ---------- 观星台输入 ---------- */
+#dock{padding:13px 40px 19px;}
+.dock-in{
+  display:flex;align-items:center;gap:12px;
+  max-width:900px;margin:0 auto;
+  border:1px solid rgba(255,255,255,.35);border-radius:999px;
+  padding:9px 10px 9px 20px;
+  background:rgba(10,17,40,.5);
+  transition:border-color .25s, box-shadow .25s;
+}
+.dock-in:focus-within{border-color:rgba(200,225,255,.85);box-shadow:0 0 26px rgba(120,160,255,.18);}
+.dock-in input{flex:1;min-width:0;background:none;border:none;outline:none;color:#e6ecfa;font-family:inherit;font-size:14.5px;letter-spacing:.04em;}
+.dock-in input::placeholder{color:rgba(139,151,184,.55);}
+#sendBtn{
+  background:none;border:1px solid rgba(255,255,255,.4);color:var(--bright);
+  border-radius:999px;padding:7px 22px;font-family:inherit;font-size:12.5px;
+  letter-spacing:.32em;cursor:pointer;transition:.25s;white-space:nowrap;
+}
+#sendBtn:hover{background:rgba(207,224,255,.12);border-color:#cfe0ff;}
+
+@media(max-width:900px){
+  header{flex-wrap:wrap;gap:8px 14px;padding:12px 18px;}
+  header .right{flex-basis:100%;margin-left:0;}
+  #mapWrap{height:38vh;min-height:240px;}
+  #toast{font-size:22px;}
+  #flow{padding:14px 20px;}
+  #dock{padding:10px 16px 14px;}
+  .dock-in{padding-left:14px;}
+}
+</style>
+</head>
+<body>
+<canvas id="skyCv"></canvas>
+<div id="app">
+  <header>
+    <h1>CONSTELLATION</h1>
+    <span class="zh">记忆星图 · 对话即星辰</span>
+    <div class="right">已记录星辰 <b id="starCount">9</b> ｜ 星座 <b id="constCount">3</b> ｜ <span id="statusTxt">夜空澄澈</span></div>
+  </header>
+
+  <section id="mapWrap">
+    <svg id="mapSvg" viewBox="0 0 1000 430" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <radialGradient id="glowG" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="rgba(220,235,255,.9)"/>
+          <stop offset="45%" stop-color="rgba(180,205,255,.35)"/>
+          <stop offset="100%" stop-color="rgba(160,190,255,0)"/>
+        </radialGradient>
+      </defs>
+      <g id="rotG"></g>
+    </svg>
+    <div id="toast"></div>
+    <div id="mapHint">悬停星辰 · 回看当时的提问</div>
+  </section>
+
+  <section id="flow"></section>
+
+  <footer id="dock">
+    <div class="dock-in">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b97b8" stroke-width="1.4" aria-hidden="true">
+        <rect x="3.5" y="7.5" width="15" height="5" rx="1.2" transform="rotate(-26 11 10)"/>
+        <rect x="1.8" y="9.8" width="3.4" height="3.4" rx="0.8" transform="rotate(-26 3.5 11.5)"/>
+        <path d="M12 13.5 L8.5 21 M12 13.5 L12 21 M12 13.5 L15.5 21"/>
+      </svg>
+      <input id="ask" type="text" placeholder="向星图提一个问题，让一颗新星亮起…" autocomplete="off">
+      <button id="sendBtn">观测</button>
+    </div>
+  </footer>
+</div>
+<div id="tooltip"></div>
+
+<script>
+(function(){
+'use strict';
+var NS='http://www.w3.org/2000/svg';
+var flow=document.getElementById('flow');
+var input=document.getElementById('ask');
+var sendBtn=document.getElementById('sendBtn');
+var rotG=document.getElementById('rotG');
+var toast=document.getElementById('toast');
+var tooltip=document.getElementById('tooltip');
+var statusTxt=document.getElementById('statusTxt');
+var starCountEl=document.getElementById('starCount');
+var constCountEl=document.getElementById('constCount');
+
+/* ---------------- 背景微星（canvas，微弱呼吸） ---------------- */
+var cv=document.getElementById('skyCv'), sctx=cv.getContext('2d');
+var bgStars=[];
+function sizeSky(){
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=innerWidth*dpr; cv.height=innerHeight*dpr;
+  cv.style.width=innerWidth+'px'; cv.style.height=innerHeight+'px';
+  sctx.setTransform(dpr,0,0,dpr,0,0);
+  bgStars=[];
+  var n=Math.floor(innerWidth*innerHeight/9000);
+  for(var i=0;i<n;i++){
+    bgStars.push({x:Math.random()*innerWidth, y:Math.random()*innerHeight,
+      r:.4+Math.random()*1.1, a:.2+Math.random()*.55, ph:Math.random()*6.28,
+      sp:.0003+Math.random()*.0006});
+  }
+}
+function drawSky(t){
+  sctx.clearRect(0,0,innerWidth,innerHeight);
+  for(var i=0;i<bgStars.length;i++){
+    var s=bgStars[i];
+    var a=Math.max(.05, s.a+Math.sin(t*s.sp+s.ph)*.18);
+    sctx.globalAlpha=a;
+    sctx.fillStyle='#dfe8ff';
+    sctx.beginPath(); sctx.arc(s.x,s.y,s.r,0,6.283); sctx.fill();
+  }
+  sctx.globalAlpha=1;
+  requestAnimationFrame(drawSky);
+}
+sizeSky(); requestAnimationFrame(drawSky);
+
+/* ---------------- 种子星辰：历史对话 ---------------- */
+var seedStars=[
+  {x:150,y:300,r:2.6,q:'怎么坚持每天阅读？',len:36},
+  {x:255,y:245,r:3.4,core:true,q:'如何整理碎片般的灵感？',len:82},
+  {x:350,y:292,r:2.2,q:'推荐几本关于记忆的书',len:24},
+  {x:430,y:198,r:3.0,core:true,q:'为什么夜晚更适合思考？',len:66},
+  {x:530,y:252,r:2.0,q:'番茄钟真的有用吗？',len:18},
+  {x:602,y:160,r:2.8,q:'怎样写好一封长信？',len:44},
+  {x:700,y:228,r:3.6,core:true,q:'注意力为什么如此珍贵？',len:95},
+  {x:800,y:178,r:2.4,q:'城市里去哪里看星星？',len:30},
+  {x:862,y:282,r:2.6,q:'如何与拖延和解？',len:52}
+];
+var seedLinks=[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[3,6]];
+var liveStars=seedStars.map(function(s){return s;});
+var constellations=3;
+
+/* 预置回复 */
+var replies=[
+  '我记得你上周问过如何整理灵感。那颗星还挂在东南方，亮度未减。这一次的提问与它连成了新的线——记忆不是存储，而是重新点亮。你每次回来，星图都会更亮一点。',
+  '这段对话我准备记作一颗新星。它不大，但位置很好：恰好落在『阅读』与『专注』两颗星之间。等它稳定下来，你随时可以顺着连线，找回今天的语境。',
+  '有趣的巧合。你三年前类似的困惑、上个月的顿悟、以及刚才这句话，几乎落在同一条弧线上。星图不会遗忘，只是有些星暂时黯淡。需要的话，我可以把那片区域重新点亮给你看。',
+  '我先不急着把它放进主星座。这更像一颗游星——想法还在漂移，轨迹未定。你再补一句，它就会安定在自己的轨道上。夜空很大，容得下所有未定型的念头。',
+  '记录完毕。新星座已命名。它由你的三次提问构成，连线走势与『好奇座』平行。夜空又稠密了一分——这正是记忆本来的样子：不是档案柜，而是一片会生长的星空。'
+];
+var names=['思索座 · 其三','涌现座','澄明座','游星 · 其二','回声座','拾光座'];
+var slots=[{x:660,y:340},{x:340,y:112},{x:905,y:352},{x:165,y:158},{x:565,y:368},{x:925,y:118}];
+var slotIdx=0, nameIdx=0, replyIdx=Math.floor(Math.random()*replies.length);
+var busy=false;
+
+function el(n,at){var e=document.createElementNS(NS,n);for(var k in at)e.setAttribute(k,at[k]);return e;}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+
+/* ---------------- 星辰绘制 ---------------- */
+function showTip(s,ev){
+  tooltip.textContent=s.q+'（对话 '+s.len+' 字）';
+  tooltip.style.opacity=1;
+  moveTip(ev);
+}
+function moveTip(ev){
+  var x=Math.min(ev.clientX+16, innerWidth-260);
+  var y=Math.min(ev.clientY+16, innerHeight-70);
+  tooltip.style.left=x+'px'; tooltip.style.top=y+'px';
+}
+function makeStar(s){
+  var g=el('g',{class:'star'});
+  g.appendChild(el('circle',{cx:s.x,cy:s.y,r:(s.r*3.1).toFixed(1),fill:'url(#glowG)',class:'halo'}));
+  var body=el('circle',{cx:s.x,cy:s.y,r:s.r,class:'body'});
+  g.appendChild(body);
+  if(s.core){
+    var c=s.r*3.6;
+    g.appendChild(el('path',{class:'cross',d:'M '+(s.x-c)+' '+s.y+' H '+(s.x+c)+' M '+s.x+' '+(s.y-c)+' V '+(s.y+c)}));
+  }
+  g._body=body; g._star=s;
+  g.addEventListener('mouseenter',function(ev){showTip(s,ev);});
+  g.addEventListener('mousemove',moveTip);
+  g.addEventListener('mouseleave',function(){tooltip.style.opacity=0;});
+  return g;
+}
+function drawLink(a,b){
+  return el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,class:'link'});
+}
+/* 初始星座 */
+seedLinks.forEach(function(lk){
+  rotG.appendChild(drawLink(liveStars[lk[0]],liveStars[lk[1]]));
+});
+liveStars.forEach(function(s){ rotG.appendChild(makeStar(s)); });
+
+/* 候选星（思考态：虚影星在几个位置间跳） */
+var candG=el('g',{opacity:0});
+var candRing=el('circle',{id:'candRing',r:5});
+var candDot=el('circle',{id:'candDot',r:1.4});
+candG.appendChild(candRing); candG.appendChild(candDot);
+rotG.appendChild(candG);
+var candTimer=null;
+function startCandidate(center){
+  var spots=[center,
+    {x:center.x-80,y:center.y+46},{x:center.x+66,y:center.y-52},{x:center.x+42,y:center.y+78}];
+  var i=0;
+  function place(){
+    var p=spots[i%spots.length]; i++;
+    candG.style.opacity=0;
+    setTimeout(function(){
+      candRing.setAttribute('cx',p.x); candRing.setAttribute('cy',p.y);
+      candDot.setAttribute('cx',p.x); candDot.setAttribute('cy',p.y);
+      candG.style.transition='opacity .16s'; candG.style.opacity=.9;
+    },150);
+  }
+  candG.style.opacity=0; place();
+  candTimer=setInterval(place,520);
+}
+function stopCandidate(){
+  clearInterval(candTimer);
+  candG.style.transition='opacity .3s'; candG.style.opacity=0;
+}
+
+/* 光脉冲（每句回复对应一次） */
+function pulse(x,y){
+  var c=el('circle',{cx:x,cy:y,r:2,fill:'none',stroke:'rgba(190,215,255,.85)','stroke-width':1.2});
+  rotG.appendChild(c);
+  var t0=performance.now();
+  (function anim(t){
+    var p=(t-t0)/700;
+    if(p>=1){c.remove();return;}
+    c.setAttribute('r',2+p*20);
+    c.setAttribute('opacity',(1-p).toFixed(2));
+    requestAnimationFrame(anim);
+  })(t0);
+}
+
+/* 新星诞生（标志性瞬间） */
+function birthStar(slot,name,q){
+  var s={x:slot.x,y:slot.y,r:3.3,core:false,q:q,len:q.length};
+  liveStars.push(s);
+  var g=makeStar(s);
+  var body=g._body; body.setAttribute('r',0);
+  rotG.appendChild(g);
+  /* 星体放大 */
+  var t0=performance.now();
+  (function grow(t){
+    var p=Math.min(1,(t-t0)/550);
+    body.setAttribute('r',(3.3*(1-Math.pow(1-p,3))).toFixed(2));
+    if(p<1)requestAnimationFrame(grow);
+  })(t0);
+  /* 连线：从相邻星逐段画出 */
+  var nearest=liveStars.slice(0,-1).map(function(o,i){
+    return {s:o, d:(o.x-s.x)*(o.x-s.x)+(o.y-s.y)*(o.y-s.y)};
+  }).sort(function(a,b){return a.d-b.d;}).slice(0,2);
+  nearest.forEach(function(n,i){
+    setTimeout(function(){
+      var l=drawLink(n.s,s);
+      var len=Math.hypot(n.s.x-s.x,n.s.y-s.y);
+      l.style.strokeDasharray=len; l.style.strokeDashoffset=len;
+      rotG.insertBefore(l,g);
+      l.getBoundingClientRect();
+      l.style.transition='stroke-dashoffset .55s ease';
+      l.style.strokeDashoffset='0';
+      setTimeout(function(){l.style.strokeDasharray='';l.style.transition='';},700);
+    },420+i*260);
+  });
+  /* 整体闪亮 + 命名浮现 */
+  setTimeout(function(){
+    rotG.classList.add('flash');
+    setTimeout(function(){rotG.classList.remove('flash');},900);
+  },1100);
+  setTimeout(function(){
+    toast.innerHTML=name+'<small>新星已入图 · NEW STAR CHARTED</small>';
+    toast.classList.remove('show'); void toast.offsetWidth;
+    toast.classList.add('show');
+    var lb=el('text',{x:s.x+10,y:s.y-10,class:'star-label'});
+    lb.textContent=name.split(' ·')[0];
+    lb.style.opacity=0; lb.style.transition='opacity 1s';
+    rotG.appendChild(lb);
+    requestAnimationFrame(function(){lb.style.opacity=.7;});
+  },1250);
+}
+
+/* ---------------- 对话流 ---------------- */
+function addMsg(kind,text){
+  var d=document.createElement('div');
+  d.className='msg '+kind;
+  if(kind==='user'){
+    d.textContent=text;
+  }else{
+    var parts=text.match(/[^。！？；]+[。！？；]?/g)||[text];
+    parts.forEach(function(p,i){
+      var s=document.createElement('span');
+      s.className='sent'; s.textContent=p;
+      s.style.animationDelay=(0.15+i*.45)+'s';
+      d.appendChild(s);
+    });
+  }
+  flow.appendChild(d);
+  flow.scrollTop=flow.scrollHeight;
+  return d;
+}
+function addWelcome(){
+  addMsg('ai','夜空已经展开。这里保存着你问过的每一个问题——它们彼此连线，构成一张会生长的星图。提出一个新的问题，就会有一颗新的星亮起。');
+}
+
+/* ---------------- 发送回路 ---------------- */
+async function send(){
+  var text=input.value.trim();
+  if(!text||busy)return;
+  busy=true; input.value='';
+  statusTxt.textContent='寻找坐标…';
+  addMsg('user',text);
+  var slot=slots[slotIdx%slots.length]; slotIdx++;
+  startCandidate(slot);
+  await sleep(1600+Math.random()*1200);
+  stopCandidate();
+  var reply=replies[replyIdx%replies.length]; replyIdx++;
+  /* 逐句渐显，每句触发一次星图脉冲 */
+  var sents=reply.match(/[^。！？；]+[。！？；]?/g)||[reply];
+  addMsg('ai',reply);
+  sents.forEach(function(_,i){
+    setTimeout(function(){
+      var s=liveStars[Math.floor(Math.random()*(liveStars.length-1))];
+      pulse(s.x,s.y);
+    },150+i*450);
+  });
+  await sleep(200+sents.length*450+900);
+  birthStar(slot,names[nameIdx%names.length],text); nameIdx++;
+  constellations++;
+  starCountEl.textContent=liveStars.length;
+  constCountEl.textContent=constellations;
+  statusTxt.textContent='新星已亮起';
+  setTimeout(function(){ if(!busy)statusTxt.textContent='夜空澄澈'; },3200);
+  busy=false;
+}
+input.addEventListener('keydown',function(e){ if(e.key==='Enter')send(); });
+sendBtn.addEventListener('click',send);
+
+var rzT=null;
+window.addEventListener('resize',function(){
+  clearTimeout(rzT);
+  rzT=setTimeout(sizeSky,180);
+});
+
+addWelcome();
+})();
+</script>
+</body>
+</html>

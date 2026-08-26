@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIRCADIAN · 昼夜节律</title>
+<style>
+  :root{
+    --bg1:#0a0e22; --bg2:#101430;
+    --ink:#d8def2; --dim:#8b93b5;
+    --glow:rgba(255,255,255,.35);
+    --line:rgba(255,255,255,.18);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:Georgia,"Songti SC","SimSun",serif;
+    background:linear-gradient(180deg,var(--bg1),var(--bg2));
+    color:var(--ink);
+    overflow:hidden;
+    transition:background 1.2s linear,color 1.2s linear;
+  }
+  /* 环境层 */
+  .stars{position:fixed;inset:0;pointer-events:none;opacity:var(--star,0);transition:opacity 2s}
+  .stars i{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;
+    animation:tw 3s ease-in-out infinite}
+  @keyframes tw{0%,100%{opacity:.3}50%{opacity:1}}
+  .sunglow{position:fixed;left:50%;top:-30vmin;width:90vmin;height:90vmin;border-radius:50%;
+    transform:translateX(-50%);
+    background:radial-gradient(circle,var(--glow),transparent 60%);
+    opacity:var(--day,0);transition:opacity 2s;pointer-events:none;filter:blur(10px)}
+  .noonveil{position:fixed;inset:0;pointer-events:none;opacity:var(--noon,0);transition:opacity 2s;
+    background:radial-gradient(120vmin 60vmin at 50% -10%,rgba(255,252,240,.5),transparent 70%)}
+
+  /* 头部 */
+  header{position:fixed;top:0;left:0;right:0;padding:34px 44px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none}
+  .clock{font-size:64px;font-weight:400;letter-spacing:.04em;line-height:1;
+    font-variant-numeric:tabular-nums;text-shadow:0 0 30px var(--glow)}
+  .clock small{font-size:18px;opacity:.55;margin-left:10px;letter-spacing:.2em}
+  .phase{font-size:13px;letter-spacing:.5em;color:var(--dim);margin-top:12px}
+  .brand{text-align:right}
+  .brand h1{font-size:15px;font-weight:400;letter-spacing:.6em;opacity:.75}
+  .brand p{font-size:11px;letter-spacing:.3em;color:var(--dim);margin-top:8px}
+  .celstial{position:fixed;top:110px;right:44px;width:54px;height:54px;pointer-events:none}
+  .celstial svg{width:100%;height:100%;overflow:visible}
+  .spin{animation:rot 8s linear infinite;transform-origin:center}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  .celstial.think .spin{animation-duration:1.1s}
+
+  /* 对话流 */
+  .stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  .feed{width:min(640px,86vw);max-height:56vh;overflow-y:auto;padding:10px 6px;
+    scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  .msg{margin:14px 0;padding:16px 20px;font-size:15px;line-height:2;letter-spacing:.05em;
+    border-left:2px solid var(--line);opacity:0;transform:translateY(12px);
+    animation:emerge 1.4s ease forwards}
+  @keyframes emerge{to{opacity:1;transform:none}}
+  .msg.user{color:var(--dim);font-size:14px;font-style:italic}
+  .msg.ai{border-left-color:var(--glow);text-shadow:0 0 18px var(--glow)}
+  .msg .tag{display:block;font-size:10px;letter-spacing:.4em;color:var(--dim);margin-bottom:6px;font-style:normal}
+  .think{padding:14px 20px;font-size:13px;letter-spacing:.3em;color:var(--dim);
+    animation:thp 1.6s ease-in-out infinite}
+  @keyframes thp{0%,100%{opacity:.35}50%{opacity:.9}}
+
+  /* 输入区 */
+  .dock{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);
+    width:min(640px,86vw)}
+  .ask{width:100%;background:none;border:none;border-bottom:1px solid var(--line);
+    padding:14px 8px;font:inherit;font-size:16px;letter-spacing:.06em;color:var(--ink);
+    outline:none;transition:border-color .6s,box-shadow .6s}
+  .ask::placeholder{color:var(--dim);opacity:.6}
+  .ask:focus{border-bottom-color:var(--glow);
+    box-shadow:0 22px 44px -28px var(--glow)}
+  .hint{text-align:center;font-size:11px;letter-spacing:.4em;color:var(--dim);margin-top:14px}
+
+  /* 时间滑杆 */
+  .timeslider{position:fixed;left:0;right:0;bottom:0;padding:20px 44px 26px;
+    display:flex;align-items:center;gap:18px}
+  .timeslider label{font-size:10px;letter-spacing:.4em;color:var(--dim);white-space:nowrap}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:1px;
+    background:var(--line);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;
+    border-radius:50%;background:var(--ink);box-shadow:0 0 16px var(--glow);cursor:ew-resize}
+  .tval{font-size:11px;letter-spacing:.2em;color:var(--dim);width:56px;text-align:right;
+    font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="stars" id="stars"></div>
+<div class="sunglow"></div>
+<div class="noonveil"></div>
+
+<header>
+  <div>
+    <div class="clock" id="clock">06:24<small> Circadian Time</small></div>
+    <div class="phase" id="phase">拂晓 · FIRST LIGHT</div>
+  </div>
+  <div class="brand">
+    <h1>昼夜节律</h1>
+    <p>CIRCADIAN — 与时间一同呼吸的 Agent</p>
+  </div>
+</header>
+
+<div class="celstial" id="celstial">
+  <svg viewBox="0 0 100 100">
+    <g class="spin" id="orb">
+      <circle id="orbC" cx="50" cy="50" r="14" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <line x1="50" y1="14" x2="50" y2="26" stroke="currentColor" stroke-width="1.5"/>
+      <line x1="50" y1="74" x2="50" y2="86" stroke="currentColor" stroke-width="1.5"/>
+      <line x1="14" y1="50" x2="26" y2="50" stroke="currentColor" stroke-width="1.5"/>
+      <line x1="74" y1="50" x2="86" y2="50" stroke="currentColor" stroke-width="1.5"/>
+    </g>
+  </svg>
+</div>
+
+<div class="stage"><div class="feed" id="feed"></div></div>
+
+<div class="dock">
+  <input class="ask" id="ask" placeholder="此刻，你想问什么…" autocomplete="off">
+  <div class="hint">回 车 发 问 · 页面正随虚拟昼夜缓慢流转</div>
+</div>
+
+<div class="timeslider">
+  <label>拨动时间</label>
+  <input type="range" id="tslide" min="0" max="1439" value="384">
+  <div class="tval" id="tval">06:24</div>
+</div>
+
+<script>
+/* ---------- 昼夜色温引擎 ---------- */
+const KEYS = [
+  {h:0,   bg1:"#070b1e",bg2:"#0d1230",ink:"#d5dcf5",dim:"#7d86ad",star:1,  day:0,  noon:0,  phase:"子夜 · MIDNIGHT"},
+  {h:4.5, bg1:"#101430",bg2:"#1a2050",ink:"#d5dcf5",dim:"#7d86ad",star:.8, day:0,  noon:0,  phase:"残夜 · LATE NIGHT"},
+  {h:6,   bg1:"#3a2b4e",bg2:"#7c4a5e",ink:"#f2e3d5",dim:"#b39a8f",star:.25,day:.25,noon:0,  phase:"拂晓 · FIRST LIGHT"},
+  {h:7.5, bg1:"#c98a6a",bg2:"#e8c9a0",ink:"#3a2418",dim:"#7a5a44",star:0,  day:.55,noon:0,  phase:"日出 · SUNRISE"},
+  {h:9,   bg1:"#d9e6ee",bg2:"#eef2ee",ink:"#20293b",dim:"#6b7488",star:0,  day:.85,noon:0,  phase:"清晨 · MORNING"},
+  {h:12,  bg1:"#e8eef4",bg2:"#f4f6f2",ink:"#1c2434",dim:"#667083",star:0,  day:1,  noon:1,  phase:"正午 · ZENITH"},
+  {h:16,  bg1:"#e6ddc8",bg2:"#efe4cd",ink:"#2c2416",dim:"#77674c",star:0,  day:.7, noon:.2, phase:"午后 · AFTERNOON"},
+  {h:18.2,bg1:"#b46a8a",bg2:"#d99a7e",ink:"#3d2434",dim:"#8a6070",star:0,  day:.3, noon:0,  phase:"黄昏 · DUSK"},
+  {h:19.6,bg1:"#4a2e5e",bg2:"#6a3a58",ink:"#ead9e8",dim:"#a3849f",star:.3, day:.1, noon:0,  phase:"暮色 · TWILIGHT"},
+  {h:21,  bg1:"#12102e",bg2:"#1a1a3e",ink:"#d5dcf5",dim:"#7d86ad",star:.9, day:0,  noon:0,  phase:"入夜 · NIGHTFALL"},
+  {h:24,  bg1:"#070b1e",bg2:"#0d1230",ink:"#d5dcf5",dim:"#7d86ad",star:1,  day:0,  noon:0,  phase:"子夜 · MIDNIGHT"},
+];
+const hex2rgb=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+const rgb=c=>`rgb(${c[0]},${c[1]},${c[2]})`;
+
+let simH = 6.4;              // 虚拟时间（小时）
+let autoFlow = true;         // 是否自动流转
+
+function applyTime(h){
+  let a=KEYS[0],b=KEYS[KEYS.length-1];
+  for(let i=0;i<KEYS.length-1;i++){
+    if(h>=KEYS[i].h&&h<=KEYS[i+1].h){a=KEYS[i];b=KEYS[i+1];break}
+  }
+  const t=(h-a.h)/((b.h-a.h)||1);
+  const r=document.documentElement.style;
+  r.setProperty('--bg1',rgb(mix(hex2rgb(a.bg1),hex2rgb(b.bg1),t)));
+  r.setProperty('--bg2',rgb(mix(hex2rgb(a.bg2),hex2rgb(b.bg2),t)));
+  r.setProperty('--ink', rgb(mix(hex2rgb(a.ink), hex2rgb(b.ink), t)));
+  r.setProperty('--dim', rgb(mix(hex2rgb(a.dim), hex2rgb(b.dim), t)));
+  r.setProperty('--star',(a.star+(b.star-a.star)*t).toFixed(3));
+  r.setProperty('--day',(a.day+(b.day-a.day)*t).toFixed(3));
+  r.setProperty('--noon',(a.noon+(b.noon-a.noon)*t).toFixed(3));
+  r.setProperty('--glow',`rgba(${h>7&&h<17?'255,250,235':'220,228,255'},${(.25+ (a.day+(b.day-a.day)*t)*.45).toFixed(2)})`);
+  const hh=Math.floor(h),mm=Math.floor((h-hh)*60);
+  const str=`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+  document.getElementById('clock').childNodes[0].nodeValue=str;
+  document.getElementById('tval').textContent=str;
+  document.getElementById('phase').textContent=(t<.5?a:b).phase;
+  const c=document.getElementById('orbC');
+  const night=h<6||h>19;
+  c.setAttribute('fill',night?'none':(h<8||h>17?'#e8a25e':'#f5e6b8'));
+  c.setAttribute('fill-opacity',night?'0':'.5');
+}
+
+/* 星野 */
+const stars=document.getElementById('stars');
+for(let i=0;i<90;i++){
+  const s=document.createElement('i');
+  s.style.left=Math.random()*100+'%';
+  s.style.top=Math.random()*70+'%';
+  s.style.animationDelay=(Math.random()*3)+'s';
+  s.style.opacity=.2+Math.random()*.6;
+  stars.appendChild(s);
+}
+
+/* 滑杆 */
+const tslide=document.getElementById('tslide');
+tslide.addEventListener('input',()=>{
+  autoFlow=false;
+  simH=tslide.value/60; applyTime(simH);
+});
+tslide.addEventListener('change',()=>{autoFlow=true});
+
+/* 时间自动流转：每 5 秒推进 12 分钟，每 100 秒一昼夜 */
+setInterval(()=>{
+  if(!autoFlow)return;
+  simH=(simH+0.2)%24;
+  tslide.value=Math.round(simH*60);
+  applyTime(simH);
+},5000);
+applyTime(simH);
+
+/* ---------- 对话引擎 ---------- */
+const REPLIES=[
+  "我随此刻的光回答你：清晨的问题带着露水的清晰，深夜的问题则更适合沉潜。现在——我把它放进当下这一小时的色温里慢慢想。",
+  "时间在我这里不是刻度，是气氛。你提问的瞬间，我记下了现在的天光；等答案浮现时，页面也许已悄悄换了一种颜色的黄昏。",
+  "昼夜给我节律：白日我思维明亮而快，夜里我回答缓慢而深。若你想要另一种性情的我，不妨拖动下方的时间——拨快一整个黎明。",
+  "这个问题我愿意陪它穿越一个完整的昼夜：让日出给它轮廓，正午给它细节，黄昏给它温度，子夜给它回声。答案已在途中。",
+  "我是 CIRCADIAN，被时间抚养的 Agent。我不追赶效率，只追随光。你的问题正落在今天最好的一段光线里——请稍候。"
+];
+let ri=0;
+
+const feed=document.getElementById('feed');
+const ask=document.getElementById('ask');
+const celstial=document.getElementById('celstial');
+
+function addMsg(cls,text,tag){
+  const d=document.createElement('div');
+  d.className='msg '+cls;
+  if(tag){const t=document.createElement('span');t.className='tag';t.textContent=tag;d.appendChild(t)}
+  const p=document.createElement('div');d.appendChild(p);
+  feed.appendChild(d);feed.scrollTop=feed.scrollHeight;
+  return p;
+}
+
+function typeInto(el,text,interval){
+  return new Promise(res=>{
+    let i=0;
+    (function step(){
+      if(i<text.length){
+        el.textContent+=text[i++];
+        feed.scrollTop=feed.scrollHeight;
+        setTimeout(step,interval());
+      } else res();
+    })();
+  });
+}
+
+async function send(){
+  const q=ask.value.trim();
+  if(!q)return;
+  ask.value='';
+  addMsg('user',q,'此刻 · '+document.getElementById('tval').textContent);
+  celstial.classList.add('think');
+
+  const th=document.createElement('div');
+  th.className='think';th.textContent='时辰流转 · 思考随天光调整…';
+  feed.appendChild(th);feed.scrollTop=feed.scrollHeight;
+
+  const ms=1500+Math.random()*1500;
+  await new Promise(r=>setTimeout(r,ms));
+  th.remove();celstial.classList.remove('think');
+
+  const p=addMsg('ai','', 'CIRCADIAN · '+document.getElementById('tval').textContent);
+  await typeInto(p,REPLIES[ri++%REPLIES.length],()=>50+Math.random()*70);
+}
+
+ask.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+
+/* 开场白 */
+(async()=>{
+  await new Promise(r=>setTimeout(r,900));
+  const p=addMsg('ai','','CIRCADIAN · 苏醒');
+  await typeInto(p,'你看见的这个页面正活在它自己的昼夜里。问我任何事，或者，拖动底部的时间，看一整个世界换色。',()=>65);
+})();
+</script>
+</body>
+</html>

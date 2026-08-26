@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VELLUM · 羊皮卷 — 古籍缮写</title>
+<style>
+/* ============================================================
+   VELLUM 「羊皮卷」— 中世纪手抄本美学
+   羊皮纸做旧 · 藤蔓边框绘制入场 · 墨水逐字浮现 · 首字下沉
+   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --vellum: #e8dcc4;
+  --ink-brown: #4a3521;
+  --gold: #b8912e;
+  --gold-deep: #8a6d2f;
+  --red: #8c1c1c;
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: "Segoe Script", "Bradley Hand", "KaiTi", "楷体", "STKaiti", cursive;
+  background: var(--vellum);
+  color: var(--ink-brown);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* —— 污渍 —— */
+#stains {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 160px 110px at 12% 22%, rgba(120, 88, 45, .14), transparent 70%),
+    radial-gradient(ellipse 230px 150px at 88% 66%, rgba(110, 80, 40, .11), transparent 70%),
+    radial-gradient(ellipse 90px 70px  at 74% 12%, rgba(130, 95, 50, .10), transparent 70%),
+    radial-gradient(ellipse 140px 95px at 24% 84%, rgba(105, 78, 40, .12), transparent 70%),
+    radial-gradient(ellipse 70px 55px  at 55% 42%, rgba(125, 92, 48, .07), transparent 70%);
+}
+/* —— 暗角 —— */
+#vignette {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 1;
+  box-shadow: inset 0 0 190px rgba(88, 60, 24, .48),
+              inset 0 0 60px rgba(88, 60, 24, .22);
+}
+/* —— 藤蔓边框 —— */
+#borderSvg {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 2;
+}
+#borderSvg path, #borderSvg circle {
+  fill: none;
+  stroke: var(--gold-deep);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+#borderSvg .gold { stroke: var(--gold); }
+@keyframes drawVine { to { stroke-dashoffset: 0; } }
+
+/* —— 头部 —— */
+header {
+  flex-shrink: 0;
+  padding: 54px 80px 4px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 18px;
+  z-index: 3;
+  animation: fadeUp 1.4s 1.2s ease both;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+h1 {
+  font-size: 22px;
+  letter-spacing: .45em;
+  font-weight: 700;
+  color: #3d2a15;
+}
+.sub {
+  font-size: 12px;
+  letter-spacing: .3em;
+  color: rgba(74, 53, 33, .65);
+}
+#status {
+  position: fixed;
+  top: 56px; right: 84px;
+  font-size: 12px;
+  letter-spacing: .25em;
+  color: rgba(140, 28, 28, .8);
+  z-index: 3;
+  animation: fadeUp 1.4s 1.6s ease both;
+}
+
+/* —— 对话流（经文） —— */
+main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 90px 24px;
+  width: min(720px, 100%);
+  margin: 0 auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(74, 53, 33, .35) transparent;
+  z-index: 3;
+}
+
+/* 用户消息：委托便条 */
+.petition {
+  margin: 18px 0 18px 14%;
+  font-size: 17px;
+  line-height: 1.9;
+  color: #6b4a26;
+  padding-left: 16px;
+  border-left: 2px solid rgba(107, 74, 38, .45);
+  animation: fadeUp .7s ease both;
+}
+.petition::before {
+  content: '呈　';
+  color: rgba(140, 28, 28, .75);
+  font-size: 14px;
+}
+
+/* 回复：经文 */
+.scripture {
+  margin: 20px 0;
+  font-size: 19px;
+  line-height: 2.15;
+  text-align: justify;
+  min-height: 1em;
+}
+.inkchar {
+  display: inline;
+  animation: inkIn .55s ease-out both;
+}
+@keyframes inkIn {
+  0%   { opacity: 0;   filter: blur(2.5px); }
+  55%  { opacity: .75; filter: blur(.8px); }
+  100% { opacity: 1;   filter: blur(0); }
+}
+/* 首字华丽下沉：金底红字，占两行 */
+.dropcap {
+  float: left;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 74px;
+  height: 74px;
+  margin: 8px 16px 0 0;
+  font-size: 44px;
+  font-weight: 700;
+  font-family: Georgia, "Songti SC", "SimSun", serif;
+  background: linear-gradient(140deg, #e9cd6e, #b8912e 70%);
+  color: var(--red);
+  border: 2px solid var(--gold-deep);
+  outline: 1px solid var(--gold);
+  outline-offset: 3px;
+  box-shadow: inset 0 0 10px rgba(140, 28, 28, .35),
+              0 2px 6px rgba(90, 60, 20, .25);
+  animation: inkIn .9s ease both;
+}
+
+/* 分隔花饰 */
+.flourish {
+  display: block;
+  margin: 14px auto 4px;
+  width: 150px;
+  height: 24px;
+  opacity: 0;
+  animation: fadeUp 1s ease forwards;
+}
+.flourish path, .flourish circle {
+  fill: none;
+  stroke: var(--gold-deep);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+.flourish .fill { fill: var(--gold); stroke: var(--gold-deep); }
+
+/* —— 思考态：羽毛笔蘸墨 —— */
+.quill-scene {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 18px 0 8px;
+  animation: fadeUp .5s ease both;
+}
+.quill-scene svg { width: 240px; height: 130px; overflow: visible; }
+.quill {
+  transform-origin: 192px 10px;
+  opacity: 0;
+}
+body.thinking .quill { animation: dip 2.6s ease-in-out infinite; }
+@keyframes dip {
+  0%, 100% { transform: translate(20px, -6px)  rotate(3deg); opacity: 1; }
+  5%  { opacity: 1; }
+  30% { transform: translate(32px, -22px) rotate(0deg); }
+  45% { transform: translate(32px, -10px) rotate(2deg); }
+  58% { transform: translate(32px, -24px) rotate(0deg); }
+}
+.drip { opacity: 0; }
+body.thinking .drip { animation: dropInk 2.6s ease-in infinite; }
+@keyframes dropInk {
+  0%, 52% { opacity: 0; transform: translateY(0); }
+  58%     { opacity: 1; transform: translateY(0); }
+  86%     { opacity: 1; transform: translateY(20px); }
+  90%, 100% { opacity: 0; transform: translateY(20px); }
+}
+.quill-word {
+  font-size: 13px;
+  letter-spacing: .5em;
+  padding-left: .5em;
+  color: rgba(107, 74, 38, .8);
+  margin-top: 2px;
+}
+body.thinking .quill-word { animation: wordBreath 2.6s ease-in-out infinite; }
+@keyframes wordBreath {
+  0%, 100% { opacity: .55; }
+  50%      { opacity: 1; }
+}
+
+/* —— 输入：书记员台 —— */
+.desk {
+  flex-shrink: 0;
+  width: min(700px, calc(100% - 120px));
+  margin: 0 auto 40px;
+  background:
+    repeating-linear-gradient(97deg, rgba(0, 0, 0, .09) 0 2px, transparent 2px 18px),
+    linear-gradient(180deg, #6a4a28, #4a3016);
+  border-radius: 10px 10px 6px 6px;
+  padding: 13px 14px;
+  box-shadow: 0 10px 24px rgba(30, 15, 5, .45),
+              inset 0 2px 0 rgba(255, 220, 160, .28),
+              inset 0 -4px 8px rgba(0, 0, 0, .35);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  position: relative;
+  z-index: 3;
+  animation: fadeUp 1.4s 1.8s ease both;
+}
+#input {
+  flex: 1;
+  background: #ece0c8;
+  border: 1px solid rgba(107, 74, 38, .4);
+  border-radius: 3px;
+  padding: 11px 14px;
+  font-family: inherit;
+  font-size: 16px;
+  color: #4a3521;
+  outline: none;
+  box-shadow: inset 0 2px 5px rgba(120, 90, 50, .25);
+}
+#input::placeholder { color: rgba(74, 53, 33, .42); }
+#input:focus { border-color: var(--gold-deep); box-shadow: inset 0 2px 5px rgba(120, 90, 50, .25), 0 0 0 2px rgba(184, 145, 46, .25); }
+/* 火漆印按钮 */
+#send {
+  flex-shrink: 0;
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 34% 30%, rgba(255, 235, 210, .35), transparent 42%),
+    radial-gradient(circle at 50% 50%, #9a3030 0%, #7a1f1f 62%, #5e1414 100%);
+  color: #ecd9a8;
+  font-family: "Songti SC", "SimSun", serif;
+  font-size: 20px;
+  font-weight: 700;
+  box-shadow: 0 3px 8px rgba(30, 10, 5, .5),
+              inset 0 -3px 6px rgba(0, 0, 0, .4),
+              inset 0 2px 3px rgba(255, 200, 160, .25);
+  transition: transform .12s;
+}
+#send:hover { transform: scale(1.06); }
+#send:active { transform: scale(.96); }
+#send:disabled { opacity: .55; cursor: default; transform: none; }
+
+/* —— 自适应 —— */
+@media (max-width: 900px) {
+  header { padding: 44px 28px 4px; }
+  h1 { font-size: 17px; letter-spacing: .3em; }
+  #status { top: 46px; right: 30px; }
+  main { padding: 10px 34px 16px; }
+  .scripture { font-size: 17px; }
+  .dropcap { width: 60px; height: 60px; font-size: 36px; }
+  .desk { width: calc(100% - 48px); margin-bottom: 26px; }
+}
+</style>
+</head>
+<body>
+
+<div id="stains"></div>
+<div id="vignette"></div>
+<svg id="borderSvg" aria-hidden="true"></svg>
+
+<header>
+  <h1>羊 皮 卷</h1>
+  <span class="sub">VELLUM · 缮 写 室</span>
+</header>
+<span id="status">待诏</span>
+
+<main id="chat" aria-live="polite"></main>
+
+<footer class="desk">
+  <input id="input" type="text" placeholder="将要抄写的话呈给书记员……" autocomplete="off">
+  <button id="send" title="落笔">墨</button>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+  var NS = 'http://www.w3.org/2000/svg';
+  var chat = document.getElementById('chat');
+  var input = document.getElementById('input');
+  var sendBtn = document.getElementById('send');
+  var statusEl = document.getElementById('status');
+  var borderSvg = document.getElementById('borderSvg');
+
+  var REPLIES = [
+    '抄写经文四十年，学会的第一件事是慢。笔快一分，墨就浮一分；心急一寸，字就歪一寸。你问的事，值得用最慢的速度来答。',
+    '羊皮纸记得每一次迟疑——笔锋停留越久，洇开的团越大。所以抄写员落笔之前，必先默诵全句。你的这句话，我已默诵了三遍。',
+    '金色的墨留给最重要的句子，朱色留给警示，其余交给褐色。你带来的问题里有一句是金色的：「我究竟想要什么。」这一句，值得单独成行。',
+    '中世纪的抄写员常在页边画小人，吐槽漫长的白天。你也当如此：正式答案之外，容自己在页边留一点不正式。我的正式答案是可行，页边的答案是——但你将很累。',
+    '一卷抄完，抄写员会写下 Explicit，那不是「结束」，而是「展开」：卷轴摊开到了尽头。你所站的这一页，也到了摊开的时刻。往下读吧。'
+  ];
+
+  var replyIdx = 0;
+  var busy = false;
+
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function scrollChat() { chat.scrollTop = chat.scrollHeight; }
+
+  /* ================= 藤蔓边框（绘制入场） ================= */
+  function el(name, attrs, parent) {
+    var node = document.createElementNS(NS, name);
+    for (var k in attrs) node.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(node);
+    return node;
+  }
+
+  function buildBorder(w, h, animate) {
+    borderSvg.innerHTML = '';
+    borderSvg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    borderSvg.setAttribute('width', w);
+    borderSvg.setAttribute('height', h);
+    var M = 26; /* 边距 */
+    var paths = [];
+    var delay = 0;
+
+    /* 角花纹（左上角为基准，四角翻转） */
+    var cornerD = [
+      'M 0,72 C 0,24 24,0 72,0',
+      'M 0,112 C 0,42 42,0 112,0',
+      'M 0,46 C 7,27 27,7 46,0 C 55,-3 60,3 54,8 C 49,12 44,8 47,3',
+      'M 14,40 C 20,30 32,27 39,31 C 33,40 21,43 14,40 Z'
+    ];
+    var transforms = [
+      'translate(' + M + ',' + M + ')',
+      'translate(' + (w - M) + ',' + M + ') scale(-1,1)',
+      'translate(' + (w - M) + ',' + (h - M) + ') scale(-1,-1)',
+      'translate(' + M + ',' + (h - M) + ') scale(1,-1)'
+    ];
+    transforms.forEach(function (tr) {
+      var g = el('g', { transform: tr }, borderSvg);
+      cornerD.forEach(function (d, i) {
+        var p = el('path', { d: d, 'class': i === 1 ? 'gold' : '' }, g);
+        paths.push({ node: p, delay: delay });
+        delay += 0.12;
+      });
+      var bud = el('circle', { cx: 27, cy: 27, r: 4 }, g);
+      paths.push({ node: bud, delay: delay });
+      delay += 0.12;
+    });
+
+    /* 边线（双线） */
+    var lines = [
+      'M ' + (M + 128) + ',' + (M + 2) + ' H ' + (w - M - 128),
+      'M ' + (M + 128) + ',' + (M + 12) + ' H ' + (w - M - 128),
+      'M ' + (M + 2) + ',' + (M + 128) + ' V ' + (h - M - 128),
+      'M ' + (M + 12) + ',' + (M + 128) + ' V ' + (h - M - 128),
+      'M ' + (w - M - 2) + ',' + (M + 128) + ' V ' + (h - M - 128),
+      'M ' + (w - M - 12) + ',' + (M + 128) + ' V ' + (h - M - 128),
+      'M ' + (M + 128) + ',' + (h - M - 2) + ' H ' + (w - M - 128),
+      'M ' + (M + 128) + ',' + (h - M - 12) + ' H ' + (w - M - 128)
+    ];
+    lines.forEach(function (d) {
+      var p = el('path', { d: d }, borderSvg);
+      paths.push({ node: p, delay: delay });
+      delay += 0.07;
+    });
+
+    /* 边中点花饰 */
+    var midX = w / 2, midY = h / 2;
+    var mids = [
+      'M ' + (midX - 16) + ',' + M + ' L ' + midX + ',' + (M - 8) + ' L ' + (midX + 16) + ',' + M + ' L ' + midX + ',' + (M + 8) + ' Z',
+      'M ' + (midX - 16) + ',' + (h - M) + ' L ' + midX + ',' + (h - M - 8) + ' L ' + (midX + 16) + ',' + (h - M) + ' L ' + midX + ',' + (h - M + 8) + ' Z',
+      'M ' + M + ',' + (midY - 16) + ' L ' + (M + 8) + ',' + midY + ' L ' + M + ',' + (midY + 16) + ' L ' + (M - 8) + ',' + midY + ' Z',
+      'M ' + (w - M) + ',' + (midY - 16) + ' L ' + (w - M - 8) + ',' + midY + ' L ' + (w - M) + ',' + (midY + 16) + ' L ' + (w - M + 8) + ',' + midY + ' Z'
+    ];
+    mids.forEach(function (d) {
+      var p = el('path', { d: d, 'class': 'gold' }, borderSvg);
+      paths.push({ node: p, delay: delay });
+      delay += 0.1;
+    });
+
+    /* 绘制入场 */
+    paths.forEach(function (item) {
+      var node = item.node;
+      try {
+        var len = node.getTotalLength ? node.getTotalLength() : 300;
+      } catch (e) { var len = 300; }
+      if (!len || !isFinite(len)) len = 300;
+      if (animate) {
+        node.style.strokeDasharray = len;
+        node.style.strokeDashoffset = len;
+        node.style.animation = 'drawVine 1.9s ' + item.delay.toFixed(2) + 's ease-out forwards';
+      }
+    });
+  }
+
+  var resizeTimer = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      buildBorder(window.innerWidth, window.innerHeight, false);
+    }, 250);
+  });
+  buildBorder(window.innerWidth, window.innerHeight, true);
+
+  /* ================= 对话 ================= */
+  function inkColor() {
+    return 'hsl(' + (22 + Math.random() * 12).toFixed(0) + ' ' +
+      (26 + Math.random() * 12).toFixed(0) + '% ' +
+      (20 + Math.random() * 10).toFixed(0) + '%)';
+  }
+
+  function addPetition(text) {
+    var p = document.createElement('div');
+    p.className = 'petition';
+    p.textContent = text;
+    chat.appendChild(p);
+    scrollChat();
+  }
+
+  /* 分隔花饰 */
+  function addFlourish(parent) {
+    var svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'flourish');
+    svg.setAttribute('viewBox', '0 0 150 24');
+    svg.innerHTML =
+      '<path d="M 8,12 C 26,4 36,20 54,12"/>' +
+      '<path d="M 142,12 C 124,4 114,20 96,12"/>' +
+      '<path class="fill" d="M 75,5 L 82,12 L 75,19 L 68,12 Z"/>' +
+      '<circle cx="54" cy="12" r="1.8"/>' +
+      '<circle cx="96" cy="12" r="1.8"/>';
+    parent.appendChild(svg);
+  }
+
+  /* 经文逐字墨水浮现；首字华丽下沉 */
+  function mountScripture(text) {
+    var sc = document.createElement('div');
+    sc.className = 'scripture';
+    chat.appendChild(sc);
+
+    var chars = Array.from(text);
+    chars.forEach(function (ch, i) {
+      if (i === 0) {
+        var cap = document.createElement('span');
+        cap.className = 'dropcap';
+        cap.textContent = ch;
+        sc.appendChild(cap);
+      } else {
+        var s = document.createElement('span');
+        s.className = 'inkchar';
+        s.textContent = ch;
+        s.style.color = inkColor();
+        s.style.animationDelay = (i * 0.06).toFixed(2) + 's';
+        sc.appendChild(s);
+      }
+    });
+    addFlourish(sc);
+    scrollChat();
+
+    var total = chars.length * 60 + 900;
+    var iv = setInterval(scrollChat, 300);
+    setTimeout(function () { clearInterval(iv); }, total);
+    return total;
+  }
+
+  /* 思考态：羽毛笔蘸墨场景 */
+  function mountQuillScene() {
+    var scene = document.createElement('div');
+    scene.className = 'quill-scene';
+    scene.innerHTML =
+      '<svg viewBox="0 0 240 130" aria-hidden="true">' +
+        '<defs><linearGradient id="featherG" x1="0" y1="0" x2="1" y2="1">' +
+          '<stop offset="0" stop-color="#f4ead2"/><stop offset="1" stop-color="#c9b98e"/>' +
+        '</linearGradient></defs>' +
+        '<g transform="translate(150,62)">' +
+          '<path d="M-20,4 Q-22,26 -14,34 L14,34 Q22,26 20,4 Z" fill="#3d2a14" stroke="#241806" stroke-width="1.5"/>' +
+          '<rect x="-24" y="-6" width="48" height="11" rx="3" fill="#2e1f0c" stroke="#1c1204"/>' +
+          '<ellipse cx="0" cy="-6" rx="11" ry="3.5" fill="#14100a"/>' +
+          '<ellipse cx="0" cy="-6.5" rx="11" ry="3.5" fill="none" stroke="#8a6d2f" stroke-width="1" opacity=".6"/>' +
+          '<path d="M-13,8 Q-15,22 -9,30" stroke="rgba(255,230,170,.3)" stroke-width="3" fill="none" stroke-linecap="round"/>' +
+        '</g>' +
+        '<g class="quill">' +
+          '<path d="M118,76 C138,56 162,32 192,10" stroke="#8a6d2f" stroke-width="3.2" fill="none" stroke-linecap="round"/>' +
+          '<path d="M132,64 C168,54 186,32 196,8 C188,44 162,66 128,72 Z" fill="url(#featherG)" stroke="#a89468" stroke-width="1"/>' +
+          '<path d="M142,58 C158,48 168,38 176,28 M152,52 C164,44 172,36 180,28 M162,46 C172,38 178,32 186,24" stroke="#a89468" stroke-width=".8" fill="none"/>' +
+          '<path d="M118,76 L111,86 L121,81 Z" fill="#4a3521"/>' +
+        '</g>' +
+        '<ellipse class="drip" cx="150" cy="64" rx="2.6" ry="3.6" fill="#1c1409"/>' +
+      '</svg>' +
+      '<div class="quill-word">蘸墨凝思</div>';
+    chat.appendChild(scene);
+    scrollChat();
+    return scene;
+  }
+
+  async function respond() {
+    busy = true;
+    sendBtn.disabled = true;
+    statusEl.textContent = '蘸墨凝思';
+    document.body.classList.add('thinking');
+    var scene = mountQuillScene();
+    await wait(2100 + Math.random() * 900);
+    document.body.classList.remove('thinking');
+    scene.remove();
+    statusEl.textContent = '缮写中';
+
+    var text = REPLIES[replyIdx % REPLIES.length];
+    replyIdx++;
+    var total = mountScripture(text);
+    await wait(total);
+    statusEl.textContent = '待诏';
+    busy = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+
+  function submit() {
+    var text = input.value.trim();
+    if (!text || busy) return;
+    input.value = '';
+    addPetition(text);
+    respond();
+  }
+
+  sendBtn.addEventListener('click', submit);
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') submit();
+  });
+
+  /* —— 开卷迎辞 —— */
+  setTimeout(function () {
+    statusEl.textContent = '缮写中';
+    var total = mountScripture('愿此卷平安。我是 VELLUM，缮写室里最慢的那支笔。把要说的话交给我——我会以金饰其首，以墨成其身，一字一字，把它抄进这卷羊皮里。');
+    setTimeout(function () {
+      if (!busy) statusEl.textContent = '待诏';
+    }, total);
+  }, 2400);
+})();
+</script>
+</body>
+</html>

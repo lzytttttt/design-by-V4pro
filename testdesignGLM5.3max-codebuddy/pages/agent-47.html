@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FRACTAL · 分形之境 — 递归思考 AI</title>
+<style>
+  :root{
+    --bg:#0d0d14;
+    --violet:#8f7bff; --violet-dim:#5b5bd6;
+    --ink:#c3c9ee; --ink-bright:#e8ecff;
+    --line:rgba(143,123,255,.35);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family: Georgia,"Times New Roman","Songti SC","STSong","SimSun",serif;
+    background:var(--bg); color:var(--ink); overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  #fracCanvas{position:fixed; inset:0; width:100%; height:100%; z-index:0}
+  #vignette{position:fixed; inset:0; z-index:1; pointer-events:none;
+    background: radial-gradient(ellipse at 50% 42%, rgba(13,13,20,0) 30%, rgba(13,13,20,.55) 78%, rgba(13,13,20,.88) 100%)}
+
+  /* ---------- 顶部 ---------- */
+  header{position:relative; z-index:5; flex:none; display:flex; justify-content:space-between; align-items:flex-start;
+    padding:26px 36px 0}
+  #brand h1{font-size:24px; letter-spacing:.34em; color:var(--ink-bright); font-weight:600}
+  #brand h1 span{font-size:14px; letter-spacing:.5em; color:#8a90c4; margin-left:10px}
+  #brand p{font-size:11px; letter-spacing:.3em; color:#6c719e; margin-top:6px}
+  #formula{font-style:italic; font-size:17px; color:rgba(180,170,255,.6); letter-spacing:.08em; text-align:right}
+  #formula small{display:block; font-style:normal; font-size:10px; letter-spacing:.3em; color:#565b85; margin-top:5px}
+
+  /* ---------- 角落计数器 ---------- */
+  #meter{position:fixed; left:22px; bottom:20px; z-index:8; font-family:Consolas,"Courier New",monospace;
+    font-size:11px; color:#8d92c6; border:1px solid rgba(143,123,255,.25); padding:8px 14px;
+    background:rgba(13,13,20,.6); display:flex; flex-direction:column; gap:4px; letter-spacing:.08em}
+  #meter b{color:var(--violet); font-weight:400}
+  #meter .blink{animation: mBlink 1.4s steps(1) infinite}
+  @keyframes mBlink{50%{opacity:.25}}
+
+  /* ---------- 对话区 ---------- */
+  #chatScroll{position:relative; z-index:4; flex:1; overflow-y:auto; padding:36px 24px 24px}
+  #chatScroll::-webkit-scrollbar{width:8px}
+  #chatScroll::-webkit-scrollbar-thumb{background:rgba(143,123,255,.22); border-radius:4px}
+  #chat{max-width:740px; margin:0 auto; display:flex; flex-direction:column; gap:20px}
+
+  .zoomIn{animation: zoomIn .65s cubic-bezier(.2,.7,.25,1) both}
+  @keyframes zoomIn{from{transform:scale(1.08); opacity:0} to{transform:scale(1); opacity:1}}
+
+  .msg{max-width:600px; border-radius:12px; padding:16px 20px; font-size:14.5px; line-height:1.9}
+  .msg.user{align-self:flex-end; background:rgba(60,58,110,.45); border:1px solid rgba(160,150,255,.35);
+    color:var(--ink-bright); backdrop-filter:blur(3px)}
+  .msg.agent{align-self:flex-start; background:rgba(15,15,26,.76); border:1px solid rgba(120,110,220,.25);
+    box-shadow:0 14px 40px rgba(0,0,8,.5); backdrop-filter:blur(4px)}
+  .who{display:flex; align-items:center; gap:8px; font-size:10.5px; letter-spacing:.34em; color:#7b80b4; margin-bottom:9px}
+  .who .dot{width:7px;height:7px; background:var(--violet); box-shadow:0 0 10px var(--violet);
+    animation: dotPulse 3s ease-in-out infinite alternate}
+  @keyframes dotPulse{from{opacity:.45; transform:scale(.85)} to{opacity:1; transform:scale(1.1)}}
+
+  .caret{display:inline-block; color:#a99bff; animation: cBlink .8s steps(1) infinite}
+  @keyframes cBlink{50%{opacity:0}}
+  .text br{display:block; content:""; margin-top:10px}
+
+  /* ---------- 深入节点（递归交互） ---------- */
+  .deepBtns{display:flex; flex-wrap:wrap; gap:10px; margin-top:14px}
+  .deepBtn{font:inherit; font-size:12.5px; letter-spacing:.06em; cursor:pointer;
+    color:#b7aaff; background:rgba(90,80,190,.14); border:1px solid rgba(143,123,255,.4);
+    border-radius:999px; padding:7px 16px; transition: all .25s}
+  .deepBtn:hover{background:rgba(110,95,230,.3); color:#fff; box-shadow:0 0 18px rgba(143,123,255,.35); transform:translateY(-1px)}
+  .deepBtn.open{color:#d6ceff; border-style:dashed}
+
+  .deepLevel{margin-top:12px; margin-left:4px; padding-left:20px; position:relative;
+    border-left:1px solid var(--line)}
+  .deepLevel::before{content:""; position:absolute; left:0; top:-6px; width:14px; height:1px;
+    background:var(--line)}
+  .deepLevel .deepText{font-size:13.5px; line-height:1.9; color:#aeb6ea}
+  .deepLevel.lv2 .deepText{color:#d0d6ff}
+  .deepLevel.lv3 .deepText{color:#eef0ff}
+  .deepLevel.lv2{border-left-color:rgba(180,160,255,.5)}
+  .deepLevel.lv3{border-left-color:rgba(220,210,255,.65)}
+
+  /* ---------- 思考态 ---------- */
+  .thinkingMsg{align-self:flex-start; display:flex; align-items:center; gap:14px;
+    padding:13px 20px; border-radius:12px; background:rgba(20,18,36,.7);
+    border:1px dashed rgba(143,123,255,.45); font-size:13px; letter-spacing:.2em; color:#a8aede}
+  .recurseIcon{position:relative; width:26px; height:26px; flex:none}
+  .recurseIcon i{position:absolute; inset:0; border:1px solid var(--violet); border-radius:4px;
+    animation: recSpin 1.6s linear infinite}
+  .recurseIcon i:nth-child(2){inset:6px; animation-duration:1.1s}
+  .recurseIcon i:nth-child(3){inset:12px; animation-duration:.7s}
+  @keyframes recSpin{from{transform:rotate(0) scale(1); opacity:.9} to{transform:rotate(90deg) scale(.72); opacity:.3}}
+
+  /* ---------- 输入区 ---------- */
+  #dock{position:relative; z-index:6; flex:none; padding: 8px 24px 26px}
+  #chips{max-width:740px; margin:0 auto 10px; display:flex; gap:10px; flex-wrap:wrap}
+  .chip{font:inherit; font-size:12px; letter-spacing:.1em; color:#a3a8d8; cursor:pointer;
+    background:rgba(20,20,34,.6); border:1px solid rgba(143,123,255,.28); border-radius:999px;
+    padding:6px 15px; transition:all .25s}
+  .chip:hover{color:#fff; border-color:rgba(180,160,255,.7); transform:translateY(-2px)}
+
+  #inputShell{max-width:740px; margin:0 auto; position:relative;
+    background:rgba(14,14,24,.88); border:1px solid rgba(143,123,255,.35); border-radius:6px;
+    display:flex; align-items:center; gap:6px; padding:10px 16px;
+    box-shadow:0 16px 50px rgba(0,0,10,.6), 0 0 30px rgba(90,80,200,.12)}
+  .sierp{display:flex; gap:7px; align-items:center; flex:none; opacity:.85}
+  #ask{flex:1; background:transparent; border:none; outline:none; color:#eef0ff;
+    font:inherit; font-size:15px; letter-spacing:.04em; padding:6px 4px}
+  #ask::placeholder{color:#5b5f8c; letter-spacing:.12em}
+  #sendBtn{flex:none; font:inherit; cursor:pointer; letter-spacing:.3em; text-indent:.3em;
+    font-size:13px; color:#0d0d14; background:linear-gradient(135deg,#a99bff,#7b68e8);
+    border:none; border-radius:4px; padding:11px 24px; transition:all .2s;
+    box-shadow:0 4px 16px rgba(123,104,232,.4)}
+  #sendBtn:hover{filter:brightness(1.15); box-shadow:0 6px 22px rgba(123,104,232,.6)}
+  #sendBtn:active{transform:scale(.95)}
+  #inputShell.shake{animation: shk .4s}
+  @keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+  #toast{position:fixed; left:50%; bottom:118px; transform:translateX(-50%); z-index:40;
+    font-size:12.5px; letter-spacing:.24em; color:#b7aaff; background:rgba(18,16,32,.92);
+    border:1px solid rgba(143,123,255,.4); border-radius:999px; padding:8px 22px;
+    opacity:0; pointer-events:none; transition:opacity .4s}
+  #toast.show{opacity:1}
+
+  @media (max-width:760px){
+    header{padding:18px 18px 0}
+    #formula{display:none}
+    .msg{max-width:100%}
+    .sierp:last-of-type{display:none}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="fracCanvas"></canvas>
+<div id="vignette"></div>
+
+<header>
+  <div id="brand">
+    <h1>FRACTAL<span>分形之境</span></h1>
+    <p>RECURSIVE THINKING · 递归思考引擎</p>
+  </div>
+  <div id="formula">
+    ƒ(z) = z² + c
+    <small>JULIA SET · c = −0.7269 + 0.1889i</small>
+  </div>
+</header>
+
+<main id="chatScroll">
+  <div id="chat"></div>
+</main>
+
+<div id="dock">
+  <div id="chips">
+    <button class="chip" data-q="如何做出重大决策？">如何做出重大决策？</button>
+    <button class="chip" data-q="怎么拆解一个很大的目标？">怎么拆解一个很大的目标？</button>
+    <button class="chip" data-q="学习总是坚持不下去怎么办？">学习总是坚持不下去怎么办？</button>
+  </div>
+  <div id="inputShell">
+    <span class="sierp" aria-hidden="true">
+      <svg width="22" height="20" viewBox="0 0 30 28"><g fill="#8f7bff"><polygon points="15,1 1,27 29,27"/><polygon points="15,10 8,23 22,23" fill="#0d0d14"/><polygon points="8,10 1,23 15,23" fill="#5b5bd6"/><polygon points="22,10 15,23 29,23" fill="#5b5bd6"/></g></svg>
+      <svg width="22" height="20" viewBox="0 0 30 28"><g fill="#6a63c9"><polygon points="15,1 1,27 29,27"/><polygon points="15,10 8,23 22,23" fill="#0d0d14"/><polygon points="8,10 1,23 15,23" fill="#4a45a0"/><polygon points="22,10 15,23 29,23" fill="#4a45a0"/></g></svg>
+    </span>
+    <input id="ask" type="text" placeholder="提出一个问题，我将逐层递归展开它…" autocomplete="off" maxlength="120">
+    <span class="sierp" aria-hidden="true">
+      <svg width="22" height="20" viewBox="0 0 30 28"><g fill="#4a45a0"><polygon points="15,1 1,27 29,27"/><polygon points="15,10 8,23 22,23" fill="#0d0d14"/><polygon points="8,10 1,23 15,23" fill="#6a63c9"/><polygon points="22,10 15,23 29,23" fill="#6a63c9"/></g></svg>
+      <svg width="22" height="20" viewBox="0 0 30 28"><g fill="#5b5bd6"><polygon points="15,1 1,27 29,27"/><polygon points="15,10 8,23 22,23" fill="#0d0d14"/><polygon points="8,10 1,23 15,23" fill="#8f7bff"/><polygon points="22,10 15,23 29,23" fill="#8f7bff"/></g></svg>
+    </span>
+    <button id="sendBtn">迭代</button>
+  </div>
+</div>
+
+<div id="meter">
+  <span>迭代深度 <b>96</b></span>
+  <span>缩放 <b id="zoomVal">×1.00</b> <span class="blink">▊</span></span>
+</div>
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ================= 朱利亚集背景 ================= */
+  var OFF_W = 680, OFF_H = 440, MAX_ITER = 96;
+  var off = document.createElement('canvas');
+  off.width = OFF_W; off.height = OFF_H;
+  var octx = off.getContext('2d');
+
+  var palette = (function(){
+    var stops = [
+      [0.00, 10, 10, 22],
+      [0.22, 36, 34, 92],
+      [0.45, 91, 88, 214],
+      [0.68, 155, 123, 255],
+      [0.86, 214, 196, 255],
+      [0.96, 245, 240, 255],
+      [1.00, 255, 255, 255]
+    ];
+    var pal = new Array(512);
+    for(var i=0;i<512;i++){
+      var t = i/511, k=0;
+      while(k<stops.length-2 && t>stops[k+1][0]) k++;
+      var a=stops[k], b=stops[k+1];
+      var f=(t-a[0])/(b[0]-a[0]||1);
+      pal[i]=[ a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f, a[3]+(b[3]-a[3])*f ];
+    }
+    return pal;
+  })();
+
+  (function renderJulia(){
+    var img = octx.createImageData(OFF_W, OFF_H);
+    var d = img.data;
+    var cRe = -0.7269, cIm = 0.1889;
+    var scaleRe = 3.2, scaleIm = scaleRe * OFF_H / OFF_W;
+    for(var y=0;y<OFF_H;y++){
+      var zy0 = (y/OFF_H - 0.5) * scaleIm;
+      for(var x=0;x<OFF_W;x++){
+        var zx = (x/OFF_W - 0.5) * scaleRe;
+        var zy = zy0;
+        var i = 0, zx2 = zx*zx, zy2 = zy*zy;
+        while(i < MAX_ITER && zx2+zy2 < 16){
+          zy = 2*zx*zy + cIm;
+          zx = zx2 - zy2 + cRe;
+          zx2 = zx*zx; zy2 = zy*zy;
+          i++;
+        }
+        var p = (y*OFF_W + x)*4;
+        if(i >= MAX_ITER){
+          d[p]=8; d[p+1]=8; d[p+2]=16; d[p+3]=255;
+        } else {
+          var mu = i + 1 - Math.log(Math.log(zx2+zy2))/Math.LN2;
+          var t = Math.max(0, Math.min(1, mu/MAX_ITER));
+          var c = palette[Math.floor(t*511)];
+          d[p]=c[0]; d[p+1]=c[1]; d[p+2]=c[2]; d[p+3]=255;
+        }
+      }
+    }
+    octx.putImageData(img, 0, 0);
+  })();
+
+  var cv = document.getElementById('fracCanvas');
+  var vctx = cv.getContext('2d');
+  var zoomVal = document.getElementById('zoomVal');
+  var THINKING = false, boost = 1;
+
+  function fit(){
+    cv.width = window.innerWidth; cv.height = window.innerHeight;
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  var scale = 1, dir = 1, frameCount = 0;
+  function frame(){
+    boost += ((THINKING ? 6.5 : 1) - boost) * 0.04;
+    scale += dir * 0.0011 * boost;
+    if(scale > 1.6){ dir = -1; }
+    if(scale < 1.0){ dir = 1; scale = 1.0; }
+    var vw = cv.width, vh = cv.height;
+    var base = Math.max(vw/OFF_W, vh/OFF_H) * 1.08;
+    var dw = OFF_W * base * scale, dh = OFF_H * base * scale;
+    vctx.fillStyle = '#0d0d14';
+    vctx.fillRect(0,0,vw,vh);
+    vctx.imageSmoothingEnabled = true;
+    vctx.drawImage(off, (vw-dw)/2, (vh-dh)/2, dw, dh);
+    if(++frameCount % 12 === 0){
+      zoomVal.textContent = '×' + scale.toFixed(2);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  /* ================= 对话数据 ================= */
+  var REPLIES = [
+    {
+      main:"决策的本质是一棵分形树：你此刻的选择，会成为下一层所有分支的根。不必看清整棵树——那是不可能的，树的深度是无限的。\n你只需要看清下一层分叉，然后让时间替你展开其余的部分。",
+      deeps:[
+        { label:"⊕ 深入：如何修剪分支",
+          text:"修剪的诀窍是问一个问题：这个分支展开之后，是否与我已经确认过的更高层结构自相似？如果是，它大概率通向已知的风景；如果否，它可能藏着一整片新大陆。",
+          deeps:[{ label:"⊕ 再深入：已知与新奇的配比", text:"健康的策略是让两者按比例混合：八成的自相似维持秩序，两成的异质制造惊喜。有趣的是，这个配比在人生的每个尺度上都在复现自己。"}] },
+        { label:"⊕ 深入：为何无法看清整棵树",
+          text:"因为每一次观察都会改变树的结构——你选定一条路的瞬间，其余分叉就坍缩成了虚线。这正是复平面教给我们的事：轨道对初值极端敏感。"}
+      ]
+    },
+    {
+      main:"任何大问题里都嵌套着与它形状相同的小问题——这是递归的礼物。把「写一本书」递归降阶：写一章 → 写一节 → 写一段 → 写一句。\n递归必须有终止条件，否则就是死循环。你的终止条件应该是：小到今天就能完成的事。",
+      deeps:[
+        { label:"⊕ 深入：终止条件为何重要",
+          text:"没有终止条件的递归会耗尽栈空间——在人类那里，这个词叫「倦怠」。每当你感觉在原地打转，先检查的应该是终止条件，而不是加倍努力。"},
+        { label:"⊕ 深入：分解的黄金粒度",
+          text:"粒度以「心流的一个完整波」为准：太细则失去意义感，太粗则无法启动。对我来说，通常是 60–120 分钟的一块。",
+          deeps:[{ label:"⊕ 再深入：粒度的时间分形", text:"一天、一周、一年，其实都是放大了的 90 分钟。节奏在所有尺度上重复自己——这就是时间的自相似。"}] }
+      ]
+    },
+    {
+      main:"学习不是加载，而是迭代。你每次重读、重做、重新理解，都是在用新的自己重新计算 z → z² + c。\n第一遍粗糙的轮廓并不可耻——它是后续所有精化的基底。没有第一遍的模糊，就没有第五遍的锋利。",
+      deeps:[
+        { label:"⊕ 深入：为什么重复不无聊",
+          text:"因为每轮迭代的输入都包含上一轮的输出。你不是在原地画圈，而是在螺旋上升——回头看时轨迹几乎重合，高度却完全不同。"},
+        { label:"⊕ 深入：遗忘的位置",
+          text:"遗忘不是迭代的失败，而是收敛的副产物：轨道抛弃了逃逸的细节，只保留吸引子的骨架。忘掉的那部分，其实从未参与你的结构。",
+          deeps:[{ label:"⊕ 再深入：复习的时机", text:"在即将遗忘的边缘复习，等于给轨道一次最强的修正——间隔重复算法的全部秘密，不过是在最脆弱的时刻出手。"}] }
+      ]
+    },
+    {
+      main:"创造力问题常常是「困在局部最优」的问题：你的思路在某个盆地里收敛得太好，以至于忘了盆地的边界。\n逃逸的经典做法是给 z 加一个扰动——换个领域、换种介质、找个完全不懂这件事的人聊聊。轨道一旦逃出旧盆地，就会进入全新的着色区域。",
+      deeps:[
+        { label:"⊕ 深入：什么是好的扰动",
+          text:"好的扰动足够大以离开盆地，又足够小以保留有用的记忆。经验法则：扰动你方法的 20%，保留你问题的 80%。",
+          deeps:[{ label:"⊕ 再深入：为何恰好是 20%", text:"再小会被旧吸引子拉回，再大会丢失问题的连续性。20% 落在相变的边缘——混沌理论里最富生产力的地方。"}] },
+        { label:"⊕ 深入：收敛与发散的节奏",
+          text:"创造有两拍：发散时像集合的外部，让轨道自由逃逸；收敛时像集合的内部，让轨道稳定循环。大师与常人的区别，只是切换的时机。"}
+      ]
+    },
+    {
+      main:"你的一天，是你一生的缩略图——自相似，但带有微小的偏移。改变一生的最低阻力点，是改变某个以天为周期的小模式。\n它会在更大的尺度上被复现：习惯的形状，会沿着时间轴向上分形生长。",
+      deeps:[
+        { label:"⊕ 深入：为什么小模式会放大",
+          text:"因为反馈回路的增益大于一。每天 1% 的偏移在复利之下，一年就是 37 倍——迭代函数最擅长的事，就是指数。"},
+        { label:"⊕ 深入：如何选择那个模式",
+          text:"扫描你的一天，找到「结构上最上游」的动作：它通常出现在清晨，牵动其后所有轨道的初值。改它，等于改写了整棵递归树的根节点。"}
+      ]
+    }
+  ];
+  var WELCOME = {
+    main:"你好，我是 FRACTAL。我相信每一个问题都包含着它自身更深的版本——我的工作，就是陪你一层层展开它。\n向我提出任何问题；也可以在回复出现后，点击「⊕ 深入」节点，看看思想如何在递归中变得锋利。",
+    deeps:[
+      { label:"⊕ 深入：什么是递归思考", text:"把一个问题不断代入它自己：答案里藏着更小的问题，更小的答案里又藏着更更小的问题——直到触底的那一层，返回开始逐层展开。"}
+    ]
+  };
+
+  /* ================= DOM 与交互 ================= */
+  var chat = document.getElementById('chat');
+  var chatScroll = document.getElementById('chatScroll');
+  var ask = document.getElementById('ask');
+  var sendBtn = document.getElementById('sendBtn');
+  var inputShell = document.getElementById('inputShell');
+  var toast = document.getElementById('toast');
+  var busy = false, replyIdx = Math.floor(Math.random()*REPLIES.length), rounds = 0;
+
+  function scrollBottom(){ chatScroll.scrollTop = chatScroll.scrollHeight; }
+
+  function makeShell(role, who){
+    var el = document.createElement('div');
+    el.className = 'msg '+role+' zoomIn';
+    var whoEl = document.createElement('div');
+    whoEl.className='who';
+    whoEl.innerHTML = '<span class="dot"></span><span>'+who+'</span>';
+    var text = document.createElement('div');
+    text.className='text';
+    el.appendChild(whoEl); el.appendChild(text);
+    chat.appendChild(el);
+    scrollBottom();
+    return {el:el, text:text};
+  }
+
+  function addUser(t){
+    var m = makeShell('user','你 · 求解者');
+    m.text.textContent = t;
+  }
+
+  function buildDeep(container, nodes, level){
+    var btns = document.createElement('div');
+    btns.className = 'deepBtns';
+    nodes.forEach(function(node){
+      var btn = document.createElement('button');
+      btn.className = 'deepBtn';
+      btn.textContent = node.label;
+      var panel = null;
+      btn.addEventListener('click', function(){
+        if(panel){
+          var open = !panel.hidden;
+          panel.hidden = open;
+          btn.classList.toggle('open', !open);
+          if(!open){ panel.classList.remove('zoomIn'); void panel.offsetWidth; panel.classList.add('zoomIn'); }
+          return;
+        }
+        panel = document.createElement('div');
+        panel.className = 'deepLevel lv'+level;
+        var dt = document.createElement('div');
+        dt.className = 'deepText zoomIn';
+        dt.textContent = node.text;
+        panel.appendChild(dt);
+        if(node.deeps && node.deeps.length){
+          buildDeep(panel, node.deeps, level+1);
+        }
+        container.appendChild(panel);
+        btn.classList.add('open');
+        scrollBottom();
+      });
+      btns.appendChild(btn);
+    });
+    container.appendChild(btns);
+  }
+
+  function streamAgent(replyObj, done){
+    var m = makeShell('agent','FRACTAL · 递归回执');
+    var caret = document.createElement('span');
+    caret.className='caret'; caret.textContent='▍';
+    m.text.appendChild(caret);
+    var text = replyObj.main, i=0;
+    var timer = setInterval(function(){
+      if(i>=text.length){
+        clearInterval(timer);
+        caret.remove();
+        if(replyObj.deeps && replyObj.deeps.length){
+          setTimeout(function(){
+            buildDeep(m.el, replyObj.deeps, 1);
+            scrollBottom();
+            if(done) done();
+          }, 300);
+        } else if(done) done();
+        return;
+      }
+      var ch = text[i++];
+      if(ch==='\n') m.text.insertBefore(document.createElement('br'), caret);
+      else m.text.insertBefore(document.createTextNode(ch), caret);
+      scrollBottom();
+    }, 40);
+  }
+
+  function thinkThenReply(){
+    busy = true;
+    THINKING = true;
+    var holder = document.createElement('div');
+    holder.className = 'thinkingMsg zoomIn';
+    holder.innerHTML = '<span class="recurseIcon"><i></i><i></i><i></i></span><span id="recTxt">递归深入中… 第 1 层</span>';
+    chat.appendChild(holder);
+    scrollBottom();
+    var layer = 1;
+    var layerTimer = setInterval(function(){
+      layer++;
+      var t = document.getElementById('recTxt');
+      if(t) t.textContent = '递归深入中… 第 '+layer+' 层';
+    }, 700);
+    var wait = 1700 + Math.random()*1100;
+    setTimeout(function(){
+      clearInterval(layerTimer);
+      holder.remove();
+      THINKING = false;
+      streamAgent(REPLIES[replyIdx % REPLIES.length], function(){
+        busy = false; ask.focus();
+      });
+      replyIdx++; rounds++;
+    }, wait);
+  }
+
+  var toastTimer = null;
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toast.classList.remove('show'); }, 2200);
+  }
+
+  function send(raw){
+    var t = (raw||'').trim();
+    if(!t) return;
+    if(busy){
+      inputShell.classList.remove('shake');
+      void inputShell.offsetWidth;
+      inputShell.classList.add('shake');
+      showToast('递归尚未返回，请等待这一层展开完毕');
+      return;
+    }
+    addUser(t);
+    ask.value='';
+    thinkThenReply();
+  }
+
+  sendBtn.addEventListener('click', function(){ send(ask.value); });
+  ask.addEventListener('keydown', function(e){ if(e.key==='Enter') send(ask.value); });
+  Array.prototype.forEach.call(document.querySelectorAll('.chip'), function(c){
+    c.addEventListener('click', function(){ send(c.getAttribute('data-q')); });
+  });
+
+  setTimeout(function(){ streamAgent(WELCOME, null); }, 600);
+})();
+</script>
+</body>
+</html>

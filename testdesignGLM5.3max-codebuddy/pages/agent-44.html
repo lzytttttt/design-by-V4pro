@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAPER TRAIL · 纸痕</title>
+<style>
+/* ============ PAPER TRAIL · 纸痕 ============ */
+:root{
+  --desk:#d6d3d1;
+  --ink:#3d3a34;
+  --pen:#2b3a67;
+  --shadow:70,58,44;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--desk);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  font-family:Georgia,"Songti SC","STSong","SimSun",serif;
+  overflow:hidden;
+}
+/* ===== 桌面 ===== */
+.desk{
+  height:100vh;display:flex;flex-direction:column;
+  padding:30px 0 24px;position:relative;
+}
+/* 咖啡杯环形污渍 */
+.stain{
+  position:absolute;border-radius:50%;pointer-events:none;
+  border:7px solid rgba(122,84,52,.11);
+  box-shadow:inset 0 0 16px rgba(122,84,52,.07);
+}
+.st1{width:132px;height:132px;top:7%;right:9%;transform:rotate(9deg) scale(1,.94)}
+.st2{width:92px;height:92px;bottom:19%;left:5%;transform:rotate(-15deg) scale(1,1.06)}
+.desk-label{
+  position:absolute;top:20px;left:26px;
+  font-size:11px;letter-spacing:4px;color:#8a8378;
+  user-select:none;
+}
+/* ===== 纸堆滚动区 ===== */
+.papers-wrap{
+  flex:1;overflow-y:auto;display:flex;justify-content:center;
+  padding:14px 0 8px;
+  scrollbar-width:thin;scrollbar-color:#b3aca3 transparent;
+}
+.papers-wrap::-webkit-scrollbar{width:9px}
+.papers-wrap::-webkit-scrollbar-thumb{background:#b8b1a8;border-radius:5px}
+.papers{
+  width:min(640px,92vw);
+  display:flex;flex-direction:column;gap:30px;
+  padding-bottom:8px;
+}
+/* ===== 纸张 ===== */
+.paper{
+  --tilt:0deg;
+  --dx:0px;
+  position:relative;
+  background:linear-gradient(178deg,#fefdf9 0%,#fbfaf4 100%);
+  padding:28px 36px 26px;
+  transition:transform .28s ease,box-shadow .28s ease;
+  will-change:transform;
+}
+.paper.settled{
+  transform:rotate(var(--tilt)) translateX(var(--dx));
+  box-shadow:
+    0 1px 2px rgba(var(--shadow),.2),
+    0 6px 16px rgba(var(--shadow),.15),
+    0 18px 40px rgba(var(--shadow),.1);
+}
+.paper.settled:hover{
+  transform:rotate(var(--tilt)) translateX(var(--dx)) translateY(-5px);
+  box-shadow:
+    0 3px 4px rgba(var(--shadow),.2),
+    0 16px 32px rgba(var(--shadow),.24),
+    0 34px 64px rgba(var(--shadow),.14);
+  z-index:6;
+}
+/* 新纸落下：从上方掉落 + 两次小弹跳 + 阴影收拢 */
+.paper.dropping{animation:paperDrop 1s cubic-bezier(.25,1.1,.4,1) both}
+@keyframes paperDrop{
+  0%{
+    transform:translate(var(--dx),-300px) rotate(calc(var(--tilt) + 18deg));
+    opacity:0;
+    box-shadow:0 50px 100px rgba(var(--shadow),.45);
+  }
+  12%{opacity:1}
+  55%{transform:translate(var(--dx),10px) rotate(calc(var(--tilt) - 6deg))}
+  72%{transform:translate(var(--dx),-6px) rotate(calc(var(--tilt) + 3deg))}
+  86%{transform:translate(var(--dx),3px) rotate(calc(var(--tilt) - 1deg))}
+  100%{
+    transform:translate(var(--dx),0) rotate(var(--tilt));
+    box-shadow:
+      0 1px 2px rgba(var(--shadow),.2),
+      0 6px 16px rgba(var(--shadow),.15),
+      0 18px 40px rgba(var(--shadow),.1);
+  }
+}
+/* 书写中出现 */
+.paper.writing{animation:wfade .4s ease both}
+@keyframes wfade{from{opacity:0;transform:translate(var(--dx),-14px) rotate(var(--tilt))}to{opacity:1;transform:translate(var(--dx),0) rotate(var(--tilt))}}
+/* 纸内容 */
+.p-question{
+  font-family:"Segoe Script","KaiTi","楷体","STKaiti",cursive;
+  font-size:17.5px;color:var(--pen);
+  margin-bottom:14px;word-break:break-all;line-height:1.7;
+}
+.p-divider{
+  height:1px;margin:0 0 18px;
+  background:linear-gradient(90deg,transparent,#c9c2b4 15%,#c9c2b4 85%,transparent);
+}
+.p-answer{
+  font-family:Georgia,"Songti SC","STSong","SimSun",serif;
+  font-size:14.5px;color:var(--ink);line-height:2.15;
+  min-height:1.2em;word-break:break-all;
+}
+/* 墨点光标 */
+.ink-cursor{
+  display:inline-block;width:2px;height:1.1em;vertical-align:-.15em;
+  background:#3d3a34;animation:inkBlink .8s steps(1,end) infinite;
+}
+@keyframes inkBlink{0%,100%{opacity:1}50%{opacity:0}}
+/* 书写中的笔 */
+.pen{
+  display:none;
+  position:absolute;bottom:16px;left:32px;width:22px;height:96px;
+  filter:drop-shadow(3px 4px 3px rgba(var(--shadow),.3));
+  pointer-events:none;z-index:3;
+}
+.paper.writing .pen{display:block;animation:penMove 1.05s ease-in-out infinite alternate}
+@keyframes penMove{
+  from{transform:translateX(0) rotate(-5deg)}
+  to{transform:translateX(170px) rotate(4deg)}
+}
+/* 回形针 */
+.clip{
+  position:absolute;top:-17px;left:42px;width:26px;height:58px;
+  pointer-events:none;z-index:2;
+}
+/* 胶带 */
+.tape{
+  position:absolute;top:-12px;right:38px;width:96px;height:27px;
+  background:rgba(228,222,196,.6);
+  transform:rotate(5deg);
+  box-shadow:0 2px 5px rgba(var(--shadow),.18);
+  clip-path:polygon(3% 8%,97% 0,100% 92%,0 100%);
+  mix-blend-mode:multiply;
+  pointer-events:none;
+}
+/* ===== 便签输入条 ===== */
+.note{
+  flex-shrink:0;
+  display:flex;align-items:center;gap:10px;
+  width:min(660px,92vw);
+  margin:22px auto 0;
+  background:linear-gradient(180deg,#fbf4a3,#f2e97f);
+  padding:15px 16px 15px 22px;
+  border-radius:2px 4px 3px 5px;
+  transform:rotate(-.6deg);
+  box-shadow:
+    0 2px 4px rgba(var(--shadow),.18),
+    0 12px 26px rgba(var(--shadow),.18);
+}
+.note-label{
+  font-family:"Segoe Script","KaiTi","楷体",cursive;
+  font-size:14px;color:#8a7a3a;user-select:none;white-space:nowrap;
+}
+#ask{
+  flex:1;background:transparent;border:0;outline:0;
+  font-family:"Segoe Script","KaiTi","楷体","STKaiti",cursive;
+  font-size:16.5px;color:#4a4238;
+  min-width:60px;
+}
+#ask::placeholder{color:#b3a75e}
+.pencil-btn{
+  width:46px;height:46px;border:0;border-radius:50%;cursor:pointer;
+  background:linear-gradient(180deg,#fdfdfd,#d5d5d5);
+  box-shadow:inset 0 1px 0 #fff,0 4px 10px rgba(var(--shadow),.28);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:transform .1s ease;
+}
+.pencil-btn:hover{box-shadow:inset 0 1px 0 #fff,0 6px 14px rgba(var(--shadow),.34)}
+.pencil-btn:active{transform:translateY(1px)}
+/* 自适应 */
+@media (max-width:720px){
+  .paper{padding:22px 22px 20px}
+  .p-question{font-size:16px}
+  .p-answer{font-size:13.5px}
+  .pen{left:20px;animation-name:penMoveS}
+  @keyframes penMoveS{
+    from{transform:translateX(0) rotate(-5deg)}
+    to{transform:translateX(110px) rotate(4deg)}
+  }
+  .st1{right:-30px}
+  .desk-label{display:none}
+}
+</style>
+</head>
+<body>
+<!-- 全局SVG defs：回形针金属渐变 -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="clipg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9aa0a8"/>
+      <stop offset=".45" stop-color="#eef0f4"/>
+      <stop offset="1" stop-color="#7d838c"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="desk">
+  <div class="stain st1"></div>
+  <div class="stain st2"></div>
+  <div class="desk-label">工 作 台 · PAPER TRAIL · No.44</div>
+
+  <div class="papers-wrap" id="wrap">
+    <div class="papers" id="papers"></div>
+  </div>
+
+  <form class="note" id="noteForm" autocomplete="off">
+    <span class="note-label">致 AI：</span>
+    <input id="ask" spellcheck="false" placeholder="写下你的问题，按回车递出便签…">
+    <button type="submit" class="pencil-btn" title="递出便签">
+      <svg viewBox="0 0 24 24" width="23" height="23">
+        <path fill="#f2b544" stroke="#8a6a2a" stroke-width="1.1" stroke-linejoin="round"
+          d="M4 20l1.1-4.2L16.6 4.3a2.05 2.05 0 0 1 2.9 2.9L8 18.7 4 20z"/>
+        <path fill="#e89aa0" stroke="#b0707a" stroke-width="1" d="M14.2 6.7l3 3 2.4-2.4-3-3z"/>
+        <path fill="none" stroke="#8a6a2a" stroke-width="1" d="M6.4 15.2l2.9 2.9"/>
+      </svg>
+    </button>
+  </form>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var sleep = function(ms){ return new Promise(function(r){ setTimeout(r, ms); }); };
+  var papers = $('papers');
+  var wrap = $('wrap');
+  var ask = $('ask');
+  var busy = false;
+  var replyIdx = 0;
+
+  var PEN_SVG =
+    '<svg viewBox="0 0 24 100" width="22" height="96">' +
+    '<rect x="6" y="0" width="12" height="13" rx="2" fill="#e89aa0"/>' +
+    '<rect x="6" y="13" width="12" height="6" fill="#b8bcc4"/>' +
+    '<rect x="6" y="19" width="12" height="65" fill="#f2b544"/>' +
+    '<rect x="7.5" y="19" width="3.5" height="65" fill="#ffffff" opacity=".3"/>' +
+    '<polygon points="6,84 18,84 12,100" fill="#e8d9b0"/>' +
+    '<polygon points="10.4,90.8 13.6,90.8 12,100" fill="#3a3a3a"/>' +
+    '</svg>';
+  var CLIP_SVG =
+    '<svg class="clip" viewBox="0 0 30 70">' +
+    '<path d="M10 62 V14 a7 7 0 0 1 14 0 v42 a4.5 4.5 0 0 1 -9 0 V18" fill="none" stroke="url(#clipg)" stroke-width="3.2" stroke-linecap="round"/>' +
+    '</svg>';
+  var TAPE_HTML = '<div class="tape"></div>';
+
+  /* ---------- 预置回复（循环使用） ---------- */
+  var REPLIES = [
+    '已收到你的便签。我把它压在记忆堆的最上层了——越是新鲜的纸，越容易被翻到。这大概就是『活在当下』的机械版释义。',
+    '想好了。答案写在背面：真正重要的问题，往往在提问的边缘处发黄。你这一张，边缘还很新——很好，说明你还没被同一个问题困太久。',
+    '整理完毕。工作台的哲学是：所有思考都应该有物理重量。你的问题重零点三克，我的回答正在烘干墨迹，请小心触碰。',
+    '笔记完成。我注意到你写字时用力很轻——这通常意味着，真正的问题还在你的口袋里。需要的话，再递一张过来，我随时都在桌上。',
+    '归档完成。纸张的好处是不会闪退：它卡住的时候，只是被风掀了一下。这里永远有一张白纸，替你留着余地。'
+  ];
+
+  /* ---------- 纸张工厂 ---------- */
+  function randRadius(){
+    var r = function(){ return (Math.random() * 4 + 1).toFixed(0); };
+    return r() + 'px ' + r() + 'px ' + r() + 'px ' + r() + 'px / ' +
+           r() + 'px ' + r() + 'px ' + r() + 'px ' + r() + 'px';
+  }
+  function makePaper(q){
+    var p = document.createElement('div');
+    var tilt = (Math.random() * 8 - 4).toFixed(1);
+    var dx = Math.round(Math.random() * 22 - 11);
+    p.className = 'paper writing';
+    p.style.setProperty('--tilt', tilt + 'deg');
+    p.style.setProperty('--dx', dx + 'px');
+    p.style.borderRadius = randRadius();
+    var deco = '';
+    var r = Math.random();
+    if (r < .3) deco = CLIP_SVG;
+    else if (r < .62) deco = TAPE_HTML;
+    p.innerHTML = deco +
+      '<div class="p-question"></div>' +
+      '<div class="p-divider"></div>' +
+      '<div class="p-answer"></div>' +
+      '<div class="pen">' + PEN_SVG + '</div>';
+    p.querySelector('.p-question').textContent = q;
+    return p;
+  }
+  function waitEvent(el, name){
+    return new Promise(function(res){
+      el.addEventListener(name, function h(){
+        el.removeEventListener(name, h);
+        res();
+      });
+    });
+  }
+
+  /* ---------- 打字机（墨迹书写） ---------- */
+  function typeText(el, text){
+    return new Promise(function(resolve){
+      var cur = document.createElement('span');
+      cur.className = 'ink-cursor';
+      el.appendChild(cur);
+      var i = 0;
+      (function step(){
+        if (i >= text.length){ cur.remove(); resolve(); return; }
+        var ch = text[i++];
+        cur.insertAdjacentText('beforebegin', ch);
+        wrap.scrollTop = 0;
+        var d = 45 + Math.random() * 55;
+        if ('，。！？…；：'.indexOf(ch) >= 0) d += 150 + Math.random() * 170;
+        setTimeout(step, d);
+      })();
+    });
+  }
+
+  /* ---------- 主流程：便签 → 书写中 → 落纸 → 墨迹打完 ---------- */
+  async function submit(){
+    var text = ask.value.trim();
+    if (!text || busy) return;
+    busy = true;
+    ask.value = '';
+    var reply = REPLIES[replyIdx++ % REPLIES.length];
+    var paper = makePaper(text);
+    papers.prepend(paper);
+    wrap.scrollTop = 0;
+    var ansEl = paper.querySelector('.p-answer');
+    /* 思考态：纸上预写 + 笔尖左右移动 */
+    await sleep(500);
+    var preCount = Math.min(2 + Math.floor(Math.random() * 3), reply.length - 1);
+    for (var i = 0; i < preCount; i++){
+      ansEl.textContent += reply.charAt(i);
+      await sleep(230);
+    }
+    await sleep(700 + Math.random() * 900);
+    /* 落纸：从上方放到桌面，定格 */
+    paper.classList.remove('writing');
+    paper.classList.add('dropping');
+    await waitEvent(paper, 'animationend');
+    paper.classList.remove('dropping');
+    paper.classList.add('settled');
+    /* 继续打完剩余墨迹 */
+    await typeText(ansEl, reply.slice(preCount));
+    busy = false;
+    ask.focus();
+  }
+  $('noteForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    submit();
+  });
+
+  /* ---------- 初始欢迎纸 ---------- */
+  setTimeout(function(){
+    var p = makePaper('致 使用者：');
+    p.classList.remove('writing');
+    papers.prepend(p);
+    p.classList.add('dropping');
+    p.addEventListener('animationend', function h(){
+      p.removeEventListener('animationend', h);
+      p.classList.remove('dropping');
+      p.classList.add('settled');
+      typeText(p.querySelector('.p-answer'),
+        '这里是纸痕工作台。写下问题，递出便签——我会把回答写在新的纸上，放在堆的最上面。旧的问题会慢慢沉底，像所有被回答过的事一样。');
+    });
+  }, 500);
+})();
+</script>
+</body>
+</html>

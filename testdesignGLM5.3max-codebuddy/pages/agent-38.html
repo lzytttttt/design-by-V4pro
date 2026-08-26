@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TELEGRAPH · 电报局 — 远距通信 AI</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --desk:#241708; --desk2:#3a2711;
+  --paper:#f2ead2; --paper2:#e9dec0;
+  --ink:#2a2118;
+  --brass1:#f0d68a; --brass2:#b8933e; --brass3:#7d5c1e;
+  --red:#8f1d1d;
+}
+html,body{height:100%;}
+body{
+  font-family:Consolas,"Courier New","SimSun",monospace;
+  color:var(--ink);
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.16) 0 3px, transparent 3px 92px),
+    repeating-linear-gradient(0deg, rgba(255,200,120,.03) 0 1px, transparent 1px 48px),
+    radial-gradient(1100px 620px at 50% -5%, var(--desk2), var(--desk) 72%);
+  overflow:hidden;
+}
+#app{height:100%;display:flex;flex-direction:column;}
+
+/* ---------- 电报局柜台 ---------- */
+#officeHead{
+  display:flex;align-items:center;gap:26px;
+  padding:12px 30px 8px;
+  border-bottom:3px double rgba(240,214,138,.35);
+}
+.plate{
+  background:linear-gradient(180deg,#3a2711,#241708);
+  border:2px solid var(--brass2);
+  padding:9px 20px;text-align:center;
+  box-shadow:inset 0 0 12px rgba(0,0,0,.6), 0 3px 8px rgba(0,0,0,.4);
+  flex:none;
+}
+.plate b{display:block;color:var(--brass1);font-size:16px;letter-spacing:.4em;font-weight:700;text-indent:.4em;}
+.plate span{font-size:9px;color:#a98d55;letter-spacing:.22em;}
+#machineSlot{flex:1;display:flex;justify-content:center;min-width:0;}
+#machine{width:min(310px,32vw);height:auto;display:block;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5));}
+.stamp-box{text-align:right;font-size:11px;letter-spacing:.18em;color:#c9ab6b;line-height:2;flex:none;}
+.stamp-box b{color:var(--brass1);font-size:15px;letter-spacing:.08em;font-weight:700;}
+
+/* 电报机动画 */
+#lever{transform-box:view-box;transform-origin:151px 88px;transition:transform .07s ease-in;}
+#lever.tap{transform:rotate(5deg);}
+#relayArm{transform-box:view-box;transform-origin:206px 136px;}
+#relay.clicking #relayArm{animation:relayClk .16s linear infinite alternate;}
+@keyframes relayClk{from{transform:rotate(0deg);}to{transform:rotate(-9deg);}}
+#relaySpark{opacity:0;}
+#relay.clicking #relaySpark{animation:spark .32s linear infinite;}
+@keyframes spark{0%,92%{opacity:0;}94%{opacity:1;}100%{opacity:0;}}
+
+/* ---------- 电报纸带 ---------- */
+#tapes{flex:1;overflow-y:auto;padding:22px 26px 14px;display:flex;flex-direction:column;gap:16px;align-items:center;scrollbar-width:thin;scrollbar-color:rgba(240,214,138,.25) transparent;}
+#tapes::-webkit-scrollbar{width:8px;}
+#tapes::-webkit-scrollbar-thumb{background:rgba(240,214,138,.25);border-radius:4px;}
+.tape{
+  width:min(880px,100%);
+  background:linear-gradient(180deg,var(--paper),var(--paper2));
+  position:relative;
+  padding:13px 52px 16px 52px;
+  box-shadow:0 4px 14px rgba(0,0,0,.45);
+  border-radius:2px;
+  animation:tapeIn .4s ease both;
+}
+@keyframes tapeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+.tape.user{transform:rotate(-.35deg);}
+.tape.agent{transform:rotate(.3deg);}
+/* 两侧齿孔 */
+.tape::before,.tape::after{
+  content:'';position:absolute;top:0;bottom:0;width:16px;
+  background-image:radial-gradient(circle at 8px 12px, var(--desk) 3px, transparent 3.6px);
+  background-size:16px 27px;background-position:0 8px;
+}
+.tape::before{left:9px;}
+.tape::after{right:9px;}
+.tape-meta{
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 14px;
+  font-size:10.5px;letter-spacing:.2em;color:#8a6a3a;
+  border-bottom:1px dashed rgba(90,60,20,.35);
+  padding-bottom:6px;margin-bottom:9px;
+}
+.tape.agent .tape-meta .route{color:#6e5227;font-weight:700;}
+.morse{font-size:12px;color:#8a6a3a;letter-spacing:.3em;margin-bottom:8px;min-height:15px;white-space:nowrap;overflow:hidden;}
+.tape-body{font-size:14px;line-height:2.0;letter-spacing:.06em;min-height:26px;word-break:break-word;}
+.tape-body u{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1.5px;text-decoration-color:#5a3d14;}
+.stamp{
+  position:absolute;right:30px;bottom:14px;
+  border:2px solid var(--red);color:var(--red);
+  font-size:12px;letter-spacing:.3em;padding:3px 8px 2px 11px;
+  transform:rotate(-9deg);opacity:.85;border-radius:2px;pointer-events:none;
+}
+.stamp.in{animation:stampIn .45s cubic-bezier(.2,1.6,.4,1) both;}
+@keyframes stampIn{from{opacity:0;transform:rotate(-9deg) scale(1.9);}to{opacity:.85;transform:rotate(-9deg) scale(1);}}
+
+/* ---------- 发报台 ---------- */
+#rxStatus{
+  position:fixed;bottom:104px;left:50%;transform:translateX(-50%);
+  color:var(--brass1);letter-spacing:.34em;font-size:12.5px;
+  opacity:0;transition:opacity .25s;pointer-events:none;z-index:5;
+  text-shadow:0 0 10px rgba(240,214,138,.4);
+}
+#rxStatus.on{opacity:1;animation:rxPulse 1s ease-in-out infinite;}
+@keyframes rxPulse{50%{opacity:.4;}}
+#key{display:flex;align-items:center;gap:18px;padding:15px 30px 19px;justify-content:center;border-top:2px solid rgba(240,214,138,.25);}
+.brass-frame{
+  flex:1;max-width:740px;
+  background:linear-gradient(150deg,var(--brass1),var(--brass2) 45%,var(--brass3) 62%,#e2bd63);
+  padding:3px;border-radius:12px;
+  box-shadow:0 6px 18px rgba(0,0,0,.5), inset 0 1px 2px rgba(255,240,200,.8);
+}
+.brass-frame input{
+  width:100%;background:#191009;color:#f2e6c8;border:none;outline:none;
+  border-radius:9px;padding:13px 18px;
+  font-family:inherit;font-size:14.5px;letter-spacing:.08em;
+}
+.brass-frame input::placeholder{color:rgba(242,230,200,.32);}
+#keyBtn{
+  width:58px;height:58px;border-radius:50%;border:none;cursor:pointer;flex:none;
+  background:radial-gradient(circle at 34% 30%, #f7e2a0, #c49a3f 58%, #7d5c1e 100%);
+  box-shadow:0 6px 14px rgba(0,0,0,.55), inset 0 2px 4px rgba(255,245,210,.7), inset 0 -3px 6px rgba(60,40,10,.5);
+  position:relative;transition:transform .07s, box-shadow .07s;
+}
+#keyBtn::after{
+  content:'';position:absolute;inset:13px;border-radius:50%;
+  border:1.5px solid rgba(90,60,15,.55);
+}
+#keyBtn:active{transform:translateY(4px);box-shadow:0 2px 6px rgba(0,0,0,.5), inset 0 2px 5px rgba(60,40,10,.6);}
+.hint{text-align:center;font-size:10px;color:rgba(201,171,107,.45);letter-spacing:.32em;margin-top:8px;}
+
+@media(max-width:860px){
+  #officeHead{flex-wrap:wrap;gap:12px;justify-content:center;}
+  #machineSlot{order:3;flex-basis:100%;}
+  #machine{width:min(280px,60vw);}
+  .tape{padding:12px 40px 14px 40px;}
+  #key{flex-wrap:wrap;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="officeHead">
+    <div class="plate">
+      <b>中央电报局</b>
+      <span>CENTRAL TELEGRAPH · 甲字柜</span>
+    </div>
+    <div id="machineSlot">
+      <svg id="machine" viewBox="0 0 300 170" aria-hidden="true">
+        <defs>
+          <linearGradient id="brassLg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#f4dd96"/>
+            <stop offset=".5" stop-color="#b8933e"/>
+            <stop offset="1" stop-color="#8a6a26"/>
+          </linearGradient>
+          <linearGradient id="woodLg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#4a3014"/>
+            <stop offset="1" stop-color="#241708"/>
+          </linearGradient>
+        </defs>
+        <!-- 木底座 -->
+        <rect x="16" y="122" width="268" height="36" rx="5" fill="url(#woodLg)" stroke="#120a03" stroke-width="1"/>
+        <circle cx="30" cy="140" r="2.2" fill="#b8933e"/>
+        <circle cx="270" cy="140" r="2.2" fill="#b8933e"/>
+        <!-- 线圈 -->
+        <rect x="52" y="50" width="48" height="62" rx="9" fill="url(#brassLg)" stroke="#5c431a" stroke-width="1"/>
+        <path d="M56 58 H96 M56 66 H96 M56 74 H96 M56 82 H96 M56 90 H96 M56 98 H96" stroke="#6b4d1d" stroke-width="1.1"/>
+        <rect x="46" y="48" width="8" height="66" rx="3" fill="#8a6a26"/>
+        <rect x="98" y="48" width="8" height="66" rx="3" fill="#8a6a26"/>
+        <!-- 接线柱 -->
+        <rect x="216" y="88" width="8" height="36" rx="2" fill="url(#brassLg)" stroke="#5c431a"/>
+        <circle cx="220" cy="84" r="7" fill="url(#brassLg)" stroke="#5c431a"/>
+        <rect x="252" y="88" width="8" height="36" rx="2" fill="url(#brassLg)" stroke="#5c431a"/>
+        <circle cx="256" cy="84" r="7" fill="url(#brassLg)" stroke="#5c431a"/>
+        <!-- 键杆（敲击动画） -->
+        <rect x="146" y="92" width="10" height="32" rx="2" fill="url(#brassLg)" stroke="#5c431a"/>
+        <circle cx="151" cy="88" r="5" fill="#e8c76a" stroke="#5c431a"/>
+        <g id="lever">
+          <rect x="93" y="84" width="124" height="7" rx="3.5" fill="url(#brassLg)" stroke="#5c431a" stroke-width=".8"/>
+          <circle cx="98" cy="87" r="8" fill="url(#brassLg)" stroke="#5c431a"/>
+          <circle cx="218" cy="82" r="11" fill="#17130f"/>
+          <ellipse cx="214" cy="78" rx="4" ry="2.4" fill="rgba(255,255,255,.18)"/>
+        </g>
+        <rect x="208" y="106" width="20" height="8" rx="2" fill="#b8933e" stroke="#5c431a" stroke-width=".8"/>
+        <!-- 继电器（接收咔嗒动画） -->
+        <g id="relay">
+          <rect x="172" y="128" width="34" height="15" rx="3" fill="url(#brassLg)" stroke="#5c431a" stroke-width=".8"/>
+          <path d="M175 132 H203 M175 138 H203" stroke="#6b4d1d" stroke-width="1"/>
+          <g id="relayArm">
+            <path d="M206 136 H236" stroke="#e8c76a" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="238" cy="136" r="3.4" fill="#f0d68a" stroke="#5c431a" stroke-width=".8"/>
+          </g>
+          <circle cx="248" cy="136" r="3.4" fill="#8a6a26" stroke="#5c431a" stroke-width=".8"/>
+          <circle id="relaySpark" cx="243" cy="133" r="2" fill="#ffe9b0"/>
+        </g>
+        <!-- 布线 -->
+        <path d="M76 112 C76 122 88 124 100 126" stroke="#0e0904" stroke-width="2" fill="none"/>
+        <path d="M220 124 C220 130 216 128 212 130" stroke="#0e0904" stroke-width="2" fill="none"/>
+        <path d="M256 124 C256 132 252 136 248 137" stroke="#0e0904" stroke-width="2" fill="none"/>
+      </svg>
+    </div>
+    <div class="stamp-box">
+      <div class="no">电报编号 <b id="tgNo">No.0027</b></div>
+      <div>发报日期 <b id="tgDate">一八九三年 · 八月廿六日</b></div>
+      <div>本局钟点 <b id="tgClock">上午 09:41</b></div>
+    </div>
+  </header>
+
+  <main id="tapes"></main>
+
+  <footer id="key">
+    <div style="flex:1;max-width:740px">
+      <div class="brass-frame">
+        <input id="wire" type="text" placeholder="敲入电文，按下黄铜键发往远方…" autocomplete="off">
+      </div>
+      <p class="hint">ENTER 或 按键发报 · 电文字字抵达，不快不慢</p>
+    </div>
+    <button id="keyBtn" title="发报键"></button>
+  </footer>
+</div>
+<div id="rxStatus">滴 - 答 - 滴 … 接收中</div>
+
+<script>
+(function(){
+'use strict';
+var tapes=document.getElementById('tapes');
+var input=document.getElementById('wire');
+var keyBtn=document.getElementById('keyBtn');
+var lever=document.getElementById('lever');
+var relay=document.getElementById('relay');
+var rxStatus=document.getElementById('rxStatus');
+var tgNoEl=document.getElementById('tgNo');
+var tgClockEl=document.getElementById('tgClock');
+
+var replies=[
+  '来电收悉，*逐字核对无误*。你的问题已译成电码，经铜线传来，字字清晰。本局意见：先将大意拆作三节，*分头发送*，每节落款注明先后次序，收报人自会拼合全意。',
+  '兹复如下：此事宜缓不宜急。昨夜东路局来电称*天气不佳*，线路偶有杂音。凡重要讯息，务请*重复拍发两遍*，以保万无一失。',
+  '答：远方之事，近在指尖。电波行速每秒三万里，顷刻即至；然*人心之事*，仍需慢慢打磨。本局建议：今日先修书一封，随报附上，情义与讯息同途。',
+  '收报。你所言之收报人*地址不详*，本局已*加急查询*，预计明日酉时回电。其间若有新思，可先行拍来，本局代为存档，绝不遗失。',
+  '本次通讯质量*极佳*，杂音极少，字字分明。愿你今日所言，皆如电波般直抵要去的地方。本局灯火不熄，随时恭候*下一封电文*。'
+];
+var welcome='本局开始营业。敲入文字，按下黄铜键，电文即刻发出。远方将有一封回电，逐字抵达，请稍候。';
+var busy=false, noCount=27, replyIdx=Math.floor(Math.random()*replies.length);
+
+/* ---------------- 日期与钟点 ---------------- */
+var dayCn=['','','一','二','三','四','五','六','七','八','九','十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十','卅一'];
+var monCn=['','一','二','三','四','五','六','七','八','九','十','十一','十二'];
+function initDate(){
+  var d=new Date();
+  document.getElementById('tgDate').textContent='一八九三年 · '+monCn[d.getMonth()+1]+'月'+(dayCn[d.getDate()]||d.getDate())+'日';
+}
+function clockText(){
+  var d=new Date(), h=d.getHours(), m=String(d.getMinutes()).padStart(2,'0');
+  var ap=h<12?'上午':'下午'; var hh=h%12===0?12:h%12;
+  return ap+' '+String(hh).padStart(2,'0')+':'+m;
+}
+function tickClock(){ tgClockEl.textContent=clockText(); }
+initDate(); tickClock(); setInterval(tickClock,20000);
+
+/* ---------------- 电报机联动 ---------------- */
+function leverTap(){
+  lever.classList.add('tap');
+  setTimeout(function(){ lever.classList.remove('tap'); },100);
+}
+function morse(n){
+  var s='·—',out='';
+  for(var i=0;i<n;i++){
+    out+=s[Math.floor(Math.random()*2)];
+    if(i%5===4)out+=' ';
+  }
+  return out;
+}
+/* 富文本逐字符流式（*词* → 下划线），键杆同步敲击 */
+function streamRich(el,html,speed,tapEvery){
+  return new Promise(function(res){
+    var i=0,out='',count=0;
+    function tick(){
+      if(i>=html.length){res();return;}
+      if(html[i]==='<'){
+        var j=html.indexOf('>',i);
+        out+=html.slice(i,j+1); i=j+1;
+        setTimeout(tick,0); return;
+      }
+      out+=html[i++];
+      el.innerHTML=out;
+      count++;
+      if(tapEvery&&count%tapEvery===0)leverTap();
+      setTimeout(tick,speed);
+    }
+    tick();
+  });
+}
+
+/* ---------------- 纸带 ---------------- */
+function makeTape(kind){
+  var no='No.'+String(noCount).padStart(4,'0'); noCount++;
+  tgNoEl.textContent='No.'+String(noCount).padStart(4,'0');
+  var t=document.createElement('article');
+  t.className='tape '+kind;
+  var meta=document.createElement('div'); meta.className='tape-meta';
+  var route=kind==='user'?'本地 → 总局':'总局 → 本地';
+  meta.innerHTML='<span>'+no+'</span><span class="route">'+route+'</span><span>'+clockText()+'</span>';
+  t.appendChild(meta);
+  var body=document.createElement('div'); body.className='tape-body';
+  if(kind==='agent'){
+    var mo=document.createElement('div'); mo.className='morse';
+    t.appendChild(mo); t._morse=mo;
+  }
+  t.appendChild(body); t._body=body;
+  tapes.appendChild(t);
+  tapes.scrollTop=tapes.scrollHeight;
+  return t;
+}
+function finishTape(t){
+  var st=document.createElement('div');
+  st.className='stamp'; st.textContent='已核讫';
+  t.appendChild(st);
+  requestAnimationFrame(function(){ st.classList.add('in'); });
+  tapes.scrollTop=tapes.scrollHeight;
+}
+
+/* ---------------- 发送回路 ---------------- */
+async function send(){
+  var text=input.value.trim();
+  if(!text||busy)return;
+  busy=true; input.value='';
+  /* 用户电文：快速滴答拍出 */
+  var ut=makeTape('user');
+  await streamRich(ut._body,text.replace(/\*([^*]+)\*/g,'<u>$1</u>'),24,3);
+  /* 接收中：继电器咔嗒 */
+  relay.classList.add('clicking');
+  rxStatus.classList.add('on');
+  await sleep(1500+Math.random()*1200);
+  relay.classList.remove('clicking');
+  rxStatus.classList.remove('on');
+  /* 回电：摩尔斯装饰行 + 正文 */
+  var at=makeTape('agent');
+  await streamRich(at._morse,morse(24+Math.floor(Math.random()*14)),16,3);
+  var reply=replies[replyIdx%replies.length]; replyIdx++;
+  var rich=reply.replace(/\*([^*]+)\*/g,'<u>$1</u>');
+  await streamRich(at._body,rich,52,4);
+  finishTape(at);
+  busy=false;
+}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+input.addEventListener('keydown',function(e){ if(e.key==='Enter')send(); });
+keyBtn.addEventListener('click',send);
+
+/* 开业欢迎电 */
+(async function(){
+  var t=makeTape('agent');
+  await streamRich(t._morse,morse(20),16,3);
+  await streamRich(t._body,welcome,42,4);
+  finishTape(t);
+})();
+})();
+</script>
+</body>
+</html>

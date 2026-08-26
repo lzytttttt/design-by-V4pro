@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TIDAL · 潮汐 — 节奏管理 AI</title>
+<style>
+  :root{
+    --sky-0:#0a1424; --sky-1:#16283f;
+    --sea-0:#1e3a5f; --sea-1:#0c1e33;
+    --foam:rgba(190,225,250,.85);
+    --ink:#cfe3f5; --ink-dim:#8fb2cf;
+    --moonlit:#f0e8d8;
+    --cork-0:#b98a52; --cork-1:#a5763f;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family: Georgia,"Times New Roman","Songti SC","STSong","SimSun",serif;
+    color:var(--ink);
+    background: linear-gradient(180deg, var(--sky-0) 0%, var(--sky-1) 110px, var(--sea-0) 230px, var(--sea-1) 100%);
+    overflow:hidden; display:flex; flex-direction:column;
+  }
+
+  /* ============ 天空 ============ */
+  #skyband{position:relative; height:118px; flex:none; z-index:4}
+  #brand{position:absolute; left:36px; top:22px; display:flex; gap:14px; align-items:center}
+  #brand .glyph{width:44px;height:44px;opacity:.9; animation: glyphPulse 6s ease-in-out infinite alternate}
+  @keyframes glyphPulse{from{transform:translateY(-2px)}to{transform:translateY(3px)}}
+  #brand h1{font-size:26px; letter-spacing:.42em; color:#e9f2fb; font-weight:600}
+  #brand h1 span{font-size:15px; letter-spacing:.6em; color:var(--ink-dim); margin-left:10px}
+  #brand p{font-size:11.5px; letter-spacing:.32em; color:#6d90ad; margin-top:5px}
+
+  #moonBox{position:absolute; right:34px; top:16px; display:flex; align-items:center; gap:12px; text-align:right}
+  #moonSvg{width:58px;height:58px; filter: drop-shadow(0 0 8px rgba(232,226,207,.25))}
+  .moonMeta{display:flex; flex-direction:column; gap:3px}
+  #phaseName{font-size:14px; letter-spacing:.3em; color:var(--moonlit)}
+  #roundInfo{font-size:10.5px; letter-spacing:.2em; color:#6d90ad}
+
+  .star{position:absolute; border-radius:50%; background:#dceafc; animation: twinkle infinite alternate ease-in-out}
+  @keyframes twinkle{from{opacity:.15; transform:scale(.7)} to{opacity:.9; transform:scale(1.15)}}
+
+  /* ============ 波浪 ============ */
+  #waveZone{position:absolute; left:0; right:0; top:78px; height:130px; z-index:5; pointer-events:none;
+    transition: transform 1.6s cubic-bezier(.4,0,.3,1)}
+  body.thinking #waveZone{transform: translateY(20px)}
+  .wave{position:absolute; left:0; width:200%; height:110px; transform-origin: 50% 0;
+    transition: transform 1.6s ease}
+  body.thinking .wave{transform: scaleY(2.1)}
+  .w1{top:0;    animation: drift 17s linear infinite; opacity:.55}
+  .w2{top:16px; animation: drift 11s linear infinite reverse; opacity:.7}
+  .w3{top:34px; animation: drift 7.5s linear infinite; opacity:1}
+  @keyframes drift{from{transform:translateX(0)} to{transform:translateX(-50%)}}
+  body.thinking .wave{animation-duration:5s}
+  body.thinking .w1{animation-duration:8s}
+  body.thinking .w2{animation-duration:6s}
+
+  #horizonGlow{position:absolute; top:96px; left:64%; width:260px; height:70px; z-index:4; pointer-events:none;
+    background: radial-gradient(ellipse at center, rgba(255,228,170,.30), rgba(255,228,170,0) 70%);
+    filter: blur(7px); animation: glowBreathe 7s ease-in-out infinite alternate}
+  @keyframes glowBreathe{from{opacity:.45; transform:scaleX(.92)} to{opacity:1; transform:scaleX(1.06)}}
+
+  #tideNotice{position:absolute; left:50%; top:158px; transform:translateX(-50%); z-index:20;
+    font-size:13.5px; letter-spacing:.5em; color:#a8cdf0; opacity:0; pointer-events:none;
+    text-shadow:0 0 14px rgba(120,180,240,.5); transition: opacity .8s}
+  body.thinking #tideNotice{opacity:1; animation: tidePulse 1.6s ease-in-out infinite alternate}
+  @keyframes tidePulse{from{letter-spacing:.42em} to{letter-spacing:.58em}}
+
+  /* ============ 海面对话区 ============ */
+  #seaMain{flex:1; overflow-y:auto; position:relative; z-index:6; padding: 96px 24px 30px; scroll-behavior:smooth}
+  #seaMain::-webkit-scrollbar{width:8px}
+  #seaMain::-webkit-scrollbar-thumb{background:rgba(120,170,220,.22); border-radius:4px}
+
+  .glint{position:absolute; height:2px; border-radius:2px; z-index:0; pointer-events:none;
+    background: linear-gradient(90deg, transparent, rgba(200,230,255,.75), transparent);
+    animation: glintTwinkle infinite alternate ease-in-out}
+  @keyframes glintTwinkle{from{opacity:.05; transform:scaleX(.4)} to{opacity:.85; transform:scaleX(1)}}
+
+  #chat{max-width:760px; margin:0 auto; position:relative; z-index:1; display:flex; flex-direction:column}
+
+  .msgWrap{max-width:640px; animation: surface .85s cubic-bezier(.2,.75,.3,1) both}
+  .msgWrap.user{align-self:flex-end}
+  .msgWrap.agent{align-self:flex-start}
+  @keyframes surface{
+    0%{transform:translateY(52px) scale(.94); opacity:0}
+    60%{opacity:1}
+    100%{transform:translateY(0) scale(1); opacity:1}
+  }
+  .msg{border-radius:14px; padding:15px 20px 16px; font-size:14.5px; line-height:1.85;
+    animation: bob 5.6s ease-in-out infinite alternate}
+  .msgWrap.user .msg{animation-delay:.8s}
+  @keyframes bob{from{transform:translateY(-4px)} to{transform:translateY(4px)}}
+
+  .msg.agent{background:rgba(17,42,70,.78); border:1px solid rgba(120,170,220,.20);
+    box-shadow: 0 12px 34px rgba(0,10,25,.45), inset 0 1px 0 rgba(160,200,240,.08);
+    backdrop-filter: blur(3px); color:var(--ink)}
+  .msg.user{background:rgba(240,225,190,.10); border:1px solid rgba(240,225,190,.28);
+    color:var(--moonlit); box-shadow: 0 10px 26px rgba(0,10,25,.35)}
+
+  .who{display:flex; align-items:center; gap:8px; font-size:10.5px; letter-spacing:.3em;
+    color:#7fa5c5; margin-bottom:8px}
+  .who .dot{width:7px;height:7px;border-radius:50%; background:#7fc4e8; box-shadow:0 0 8px #7fc4e8;
+    animation: dotBreath 3.2s ease-in-out infinite alternate}
+  @keyframes dotBreath{from{opacity:.4} to{opacity:1}}
+  .msg.user .who{color:#cbb98d}
+  .msg.user .who .dot{background:#e8cf8f; box-shadow:0 0 8px #e8cf8f}
+
+  .text br{display:block; content:""; margin-top:10px}
+  .caret{display:inline-block; width:8px; color:#8fd0f5; animation: caretBlink .8s steps(1) infinite}
+  @keyframes caretBlink{50%{opacity:0}}
+
+  /* 漂流瓶涟漪预告 */
+  .ripple{align-self:flex-start; width:200px; height:26px; margin:6px 0; position:relative}
+  .ripple i{position:absolute; left:30px; top:50%; width:120px; height:16px; margin-top:-8px;
+    border-radius:50%; border:1px solid rgba(150,200,240,.5); animation: rippleGrow .55s ease-out both}
+  .ripple i:nth-child(2){animation-delay:.18s}
+  @keyframes rippleGrow{from{transform:scale(.3); opacity:.9} to{transform:scale(1.15); opacity:0}}
+
+  /* 思考占位 */
+  .thinkingMsg{align-self:flex-start; display:flex; align-items:center; gap:12px; margin:10px 0;
+    padding:12px 18px; border-radius:12px; background:rgba(17,42,70,.55); border:1px dashed rgba(120,170,220,.3);
+    font-size:13px; letter-spacing:.28em; color:#9cc3e5; animation: surface .6s both}
+  .thinkWave{width:34px; height:14px}
+  .thinkWave path{stroke:#7fc4e8; fill:none; stroke-width:2; stroke-linecap:round;
+    animation: thinkFlow 1.1s ease-in-out infinite alternate}
+  @keyframes thinkFlow{from{d:path("M1 8 Q 6 2, 11 8 T 21 8 T 31 8")} to{d:path("M1 8 Q 6 13, 11 8 T 21 8 T 31 8")}}
+
+  /* ============ 漂流瓶输入坞 ============ */
+  #dock{flex:none; position:relative; z-index:10; padding: 6px 24px 20px}
+  #chips{max-width:760px; margin:0 auto 10px; display:flex; gap:10px; flex-wrap:wrap}
+  .chip{font:inherit; font-size:12px; letter-spacing:.12em; color:#9cc3e5; cursor:pointer;
+    background:rgba(30,58,95,.5); border:1px solid rgba(120,170,220,.25); border-radius:999px;
+    padding:6px 16px; transition: all .25s}
+  .chip:hover{background:rgba(60,100,150,.5); color:#e5f3fd; transform:translateY(-2px)}
+
+  #bottleBar{max-width:760px; margin:0 auto; display:flex; gap:12px; align-items:stretch;
+    background: linear-gradient(180deg, rgba(9,19,34,.92), rgba(15,31,52,.92));
+    border:1px solid rgba(130,180,230,.22); border-radius:18px; padding:10px 10px 10px 20px;
+    box-shadow: 0 16px 44px rgba(0,8,20,.55), inset 0 1px 0 rgba(170,210,245,.07);
+    animation: dockBob 6.4s ease-in-out infinite alternate}
+  @keyframes dockBob{from{transform:translateY(-3px) rotate(-.25deg)} to{transform:translateY(3px) rotate(.25deg)}}
+  #bottleBar.shake{animation: dockShake .4s}
+  @keyframes dockShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+  #ask{flex:1; background:transparent; border:none; outline:none; color:#e8f2fb;
+    font:inherit; font-size:15px; letter-spacing:.04em}
+  #ask::placeholder{color:#5f83a3; letter-spacing:.14em}
+
+  #corkBtn{width:92px; border:none; cursor:pointer; border-radius:12px; position:relative;
+    background: repeating-linear-gradient(180deg, var(--cork-0) 0 7px, var(--cork-1) 7px 14px);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    color:#3a2410; font:inherit; font-size:12.5px; font-weight:700; letter-spacing:.28em; text-indent:.28em;
+    box-shadow: inset 0 2px 0 rgba(255,235,200,.45), inset 0 -3px 0 rgba(60,35,10,.4), 0 4px 10px rgba(0,10,20,.4);
+    transition: transform .12s, box-shadow .12s}
+  #corkBtn:hover{filter:brightness(1.08)}
+  #corkBtn:active, #corkBtn.pressed{transform: scale(.93) translateY(2px);
+    box-shadow: inset 0 3px 6px rgba(60,35,10,.55)}
+  #corkBtn svg{width:18px;height:18px}
+
+  /* 寄出的漂流瓶 */
+  .driftBottle{position:fixed; z-index:60; pointer-events:none;
+    animation: driftAway 2s cubic-bezier(.3,.4,.5,1) forwards}
+  .driftBottle .inner{animation: bottleWobble 1.4s ease-in-out infinite alternate}
+  @keyframes driftAway{
+    0%{transform:translate(0,0) rotate(0); opacity:1}
+    70%{opacity:.9}
+    100%{transform:translate(-190px,-240px) rotate(-24deg); opacity:0}
+  }
+  @keyframes bottleWobble{from{transform:rotate(-7deg)} to{transform:rotate(9deg)}}
+
+  #toast{position:fixed; left:50%; bottom:120px; transform:translateX(-50%); z-index:70;
+    font-size:12.5px; letter-spacing:.3em; color:#a8cdf0; background:rgba(12,26,44,.9);
+    border:1px solid rgba(120,170,220,.3); border-radius:999px; padding:8px 22px;
+    opacity:0; pointer-events:none; transition: opacity .4s}
+  #toast.show{opacity:1}
+
+  @media (max-width:760px){
+    #brand h1{font-size:20px; letter-spacing:.3em}
+    #moonSvg{width:44px;height:44px}
+    #moonBox{right:18px}
+    #brand{left:18px}
+    .msgWrap{max-width:100%}
+    #corkBtn{width:70px}
+  }
+</style>
+</head>
+<body>
+
+  <div id="skyband">
+    <div id="stars"></div>
+    <div id="brand">
+      <svg class="glyph" viewBox="0 0 44 44">
+        <path d="M4 26 Q 11 14, 18 26 T 32 26 T 40 26" fill="none" stroke="#8fc4e8" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M4 33 Q 11 24, 18 33 T 32 33 T 40 33" fill="none" stroke="#5f92b8" stroke-width="2" stroke-linecap="round" opacity=".6"/>
+        <circle cx="34" cy="10" r="4.6" fill="#e8e2cf"/>
+      </svg>
+      <div>
+        <h1>TIDAL<span>潮汐</span></h1>
+        <p>RHYTHM INTELLIGENCE · 节奏管理</p>
+      </div>
+    </div>
+    <div id="moonBox">
+      <svg id="moonSvg" viewBox="0 0 64 64">
+        <defs><clipPath id="mclip"><circle cx="32" cy="32" r="22"/></clipPath></defs>
+        <circle cx="32" cy="32" r="22" fill="#22344b"/>
+        <g clip-path="url(#mclip)">
+          <circle cx="32" cy="32" r="22" fill="#e8e2cf"/>
+          <circle id="moonShadow" cx="32" cy="32" r="22" fill="#0c1830"/>
+        </g>
+        <circle cx="32" cy="32" r="22" fill="none" stroke="rgba(232,226,207,.28)" stroke-width="1"/>
+      </svg>
+      <div class="moonMeta">
+        <span id="phaseName">新月</span>
+        <span id="roundInfo">潮汐 · 第 0 轮</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="waveZone">
+    <svg class="wave w1" viewBox="0 0 2400 120" preserveAspectRatio="none">
+      <path d="M0 55 Q 75 25, 150 55 T 300 55 T 450 55 T 600 55 T 750 55 T 900 55 T 1050 55 T 1200 55 T 1350 55 T 1500 55 T 1650 55 T 1800 55 T 1950 55 T 2100 55 T 2250 55 T 2400 55 L 2400 120 L 0 120 Z" fill="#16304f"/>
+    </svg>
+    <svg class="wave w2" viewBox="0 0 2400 120" preserveAspectRatio="none">
+      <path d="M0 60 Q 100 18, 200 60 T 400 60 T 600 60 T 800 60 T 1000 60 T 1200 60 T 1400 60 T 1600 60 T 1800 60 T 2000 60 T 2200 60 T 2400 60 L 2400 120 L 0 120 Z" fill="#1a3557"/>
+    </svg>
+    <svg class="wave w3" viewBox="0 0 2400 120" preserveAspectRatio="none">
+      <path d="M0 58 Q 125 30, 250 58 T 500 58 T 750 58 T 1000 58 T 1250 58 T 1500 58 T 1750 58 T 2000 58 T 2250 58 T 2400 58 L 2400 120 L 0 120 Z" fill="#1e3a5f"/>
+    </svg>
+  </div>
+  <div id="horizonGlow"></div>
+  <div id="tideNotice">潮水正在上涨…</div>
+
+  <main id="seaMain">
+    <div id="glints"></div>
+    <div id="chat"></div>
+  </main>
+
+  <div id="dock">
+    <div id="chips">
+      <button class="chip" data-q="我今天很疲惫，节奏全乱了">我今天很疲惫，节奏全乱了</button>
+      <button class="chip" data-q="如何安排一天的深度工作？">如何安排一天的深度工作？</button>
+      <button class="chip" data-q="睡前怎样才能真正放松？">睡前怎样才能真正放松？</button>
+    </div>
+    <div id="bottleBar">
+      <input id="ask" type="text" placeholder="把你的困扰装进瓶子，投入海中…" autocomplete="off" maxlength="120">
+      <button id="corkBtn" title="封瓶寄出">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#3a2410" stroke-width="1.8" stroke-linecap="round">
+          <rect x="9" y="2.5" width="6" height="4" rx="1"/>
+          <path d="M9 6.5 C9 9, 7 10.5, 7 13 L7 19 Q7 21.5, 9.5 21.5 L14.5 21.5 Q17 21.5, 17 19 L17 13 C17 10.5, 15 9, 15 6.5 Z"/>
+          <path d="M9.5 13 L14.5 13"/>
+        </svg>
+        寄出
+      </button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var chat = document.getElementById('chat');
+  var seaMain = document.getElementById('seaMain');
+  var ask = document.getElementById('ask');
+  var corkBtn = document.getElementById('corkBtn');
+  var bottleBar = document.getElementById('bottleBar');
+  var toast = document.getElementById('toast');
+  var moonShadow = document.getElementById('moonShadow');
+  var phaseName = document.getElementById('phaseName');
+  var roundInfo = document.getElementById('roundInfo');
+
+  /* ---------- 预置回复 ---------- */
+  var REPLIES = [
+    "潮有信，人亦然。你的精力像潮水一样有涨有落——上午十点左右是大多数人的满潮，适合把最难的工作放下水，让深度思考随浪而行。\n退潮并不可怕，它是在为下一次涨潮积蓄水量。午后两点左右的低潮期，适合处理轻量的杂务，而不是和自己较劲。顺势而为，是最省力的划桨方式。",
+    "我为你测量了今天的潮位：你的专注力峰值预计出现在上午 9:30–11:30。建议把最重要的一件事放进这段满潮里，其余的事，交给退潮去漂。\n记住，节奏不是把每一分钟填满，而是知道什么时候该驶入深水，什么时候该靠岸休整。船搁浅的时候，再用力也推不动海。",
+    "深呼吸，像一个平稳的浪头。你说的疲惫，往往不是做得太多，而是涨退错位——在该退潮时用力划水，在该涨潮时却搁浅在会议里。\n试试九十分钟一个潮汐周期：九十分钟全速航行，二十分钟彻底靠岸。一天循环四次，你的水量就足够了。",
+    "月光正在拉动你的海面。关于优先级，我的建议是：把任务想象成港口里的船——先让吃水最深的船出港，小舢板晚一点没有关系。\n每天清晨问自己一个问题：如果今天只能涨一次潮，我要让哪艘船借这股潮水离开港口？答案浮现的那刻，一天的方向就定了。",
+    "夜晚是海的另一副面孔。睡前一小时，请把灯光调成月光级别，让屏幕的蓝光退去——你的褪黑素会像夜潮一样准时上涨。\n良好的睡眠不是一天结束时剩下的东西，而是明天涨潮的水源。愿你今夜风平浪静，明晨满潮如约而至。"
+  ];
+  var WELCOME = "你好，我是 TIDAL，你的节奏管理伙伴。潮水教会我们一件事：力量不在于持续的奔涌，而在于规律的涨落。\n告诉我你今天的日程或困扰，我们一起找到属于你的潮汐节律。";
+  var PHASES = ["新月","娥眉月","上弦月","盈凸月","满月"];
+  var PHASE_OFFSET = [0, -10, -22, -34, -46];
+
+  var round = 0, busy = false, replyIdx = Math.floor(Math.random()*REPLIES.length);
+
+  /* ---------- 星空与海面微光 ---------- */
+  (function makeStars(){
+    var box = document.getElementById('stars');
+    for(var i=0;i<34;i++){
+      var s = document.createElement('span');
+      s.className='star';
+      var size = Math.random()*1.8+0.8;
+      s.style.width = size+'px'; s.style.height = size+'px';
+      s.style.left = Math.random()*100+'%';
+      s.style.top = Math.random()*88+'%';
+      s.style.animationDuration = (1.8+Math.random()*3.4)+'s';
+      s.style.animationDelay = (-Math.random()*4)+'s';
+      if(Math.random()<.25) s.style.boxShadow = '0 0 4px #cfe4ff';
+      box.appendChild(s);
+    }
+  })();
+  (function makeGlints(){
+    var box = document.getElementById('glints');
+    for(var i=0;i<22;i++){
+      var g = document.createElement('span');
+      g.className='glint';
+      g.style.width = (8+Math.random()*22)+'px';
+      g.style.left = Math.random()*100+'%';
+      g.style.top = (Math.random()*46+4)+'%';
+      g.style.animationDuration = (2.2+Math.random()*3.5)+'s';
+      g.style.animationDelay = (-Math.random()*5)+'s';
+      box.appendChild(g);
+    }
+  })();
+
+  /* ---------- 月相 ---------- */
+  var currentCx = 32;
+  function setMoonPhase(idx, animate){
+    var target = 32 + PHASE_OFFSET[idx];
+    phaseName.textContent = PHASES[idx];
+    if(!animate){ moonShadow.setAttribute('cx', target); currentCx = target; return; }
+    var from = currentCx, t0 = null;
+    function step(ts){
+      if(!t0) t0 = ts;
+      var p = Math.min(1,(ts-t0)/900);
+      var e = p<.5 ? 2*p*p : 1-Math.pow(-2*p+2,2)/2;
+      moonShadow.setAttribute('cx', from + (target-from)*e);
+      if(p<1) requestAnimationFrame(step); else currentCx = target;
+    }
+    requestAnimationFrame(step);
+  }
+  function advanceMoon(){
+    var idx = Math.floor(round/2) % 5;
+    setMoonPhase(idx, true);
+    if(round>0 && round%10===0) showToast('潮汐完成一次轮回，月光重新归零');
+  }
+
+  /* ---------- 消息渲染 ---------- */
+  function scrollBottom(){ seaMain.scrollTop = seaMain.scrollHeight; }
+
+  function makeMsg(role, who){
+    var wrap = document.createElement('div');
+    wrap.className = 'msgWrap '+role;
+    var card = document.createElement('div');
+    card.className = 'msg '+role;
+    if(role==='agent'){
+      card.style.animationDelay = (Math.random()*3)+'s';
+    } else {
+      card.style.animationDelay = (Math.random()*3)+'s';
+    }
+    var whoEl = document.createElement('div');
+    whoEl.className='who';
+    whoEl.innerHTML = '<span class="dot"></span><span>'+who+'</span>';
+    var text = document.createElement('div');
+    text.className='text';
+    card.appendChild(whoEl); card.appendChild(text);
+    wrap.appendChild(card);
+    return {wrap:wrap, text:text};
+  }
+
+  function addUser(text){
+    var m = makeMsg('user','你 · 漂流瓶');
+    m.text.textContent = text;
+    chat.appendChild(m.wrap);
+    scrollBottom();
+  }
+
+  function streamAgent(text, done){
+    var ripple = document.createElement('div');
+    ripple.className='ripple';
+    ripple.innerHTML='<i></i><i></i>';
+    chat.appendChild(ripple);
+    scrollBottom();
+    setTimeout(function(){
+      ripple.remove();
+      var m = makeMsg('agent','TIDAL · 潮汐回信');
+      var caret = document.createElement('span');
+      caret.className='caret'; caret.textContent='▍';
+      m.text.appendChild(caret);
+      chat.appendChild(m.wrap);
+      var i=0;
+      var timer = setInterval(function(){
+        if(i>=text.length){
+          clearInterval(timer);
+          caret.remove();
+          if(done) done();
+          return;
+        }
+        var ch = text[i++];
+        if(ch==='\n'){
+          m.text.insertBefore(document.createElement('br'), caret);
+        } else {
+          m.text.insertBefore(document.createTextNode(ch), caret);
+        }
+        scrollBottom();
+      }, 42);
+    }, 650);
+  }
+
+  /* ---------- 思考（涨潮） ---------- */
+  function thinkThenReply(){
+    busy = true;
+    document.body.classList.add('thinking');
+    var holder = document.createElement('div');
+    holder.className='thinkingMsg';
+    holder.innerHTML =
+      '<svg class="thinkWave" viewBox="0 0 34 14"><path d="M1 8 Q 6 2, 11 8 T 21 8 T 31 8"/></svg>'+
+      '<span>潮水正在上涨…</span>';
+    chat.appendChild(holder);
+    scrollBottom();
+    var wait = 1600 + Math.random()*1200;
+    setTimeout(function(){
+      holder.remove();
+      document.body.classList.remove('thinking');
+      streamAgent(REPLIES[replyIdx % REPLIES.length], function(){
+        busy = false; ask.focus();
+      });
+      replyIdx++;
+    }, wait);
+  }
+
+  /* ---------- 漂流瓶寄出动画 ---------- */
+  function launchBottle(){
+    var rect = corkBtn.getBoundingClientRect();
+    var b = document.createElement('div');
+    b.className='driftBottle';
+    b.style.left = (rect.left+rect.width/2-15)+'px';
+    b.style.top = (rect.top-46)+'px';
+    b.innerHTML =
+      '<div class="inner"><svg viewBox="0 0 40 80" width="30" height="60">'+
+      '<rect x="14" y="5" width="12" height="10" rx="2" fill="#8a5a2b"/>'+
+      '<path d="M13 15 C13 21, 8 25, 8 33 L8 66 Q8 74, 16 74 L24 74 Q32 74, 32 66 L32 33 C32 25, 27 21, 27 15 Z" '+
+      'fill="rgba(150,200,235,.22)" stroke="rgba(175,215,250,.75)" stroke-width="1.2"/>'+
+      '<rect x="12" y="36" width="16" height="12" rx="1" fill="rgba(240,225,180,.55)"/></svg></div>';
+    document.body.appendChild(b);
+    setTimeout(function(){ b.remove(); }, 2100);
+  }
+
+  /* ---------- 发送 ---------- */
+  function send(raw){
+    var text = (raw||'').trim();
+    if(!text) return;
+    if(busy){
+      bottleBar.classList.remove('shake');
+      void bottleBar.offsetWidth;
+      bottleBar.classList.add('shake');
+      showToast('潮水未退，稍候片刻再寄出下一只瓶子');
+      return;
+    }
+    addUser(text);
+    launchBottle();
+    ask.value='';
+    round++;
+    roundInfo.textContent = '潮汐 · 第 '+round+' 轮';
+    advanceMoon();
+    thinkThenReply();
+  }
+
+  var toastTimer=null;
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toast.classList.remove('show'); }, 2200);
+  }
+
+  corkBtn.addEventListener('click', function(){
+    corkBtn.classList.add('pressed');
+    setTimeout(function(){ corkBtn.classList.remove('pressed'); }, 160);
+    send(ask.value);
+  });
+  ask.addEventListener('keydown', function(e){
+    if(e.key==='Enter') send(ask.value);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.chip'), function(c){
+    c.addEventListener('click', function(){ send(c.getAttribute('data-q')); });
+  });
+
+  /* ---------- 开场 ---------- */
+  setTimeout(function(){
+    streamAgent(WELCOME, null);
+  }, 700);
+})();
+</script>
+</body>
+</html>

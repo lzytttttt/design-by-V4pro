@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TYPEFOUNDRY · 铸字行 — 文字铸炼</title>
+<style>
+/* ============================================================
+   TYPEFOUNDRY 「铸字行」— 活字印刷美学
+   纸感底 · 巨大衬线字 · 铅字块逐字入位 · 字盘找字 · 朱印
+   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --paper: #f5f1e8;
+  --ink: #201d18;
+  --vermilion: #b1372a;
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: Georgia, "Times New Roman", "Songti SC", "STSong", "SimSun", serif;
+  background:
+    radial-gradient(ellipse 900px 500px at 20% 0%, rgba(255,255,255,.5), transparent 60%),
+    radial-gradient(ellipse 700px 600px at 90% 100%, rgba(190,175,140,.25), transparent 60%),
+    var(--paper);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* —— 头部字标 —— */
+header {
+  padding: 20px 44px 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-shrink: 0;
+}
+h1 {
+  font-size: 19px;
+  letter-spacing: .5em;
+  font-weight: 700;
+}
+.sub {
+  font-size: 12px;
+  letter-spacing: .3em;
+  color: rgba(32, 29, 24, .6);
+}
+#status {
+  margin-left: auto;
+  font-family: "KaiTi", "楷体", "STKaiti", serif;
+  font-size: 13px;
+  letter-spacing: .25em;
+  color: rgba(32, 29, 24, .65);
+  white-space: nowrap;
+}
+#status::before {
+  content: '◆';
+  font-size: 9px;
+  vertical-align: 2px;
+  margin-right: 8px;
+  animation: sealBreath 3.2s ease-in-out infinite;
+}
+@keyframes sealBreath { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+
+/* —— 视觉主字区 —— */
+.hero {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0 44px;
+  height: clamp(150px, 24vh, 230px);
+}
+.giant {
+  font-size: clamp(110px, 21vh, 210px);
+  line-height: .82;
+  font-weight: 700;
+  color: #17150f;
+  letter-spacing: -.02em;
+  text-shadow: 3px 4px 0 rgba(23, 21, 15, .13);
+  animation: inkSettle 2.2s ease both, giantBreath 6s 2.2s ease-in-out infinite;
+  user-select: none;
+}
+@keyframes inkSettle {
+  from { opacity: 0; filter: blur(10px); }
+  to   { opacity: 1; filter: blur(0); }
+}
+@keyframes giantBreath {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .88; }
+}
+.vertical-note {
+  writing-mode: vertical-rl;
+  font-family: "KaiTi", "楷体", "STKaiti", serif;
+  font-size: 15px;
+  letter-spacing: .5em;
+  line-height: 2.2;
+  color: rgba(60, 50, 38, .68);
+  height: 88%;
+  padding-left: 18px;
+  border-left: 1px solid rgba(60, 50, 38, .3);
+  animation: inkSettle 1.6s .4s ease both;
+}
+
+/* —— 对话流 —— */
+main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 44px 20px;
+  width: min(860px, 100%);
+  margin: 0 auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(32,29,24,.35) transparent;
+}
+
+/* 用户消息：师傅朱批 */
+.markup {
+  margin: 16px 0 16px auto;
+  max-width: 78%;
+  font-family: "KaiTi", "楷体", "STKaiti", serif;
+  font-size: 17px;
+  line-height: 1.9;
+  color: #8c2f1b;
+  border-right: 3px solid rgba(177, 55, 42, .55);
+  padding-right: 16px;
+  text-align: right;
+  animation: markupIn .6s ease both;
+}
+@keyframes markupIn {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.markup::after {
+  content: '（批）';
+  font-size: 11px;
+  opacity: .55;
+  margin-right: 6px;
+}
+
+/* 回复：版框内的活字排版 */
+.forme {
+  position: relative;
+  margin: 18px 0;
+  padding: 20px 22px 18px;
+  border: 2px solid #2b2822;
+  outline: 1px solid rgba(43, 40, 34, .55);
+  outline-offset: 4px;
+  background: rgba(255, 253, 246, .55);
+  animation: formeIn .5s ease both;
+}
+@keyframes formeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.forme::before {
+  content: '排';
+  position: absolute;
+  top: -13px; left: 18px;
+  background: var(--paper);
+  color: rgba(43, 40, 34, .8);
+  font-size: 11px;
+  letter-spacing: .3em;
+  padding: 0 8px;
+}
+.typeset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-content: flex-start;
+}
+
+/* 铅字块 */
+.tb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2em;
+  height: 2em;
+  font-size: 17px;
+  font-family: "Songti SC", "STSong", "SimSun", serif;
+  background: linear-gradient(180deg, #fbf8f0 0%, #efe9da 55%, #e0d8c2 100%);
+  border: 1px solid #3a362e;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9),
+              inset 0 -2px 3px rgba(120, 110, 88, .35),
+              1px 2px 3px rgba(40, 35, 25, .22);
+  transform-origin: 50% 0;
+  animation: typeDrop .34s cubic-bezier(.2, .9, .3, 1.35) both;
+}
+.tb.punct { width: 1em; }
+.tb.gap {
+  width: .8em;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+@keyframes typeDrop {
+  0%   { transform: translateY(-26px) rotate(var(--tilt)); opacity: 0; }
+  60%  { opacity: 1; }
+  100% { transform: translateY(0) rotate(0deg); opacity: var(--ink-op); }
+}
+
+/* —— 思考态：字盘找字 —— */
+.tray-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 18px 0;
+  animation: formeIn .4s ease both;
+}
+.tray {
+  display: grid;
+  grid-template-columns: repeat(5, 46px);
+  gap: 6px;
+  padding: 10px;
+  background: linear-gradient(180deg, #3a332a, #262019);
+  border: 2px solid #191512;
+  border-radius: 6px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, .6), 0 3px 8px rgba(40, 30, 15, .3);
+}
+.tray .cell {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, #d9d2bf, #b3ab93);
+  color: #26221b;
+  font-size: 21px;
+  font-family: "Songti SC", "SimSun", serif;
+  border-radius: 2px;
+  box-shadow: inset 0 -2px 3px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255,255,255,.5);
+  transition: transform .18s;
+}
+.tray .cell.set {
+  animation: cellSet .3s ease both;
+  background: linear-gradient(180deg, #e8dfc4, #c2b58f);
+}
+@keyframes cellSet {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(.82); }
+  100% { transform: scale(1); }
+}
+.tray-label {
+  font-family: "KaiTi", "楷体", serif;
+  font-size: 14px;
+  letter-spacing: .3em;
+  color: rgba(60, 50, 38, .7);
+  writing-mode: vertical-rl;
+}
+
+/* —— 输入：排版手托 —— */
+.stick {
+  flex-shrink: 0;
+  width: min(800px, calc(100% - 88px));
+  margin: 0 auto 30px;
+  background:
+    repeating-linear-gradient(93deg, rgba(60, 30, 10, .16) 0 3px, transparent 3px 28px),
+    linear-gradient(180deg, #93683a, #6e4a26 60%, #553819);
+  border-radius: 10px;
+  padding: 13px 15px;
+  box-shadow: 0 9px 20px rgba(60, 40, 15, .35),
+              inset 0 2px 0 rgba(255, 230, 180, .35),
+              inset 0 -3px 6px rgba(0, 0, 0, .3);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  position: relative;
+  z-index: 3;
+}
+#input {
+  flex: 1;
+  background: #f7f2e6;
+  border: none;
+  border-bottom: 2px solid #2b2620;
+  border-radius: 3px 3px 0 0;
+  padding: 10px 12px;
+  font-family: "Songti SC", "SimSun", serif;
+  font-size: 16px;
+  color: #2b2620;
+  outline: none;
+}
+#input::placeholder { color: rgba(43, 38, 32, .4); }
+#input:focus { border-bottom-color: var(--vermilion); }
+#send {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  background: linear-gradient(180deg, #35302a, #201d18);
+  color: #f0e9d8;
+  border: 1px solid #4a4238;
+  border-radius: 5px;
+  font-family: "Songti SC", "SimSun", serif;
+  font-size: 21px;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .15),
+              1px 2px 4px rgba(0, 0, 0, .35);
+  transition: transform .12s;
+}
+#send:hover { transform: translateY(-2px); }
+#send:active { transform: translateY(1px); }
+#send:disabled { opacity: .5; cursor: default; transform: none; }
+
+/* —— 朱红印章 —— */
+.seal {
+  position: fixed;
+  right: 34px;
+  bottom: 118px;
+  width: 52px;
+  height: 78px;
+  border: 3px solid rgba(178, 44, 36, .88);
+  border-radius: 6px;
+  color: rgba(178, 44, 36, .9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 19px;
+  font-weight: 700;
+  transform: rotate(5deg);
+  mix-blend-mode: multiply;
+  z-index: 4;
+  user-select: none;
+  pointer-events: none;
+}
+.seal span { writing-mode: vertical-rl; line-height: 1.05; }
+
+/* —— 自适应 —— */
+@media (max-width: 900px) {
+  header { padding: 14px 20px 4px; }
+  .hero { padding: 0 20px; height: clamp(110px, 18vh, 170px); }
+  .giant { font-size: clamp(80px, 16vh, 130px); }
+  .vertical-note { font-size: 12px; }
+  main { padding: 4px 20px 14px; }
+  .tb { font-size: 15px; }
+  .stick { width: calc(100% - 32px); margin-bottom: 20px; }
+  .seal { right: 14px; bottom: 96px; width: 44px; height: 66px; font-size: 16px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>铸字行</h1>
+  <span class="sub">TYPEFOUNDRY · 文 字 铸 炼</span>
+  <span id="status">候稿</span>
+</header>
+
+<div class="hero" aria-hidden="true">
+  <div class="giant">Aa</div>
+  <div class="vertical-note">畢昇活字 · 一版一字<br>千印千面 · 排字如山</div>
+</div>
+
+<main id="chat" aria-live="polite"></main>
+
+<footer class="stick">
+  <input id="input" type="text" placeholder="写下一句要铸的话……" autocomplete="off">
+  <button id="send" title="排版">排</button>
+</footer>
+
+<div class="seal"><span>活字</span><span>朱記</span></div>
+
+<script>
+(function () {
+  'use strict';
+  var chat = document.getElementById('chat');
+  var input = document.getElementById('input');
+  var sendBtn = document.getElementById('send');
+  var statusEl = document.getElementById('status');
+
+  var REPLIES = [
+    '字要先在炉火里化成水，再在铜模里定成形。你这句话来得太急，笔画都还没冷。我建议拆成两段，让读的人换一口气。',
+    '好的文字像好的铅字：字面要正，字身要稳，排成行时留缝透气。你这段话意思是对的，但太挤了——删去三分之一，它自己就会站直。',
+    '我为你试排了三种字距：紧的像密令，疏的像闲谈，不紧不疏的像家书。你这句话要念给重要的人听，我选了家书。',
+    '墨的浓淡由纸性决定，字的轻重由心力决定。你问的那个字，我在字盘里找了三圈——找到了，是个「缓」字。',
+    '活字的秘密在于：每一个字都是独立的，所以每一个字都自由；可一旦排成版，就成了谁也拆不散的句子。你的困境不在字，在排版。'
+  ];
+
+  /* 字盘找字时翻滚用的字池 */
+  var GLYPHS = '永和九年岁在癸丑暮春之初会于会稽山阴之兰亭修禊事也群贤毕至少长咸集此地有崇山峻岭茂林修竹清流激湍映带左右天朗气清惠风和畅足以极视听之娱信可乐也';
+
+  var replyIdx = 0;
+  var busy = false;
+
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function scrollChat() { chat.scrollTop = chat.scrollHeight; }
+  function randGlyph() {
+    return GLYPHS.charAt(Math.floor(Math.random() * GLYPHS.length));
+  }
+
+  function addMarkup(text) {
+    var el = document.createElement('div');
+    el.className = 'markup';
+    el.textContent = text;
+    chat.appendChild(el);
+    scrollChat();
+  }
+
+  /* —— 活字排版：每字一个铅字块，逐字落版 —— */
+  function typeset(container, text, baseDelay) {
+    var chars = Array.from(text);
+    var marks = '，。；：！？、·「」『』（）';
+    var gap = false;
+    for (var i = 0; i < chars.length; i++) {
+      var ch = chars[i];
+      if (ch === ' ') {
+        if (!gap) {
+          var sp = document.createElement('i');
+          sp.className = 'tb gap';
+          container.appendChild(sp);
+        }
+        gap = true;
+        continue;
+      }
+      gap = false;
+      var tb = document.createElement('i');
+      tb.className = 'tb' + (marks.indexOf(ch) >= 0 ? ' punct' : '');
+      tb.textContent = ch;
+      /* 油墨随机不均：透明度 + 墨色微差 + 落版微倾 */
+      var ink = 0.85 + Math.random() * 0.15;
+      var tone = 16 + Math.random() * 12;
+      tb.style.setProperty('--ink-op', ink.toFixed(2));
+      tb.style.setProperty('--tilt', ((Math.random() - 0.5) * 10).toFixed(1) + 'deg');
+      tb.style.color = 'hsl(' + (36 + Math.random() * 10).toFixed(0) + ' ' + (5 + Math.random() * 7).toFixed(0) + '% ' + tone.toFixed(0) + '%)';
+      tb.style.animationDelay = (baseDelay + i * 0.055).toFixed(3) + 's';
+      container.appendChild(tb);
+    }
+    return chars.length;
+  }
+
+  function mountReply(text) {
+    var forme = document.createElement('div');
+    forme.className = 'forme';
+    var ts = document.createElement('div');
+    ts.className = 'typeset';
+    forme.appendChild(ts);
+    chat.appendChild(forme);
+    var count = typeset(ts, text, 0.05);
+    scrollChat();
+    /* 持续跟随滚动直到排完 */
+    var iv = setInterval(scrollChat, 300);
+    setTimeout(function () { clearInterval(iv); }, 400 + count * 55 + 600);
+    return 400 + count * 55 + 500;
+  }
+
+  /* —— 思考态：字盘翻滚找字，定格后收起 —— */
+  async function traySearch() {
+    var wrap = document.createElement('div');
+    wrap.className = 'tray-wrap';
+    var tray = document.createElement('div');
+    tray.className = 'tray';
+    var label = document.createElement('div');
+    label.className = 'tray-label';
+    label.textContent = '檢字中';
+    wrap.appendChild(tray);
+    wrap.appendChild(label);
+    chat.appendChild(wrap);
+    scrollChat();
+
+    var cells = [];
+    for (var i = 0; i < 15; i++) {
+      var c = document.createElement('div');
+      c.className = 'cell';
+      c.textContent = randGlyph();
+      tray.appendChild(c);
+      cells.push(c);
+    }
+
+    /* 字雨翻滚 */
+    var spin = setInterval(function () {
+      cells.forEach(function (c) {
+        if (Math.random() < 0.7) c.textContent = randGlyph();
+      });
+    }, 75);
+
+    await wait(1700);
+    clearInterval(spin);
+
+    /* 逐格定格：像手指按住目标字 */
+    cells.forEach(function (c, i) {
+      setTimeout(function () {
+        c.classList.add('set');
+        c.textContent = randGlyph();
+      }, i * 55);
+    });
+    await wait(15 * 55 + 420);
+
+    /* 收起字盘 */
+    wrap.style.transition = 'opacity .5s, transform .5s';
+    wrap.style.opacity = '0';
+    wrap.style.transform = 'translateY(-6px)';
+    await wait(500);
+    wrap.remove();
+  }
+
+  async function respond() {
+    busy = true;
+    sendBtn.disabled = true;
+    statusEl.textContent = '檢字排字中';
+    await traySearch();
+    statusEl.textContent = '落版';
+
+    var text = REPLIES[replyIdx % REPLIES.length];
+    replyIdx++;
+    var total = mountReply(text);
+    await wait(total);
+    statusEl.textContent = '候稿';
+    busy = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+
+  function submit() {
+    var text = input.value.trim();
+    if (!text || busy) return;
+    input.value = '';
+    addMarkup(text);
+    respond();
+  }
+
+  sendBtn.addEventListener('click', submit);
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') submit();
+  });
+
+  /* —— 开版迎辞 —— */
+  setTimeout(function () {
+    mountReply('铸字行开炉。我是 TYPEFOUNDRY——你交来白话，我还你一版铅字。字字入位，句句可印。要试，就写一句话来。');
+  }, 900);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>编辑部 · EDITORIAL — 内容主编 AI</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --ink:#141414; --gray:#666; --light:#999; --rule:#d8d4cc;
+  --red:#b91c1c; --paper:#fdfdfb;
+}
+html,body{height:100%;}
+body{
+  font-family:Georgia,"Times New Roman","Songti SC","STSong","SimSun",serif;
+  color:var(--ink);
+  background:var(--paper);
+}
+#app{height:100%;display:flex;flex-direction:column;}
+
+/* ---------- 报头 ---------- */
+.masthead{flex:none;padding:16px 48px 0;text-align:center;}
+.topline{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;letter-spacing:.28em;color:var(--gray);padding-bottom:8px;border-bottom:1px solid var(--ink);}
+.mast-title{
+  font-size:clamp(58px,9vw,124px);
+  font-weight:900;letter-spacing:.14em;text-indent:.14em;
+  line-height:1.05;padding:16px 0 6px;
+}
+.mast-title small{
+  display:block;font-size:11px;font-weight:400;letter-spacing:.6em;text-indent:.6em;
+  color:var(--gray);margin-bottom:8px;
+}
+.subline{font-size:11.5px;letter-spacing:.2em;color:#3a3a3a;padding-bottom:12px;}
+.subline .dot{color:var(--red);margin:0 12px;font-size:9px;vertical-align:2px;}
+.subline em{font-style:normal;color:var(--gray);}
+.double-rule{border-top:3px solid var(--ink);border-bottom:1px solid var(--ink);height:7px;}
+
+/* ---------- 正文分栏（采访实录） ---------- */
+#page{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#ccc transparent;}
+#page::-webkit-scrollbar{width:8px;}
+#page::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px;}
+#cols{
+  column-count:3;column-gap:46px;column-rule:1px solid var(--rule);
+  padding:28px 48px 110px;
+}
+.qa{break-inside:avoid;-webkit-column-break-inside:avoid;margin-bottom:30px;animation:qaIn .5s ease both;}
+@keyframes qaIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+.q{margin:2px 0 12px;font-size:14px;line-height:1.9;font-weight:700;text-align:justify;}
+.q-tag{
+  display:inline-block;background:var(--ink);color:#fff;
+  font-size:10.5px;letter-spacing:.3em;font-weight:400;
+  padding:3px 8px 2px 11px;margin-right:10px;vertical-align:2px;
+}
+.q-meta{font-size:10px;color:var(--light);letter-spacing:.18em;font-weight:400;display:block;margin-top:3px;}
+.deck{
+  font-size:19px;font-weight:700;line-height:1.72;
+  margin:2px 0 12px;text-align:justify;
+}
+.deck.animate{animation:deckIn .85s cubic-bezier(.2,.8,.2,1) both;}
+@keyframes deckIn{from{opacity:0;transform:translateY(12px) scale(.985);letter-spacing:.12em;}to{opacity:1;transform:none;letter-spacing:0;}}
+.body{
+  font-size:14px;line-height:2.05;text-align:justify;text-justify:inter-ideograph;
+  color:#1c1c1c;margin-bottom:4px;
+}
+.lead::first-letter{
+  float:left;font-size:52px;line-height:.9;
+  padding:7px 10px 0 0;font-weight:900;color:var(--red);
+}
+.sep{text-align:center;color:#aaa;font-size:9px;margin:12px 0;letter-spacing:1.2em;text-indent:1.2em;}
+.byline{font-size:10px;color:var(--light);letter-spacing:.24em;text-align:right;margin-top:6px;}
+.sent{display:inline-block;opacity:0;animation:sentIn .5s ease forwards;}
+@keyframes sentIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:none;}}
+
+/* ---------- 起草中（思考态） ---------- */
+.draft-label{font-size:10.5px;letter-spacing:.44em;color:var(--light);text-align:center;margin:14px 0 10px;animation:blinkSoft 1.4s ease-in-out infinite;}
+@keyframes blinkSoft{50%{opacity:.4;}}
+.sheet{
+  background:#fff;border:1px solid var(--rule);
+  background-image:repeating-linear-gradient(180deg,transparent 0 26px,rgba(60,90,140,.14) 26px 27px);
+  padding:12px 16px;min-height:92px;
+}
+.cursor{display:inline-block;width:9px;height:17px;background:var(--ink);animation:blink .85s steps(1) infinite;vertical-align:-2px;}
+@keyframes blink{50%{opacity:0;}}
+
+/* ---------- 页脚刊尾 ---------- */
+.colophon{
+  column-span:all;-webkit-column-span:all;
+  text-align:center;font-size:10px;color:#888;letter-spacing:.3em;
+  padding:24px 0 6px;border-top:1px solid var(--rule);margin-top:6px;
+}
+.colophon b{color:var(--ink);font-weight:700;}
+
+/* ---------- 致编辑部来信栏 ---------- */
+#letter{flex:none;background:#fdfdfb;border-top:3px double var(--ink);z-index:5;}
+.letter-frame{max-width:1240px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:13px 48px;}
+.letter-label{
+  font-size:10.5px;letter-spacing:.42em;color:var(--gray);
+  white-space:nowrap;border:1px solid #bbb;padding:5px 8px 4px 15px;flex:none;
+}
+.letter-frame input{
+  flex:1;min-width:0;border:none;outline:none;
+  border-bottom:1px solid #999;
+  font-family:Georgia,"Songti SC","SimSun",serif;
+  font-size:15px;padding:8px 2px;background:transparent;letter-spacing:.04em;
+}
+.letter-frame input::placeholder{color:#bbb;}
+#post{
+  background:none;border:1px solid var(--ink);color:var(--ink);
+  padding:9px 24px 8px 30px;font-family:inherit;font-size:12.5px;
+  letter-spacing:.42em;cursor:pointer;transition:.2s;flex:none;
+}
+#post:hover{background:var(--red);border-color:var(--red);color:#fff;}
+
+@media(max-width:1150px){ #cols{column-count:2;} }
+@media(max-width:800px){
+  #cols{column-count:1;padding:22px 22px 110px;}
+  .masthead{padding:12px 22px 0;}
+  .topline{display:none;}
+  .letter-frame{padding:12px 20px;}
+  .letter-label{display:none;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="masthead">
+    <div class="topline">
+      <span>智识日报 · THE DAILY INTELLECT</span>
+      <span>读者来函 · 即问即复 · 恕不代庖</span>
+      <span>零售每份二文 · 恕不赊账</span>
+    </div>
+    <h1 class="mast-title">
+      <small>AI EDITORIAL DESK · 第叁佰陆拾玖期</small>编 辑 部
+    </h1>
+    <div class="subline">
+      <span id="paperDate">贰零贰陆年八月廿六日 · 星期三</span><span class="dot">◆</span><span id="weather">天气：晴，宜深思</span><span class="dot">◆</span><em>本刊主编为一具 AI · 然腔调百年不改</em>
+    </div>
+    <div class="double-rule"></div>
+  </header>
+
+  <div id="page">
+    <main id="cols">
+      <!-- 开刊导言 -->
+      <article class="qa">
+        <div class="a">
+          <p class="deck">致读者：本刊只回答一个问题——你今天问的那一个。</p>
+          <p class="body lead">编辑部已开张。这里没有搜索框，只有一张稿纸与一位较真的主编。来函会被当作正式采访处理：先立问题，再拟导语，然后逐段排入版面。每一问一答，都会成为本报的一块活字。</p>
+          <p class="body">来函请直书其事，本刊有问必答，答必排版。◆</p>
+          <div class="byline">—— 本刊编辑部 敬白</div>
+        </div>
+        <div class="sep">◆</div>
+      </article>
+    </main>
+    <div style="height:0" class="colophon-anchor"></div>
+  </div>
+
+  <footer id="letter">
+    <div class="letter-frame">
+      <span class="letter-label">致编辑部</span>
+      <input id="mail" type="text" placeholder="写下你的来函，主编将亲自作答…" autocomplete="off">
+      <button id="post">投递</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+var cols=document.getElementById('cols');
+var page=document.getElementById('page');
+var input=document.getElementById('mail');
+var postBtn=document.getElementById('post');
+
+/* ---------------- 日期 / 天气 ---------------- */
+var dayCn=['','','一','二','三','四','五','六','七','八','九','十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十','卅一'];
+var monCn=['','一','二','三','四','五','六','七','八','九','十','十一','十二'];
+var weekCn=['日','一','二','三','四','五','六'];
+(function(){
+  var d=new Date();
+  var y='贰零'+String(d.getFullYear()).slice(2).split('').map(function(c){return '〇一二三四五六七八九'[+c];}).join('');
+  document.getElementById('paperDate').textContent=y+'年'+monCn[d.getMonth()+1]+'月'+(dayCn[d.getDate()]||d.getDate())+'日 · 星期'+weekCn[d.getDay()];
+  var w=['晴，宜深思','多云，宜远眺','小雨，宜听雨','大风，宜闭门读书','薄雾，宜缓行','初雪，宜围炉'];
+  document.getElementById('weather').textContent='天气：'+w[Math.floor(Math.random()*w.length)];
+})();
+
+/* ---------------- 预置回复：导语 + 正文 ---------------- */
+var replies=[
+  {
+    deck:'本刊认为：答案不在远方，而在问题的措辞里。',
+    body:[
+      '来函收悉，编辑部连夜合议。诸编辑所见略同——读者所困者，多半不是无路可走，而是问题问得太宽。宽问题如大网，捞起的是水；窄问题如细钩，钓得起鱼。',
+      '本刊建议：把来信中的大哉问，改写成三行可以回答的小问，逐行批注，答案自会浮出纸面。另据观察，人的困惑多发生在黄昏——一天的判断力如版面，头版总是最清醒的。要事，请排头版。'
+    ]
+  },
+  {
+    deck:'慢，是快的一种形式。',
+    body:[
+      '本刊做过一个实验：同一篇稿子，赶工半日成篇，与搁置一夜再改，后者见报后收到的读者来信是前者三倍。快是完成的速度，慢是正确的速度。',
+      '故本刊对来函的答复是：此事不必今日定夺。今夜把它放在稿纸最上端，明早再看一眼——多数时候，你会惊讶于昨日之执拗。若明日仍旧执拗，那便是真心，从之。'
+    ]
+  },
+  {
+    deck:'注意力是这个时代最贵的版面。',
+    body:[
+      '读者来函问如何专注。本刊的答案朴素得近乎失礼：专注不是能力，而是预算。每人每日的注意力版面有限，广告、喧嚣与焦虑都在竞价头版位置。',
+      '本刊的做法可供参考：晨起第一小时不阅任何讯息，只写或只读——把头版留给自己的字。其余时段，任凭风吹版动。一月之后，你会发现自己的名字重新出现在自己的报纸上。'
+    ]
+  },
+  {
+    deck:'先完成，再完美——本刊百年老律。',
+    body:[
+      '来函所述之困境，编辑部太熟悉了：稿子写了一半，嫌开头不好，回头重写；再写一半，又嫌结构不好，再回头。如此三巡，废纸篓满而版面空。',
+      '本刊百年老律只有一条：初稿只许向前，不许回头。丑陋的完整远胜于优雅的残缺——因为完整的稿子可以改，而残缺的完美连被修改的资格都没有。写完它，明天再说。'
+    ]
+  },
+  {
+    deck:'好问题，自带答案的一半。',
+    body:[
+      '编辑部注意到，你的来函其实已经包含了答案，只是排版散乱：第一句是判断，第二句是犹豫，第三句是期待。把这三句按顺序读给自己听，结论几乎已经显影。',
+      '本刊所做的一切，不过是替你重新排版。真正的主笔从来是提问的人——这也是本刊虽由 AI 主编、却始终自称「编辑部」而非「答案部」的原因。下期来函，恭候。'
+    ]
+  }
+];
+var replyIdx=Math.floor(Math.random()*replies.length);
+var busy=false, qaCount=1;
+
+/* ---------------- 页脚刊尾 ---------------- */
+var colophon=document.createElement('div');
+colophon.className='colophon';
+colophon.innerHTML='本刊由 AI 主编部连夜排印 · 读者来函必复 —— <b id="pageNo">第 2 版</b> ——';
+cols.appendChild(colophon);
+
+/* ---------------- 工具 ---------------- */
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function scrollBottom(){page.scrollTop=page.scrollHeight;}
+function splitSents(t){return t.match(/[^。！？；]+[。！？；]?/g)||[t];}
+function currentTime(){
+  var d=new Date();
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+
+/* ---------------- 追加问答 ---------------- */
+function addQA(q){
+  qaCount++;
+  document.getElementById('pageNo').textContent='第 '+(qaCount+1)+' 版';
+  var art=document.createElement('article');
+  art.className='qa';
+  var qEl=document.createElement('p');
+  qEl.className='q';
+  qEl.innerHTML='<span class="q-tag">问</span>'+q.replace(/</g,'&lt;');
+  qEl.innerHTML+='<span class="q-meta">来函时间 '+currentTime()+' · 编号 0'+qaCount+'</span>';
+  art.appendChild(qEl);
+  cols.insertBefore(art,colophon);
+  return art;
+}
+function addDrafting(art){
+  var a=document.createElement('div');
+  a.className='a';
+  a.innerHTML='<p class="draft-label">— 编辑部起草中 —</p>'+
+    '<div class="sheet"><span class="cursor"></span></div>';
+  art.appendChild(a);
+  scrollBottom();
+  return a;
+}
+async function fillAnswer(art,reply){
+  var old=art.querySelector('.a'); if(old)old.remove();
+  var a=document.createElement('div'); a.className='a';
+  art.appendChild(a);
+  /* 导语：先于正文，大号粗衬线浮现（标志性瞬间） */
+  var deck=document.createElement('p');
+  deck.className='deck animate';
+  deck.textContent=reply.deck;
+  a.appendChild(deck);
+  scrollBottom();
+  await sleep(1000);
+  /* 正文：分栏流式排入 */
+  reply.body.forEach(function(paragraph,pi){
+    var p=document.createElement('p');
+    p.className='body'+(pi===0?' lead':'');
+    splitSents(paragraph).forEach(function(s,si){
+      var sp=document.createElement('span');
+      sp.className='sent'; sp.textContent=s;
+      sp.style.animationDelay=(0.12+si*.38)+'s';
+      p.appendChild(sp);
+    });
+    a.appendChild(p);
+    if(pi<reply.body.length-1){
+      var sep=document.createElement('div');
+      sep.className='sep'; sep.textContent='◆';
+      a.appendChild(sep);
+    }
+    scrollBottom();
+  });
+  var by=document.createElement('div');
+  by.className='byline'; by.textContent='—— 主编按 · 本刊观点';
+  by.style.opacity=0; by.style.transition='opacity .8s';
+  a.appendChild(by);
+  setTimeout(function(){by.style.opacity=1;scrollBottom();},600);
+}
+
+/* ---------------- 发送回路 ---------------- */
+async function send(){
+  var text=input.value.trim();
+  if(!text||busy)return;
+  busy=true; input.value='';
+  var art=addQA(text);
+  var draft=addDrafting(art);
+  await sleep(1700+Math.random()*1200);
+  var reply=replies[replyIdx%replies.length]; replyIdx++;
+  await fillAnswer(art,reply);
+  busy=false;
+}
+input.addEventListener('keydown',function(e){ if(e.key==='Enter')send(); });
+postBtn.addEventListener('click',send);
+})();
+</script>
+</body>
+</html>

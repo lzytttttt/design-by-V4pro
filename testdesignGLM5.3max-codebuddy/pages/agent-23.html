@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIRCUITRY 电路城 · 系统底层AI</title>
+<style>
+:root{
+  --pcb:#0a2e1f;
+  --pcb-deep:#062315;
+  --trace-dim:#1d4a33;
+  --gold:#f0c24b;
+  --gold-dim:#8a6d2b;
+  --green-text:#7ef0b0;
+  --mono:"Cascadia Code","Consolas","JetBrains Mono","Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:
+    radial-gradient(ellipse at 50% 20%, #0d3a27 0%, var(--pcb) 45%, var(--pcb-deep) 100%);
+  font-family:var(--mono);
+  color:var(--green-text);
+  overflow:hidden;
+  position:relative;
+}
+
+/* ============ 走线层 ============ */
+#traces{
+  position:fixed;inset:0;width:100%;height:100%;
+  z-index:0;pointer-events:none;
+}
+.trace{
+  fill:none;
+  stroke:var(--trace-dim);
+  stroke-width:1.6;
+  stroke-linecap:round;
+  transition:stroke .5s ease, filter .5s ease;
+}
+.trace.lit{
+  stroke:var(--gold);
+  filter:drop-shadow(0 0 3px rgba(240,194,75,.75));
+}
+.trace.dash{
+  stroke-dasharray:7 110;
+  animation:signal-flow 2.6s linear infinite;
+}
+@keyframes signal-flow{
+  from{stroke-dashoffset:0}
+  to{stroke-dashoffset:-117}
+}
+.trace.clock{
+  animation:clock-blink .24s steps(2) infinite;
+}
+@keyframes clock-blink{
+  0%{stroke:var(--gold);filter:drop-shadow(0 0 4px rgba(240,194,75,.9))}
+  50%{stroke:#5a4a1a;filter:none}
+}
+.via{
+  fill:#123a26;
+  stroke:#1d4a33;
+  stroke-width:1;
+  transition:fill .5s ease, stroke .5s ease, filter .5s ease;
+}
+.via.lit{
+  fill:var(--gold);
+  stroke:#ffe9a8;
+  filter:drop-shadow(0 0 5px rgba(240,194,75,.9));
+}
+
+/* ============ 丝印 ============ */
+.silks{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  font-size:10px;letter-spacing:1.5px;
+  color:rgba(210,235,220,.42);
+}
+.silk{position:absolute;white-space:nowrap}
+.silk i{font-style:normal;opacity:.55}
+
+/* ============ 主芯片 ============ */
+.chip{
+  position:fixed;z-index:2;
+  left:50%;top:17%;
+  transform:translate(-50%,-50%);
+  width:196px;height:196px;
+  transition:filter 1s ease;
+}
+.chip.lit{filter:drop-shadow(0 0 26px rgba(240,194,75,.4))}
+.pins{
+  position:absolute;
+  background:repeating-linear-gradient(90deg,var(--gold-dim) 0 7px,transparent 7px 21px);
+  opacity:0;
+  transition:opacity .8s ease;
+}
+.chip.lit .pins{opacity:1}
+.pins-t,.pins-b{left:14px;right:14px;height:12px}
+.pins-t{top:-12px}
+.pins-b{bottom:-12px}
+.pins-l,.pins-r{top:14px;bottom:14px;width:12px;
+  background:repeating-linear-gradient(180deg,var(--gold-dim) 0 7px,transparent 7px 21px);
+}
+.pins-l{left:-12px}
+.pins-r{right:-12px}
+.chip-body{
+  width:100%;height:100%;
+  background:linear-gradient(145deg,#181818,#0a0a0a 60%,#141414);
+  border:1px solid #333;
+  border-radius:6px;
+  box-shadow:inset 0 0 24px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.06);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:7px;
+  position:relative;
+}
+.chip-brand{
+  color:var(--gold);
+  font-size:19px;font-weight:700;letter-spacing:4px;
+  text-shadow:0 0 8px rgba(240,194,75,.45);
+}
+.chip-sub{
+  color:#c9b06a;font-size:10px;letter-spacing:2px;
+}
+.chip-etch{
+  color:#6e6248;font-size:8.5px;letter-spacing:1px;
+}
+.chip-dot{
+  position:absolute;left:12px;top:12px;
+  width:9px;height:9px;border-radius:50%;
+  background:#2a2a2a;border:1px solid #444;
+}
+.chip-led{
+  position:absolute;right:12px;top:12px;
+  width:9px;height:9px;border-radius:50%;
+  background:#123;
+  transition:background .3s, box-shadow .3s;
+}
+.chip-led.on{
+  background:#ff5c5c;
+  box-shadow:0 0 8px rgba(255,92,92,.9);
+  animation:led-heartbeat 2.2s ease-in-out infinite;
+}
+.chip-led.think{animation:led-fast .18s steps(2) infinite}
+@keyframes led-heartbeat{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes led-fast{0%{opacity:1}50%{opacity:.2}}
+
+/* ============ 前景应用层 ============ */
+.app{
+  position:relative;z-index:3;height:100%;
+  display:flex;flex-direction:column;justify-content:flex-end;
+}
+
+/* 对话显示屏 */
+.display{
+  width:min(880px,92%);
+  margin:0 auto 14px;
+  height:min(380px,44vh);
+  background:
+    repeating-linear-gradient(0deg,rgba(126,240,176,.028) 0 1px,transparent 1px 3px),
+    linear-gradient(180deg,rgba(6,30,19,.92),rgba(4,22,14,.95));
+  border:1px solid #2a5a3f;
+  border-radius:8px;
+  box-shadow:
+    0 0 0 4px rgba(10,46,31,.55),
+    0 0 32px rgba(0,0,0,.5),
+    inset 0 0 40px rgba(0,0,0,.45);
+  overflow-y:auto;
+  padding:20px 26px;
+  scrollbar-width:thin;
+  scrollbar-color:#2a5a3f transparent;
+}
+.display::-webkit-scrollbar{width:6px}
+.display::-webkit-scrollbar-thumb{background:#2a5a3f;border-radius:3px}
+.display-inner{
+  display:flex;flex-direction:column;gap:16px;
+}
+.boot-line{
+  color:rgba(126,240,176,.55);
+  font-size:12px;letter-spacing:1px;
+  animation:boot-in .4s ease both;
+}
+@keyframes boot-in{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+
+.msg{animation:boot-in .4s ease both}
+.msg.user{
+  align-self:flex-end;
+  max-width:78%;
+  text-align:right;
+}
+.msg.user .tx{
+  color:var(--gold);
+  font-size:12px;letter-spacing:2px;display:block;margin-bottom:3px;
+}
+.msg.user .txt{
+  color:#ffd98a;
+  font-size:14px;line-height:1.8;
+}
+.msg.ai{max-width:92%}
+.hex-head{
+  color:var(--gold);
+  font-size:11px;letter-spacing:2px;
+  margin-bottom:5px;
+  text-shadow:0 0 6px rgba(240,194,75,.4);
+}
+.hex-head::before{
+  content:"";display:inline-block;
+  width:7px;height:7px;background:var(--gold);
+  margin-right:8px;vertical-align:1px;
+  box-shadow:0 0 6px rgba(240,194,75,.8);
+}
+.payload{
+  color:var(--green-text);
+  font-size:14px;line-height:1.95;
+  text-shadow:0 0 7px rgba(126,240,176,.35);
+  word-break:break-all;
+}
+.byte-group{
+  opacity:0;
+  animation:byte-in .18s steps(2) forwards;
+}
+@keyframes byte-in{to{opacity:1}}
+.packet-cube{
+  display:inline-block;
+  width:7px;height:7px;margin:0 5px 0 0;
+  background:var(--gold);
+  box-shadow:0 0 7px rgba(240,194,75,.9);
+  transform:translateX(-16px);
+  opacity:0;
+  transition:transform .3s cubic-bezier(.2,1,.4,1),opacity .3s;
+  vertical-align:1px;
+}
+.packet-cube.in{transform:translateX(0);opacity:1}
+
+/* 思考指示 */
+.think-line{
+  color:rgba(240,194,75,.85);
+  font-size:12.5px;letter-spacing:2px;
+}
+.think-line .blink{animation:clock-blink .5s steps(2) infinite}
+
+/* ============ 输入插槽 ============ */
+.slot-bar{
+  width:min(880px,92%);
+  margin:0 auto 26px;
+  display:flex;align-items:center;gap:16px;
+}
+.leds{display:flex;gap:6px}
+.led{
+  width:9px;height:9px;border-radius:50%;
+  background:#12331f;
+  border:1px solid #2a5a3f;
+  transition:background .12s, box-shadow .12s;
+}
+.led.on{
+  background:#6bff9e;
+  box-shadow:0 0 8px rgba(107,255,158,.9);
+}
+.slot{
+  flex:1;position:relative;
+  background:#072417;
+  border:2px solid #2a5a3f;
+  border-radius:6px;
+  box-shadow:inset 0 4px 12px rgba(0,0,0,.55);
+  padding:3px;
+}
+.slot-notch{
+  position:absolute;top:-2px;left:50%;transform:translateX(-50%);
+  width:34px;height:9px;
+  background:var(--pcb);
+  border:2px solid #2a5a3f;border-bottom:none;
+  border-radius:5px 5px 0 0;
+}
+.slot input{
+  width:100%;
+  background:transparent;border:none;outline:none;
+  font-family:var(--mono);font-size:14.5px;
+  color:var(--green-text);
+  padding:11px 16px;
+  letter-spacing:1px;
+  text-shadow:0 0 6px rgba(126,240,176,.3);
+}
+.slot input::placeholder{color:rgba(126,240,176,.35)}
+.inject-btn{
+  font-family:var(--mono);
+  font-size:14px;font-weight:700;letter-spacing:3px;
+  color:var(--pcb-deep);
+  background:linear-gradient(180deg,#ffd76e,#e0a92e);
+  border:1px solid #8a6d2b;
+  border-radius:5px;
+  padding:12px 24px;
+  cursor:pointer;
+  box-shadow:0 0 14px rgba(240,194,75,.35),inset 0 1px 0 rgba(255,255,255,.5);
+  transition:box-shadow .25s,transform .1s;
+}
+.inject-btn:hover{box-shadow:0 0 24px rgba(240,194,75,.6),inset 0 1px 0 rgba(255,255,255,.5)}
+.inject-btn:active{transform:translateY(2px)}
+.inject-btn:disabled{opacity:.45;cursor:default;box-shadow:none}
+
+/* ============ 示波器 ============ */
+.scope{
+  position:fixed;right:22px;top:20px;z-index:4;
+  width:196px;
+  background:linear-gradient(180deg,rgba(6,30,19,.94),rgba(4,20,13,.96));
+  border:1px solid #2a5a3f;
+  border-radius:6px;
+  box-shadow:0 0 18px rgba(0,0,0,.5),inset 0 0 20px rgba(0,0,0,.4);
+  padding:8px 10px 7px;
+}
+.scope-label{
+  display:flex;justify-content:space-between;
+  font-size:9px;letter-spacing:2px;
+  color:rgba(126,240,176,.6);
+  margin-bottom:5px;
+}
+.scope-label b{color:var(--gold);font-weight:400}
+#scopeCanvas{
+  display:block;width:100%;height:84px;
+  background:rgba(0,10,5,.6);
+  border-radius:3px;
+}
+
+/* ============ 自适应 ============ */
+@media (max-width:760px){
+  .chip{width:140px;height:140px;top:14%}
+  .chip-brand{font-size:14px}
+  .display{height:40vh;padding:14px 16px}
+  .slot-bar{flex-wrap:wrap}
+  .leds{display:none}
+  .scope{width:150px;right:12px;top:12px}
+}
+</style>
+</head>
+<body>
+
+<svg id="traces" aria-hidden="true"></svg>
+
+<!-- 丝印标注 -->
+<div class="silks" aria-hidden="true">
+  <span class="silk" style="left:4%;top:7%">AI-CORE v2.4 <i>· REV C</i></span>
+  <span class="silk" style="right:26%;top:12%">SYSCLK 100MHz</span>
+  <span class="silk" style="left:6%;bottom:30%">VCC 3.3V —— GND</span>
+  <span class="silk" style="right:5%;bottom:36%">J1 · DEBUG PORT</span>
+  <span class="silk" style="left:16%;top:38%">U2 ▸ THINK-BUS</span>
+  <span class="silk" style="right:14%;bottom:14%">⌬ MADE IN CIRCUITRY</span>
+  <span class="silk" style="left:30%;bottom:9%">R7 R8 R9 C4 C5</span>
+</div>
+
+<!-- 主芯片 -->
+<div class="chip" id="chip">
+  <div class="pins pins-t"></div>
+  <div class="pins pins-b"></div>
+  <div class="pins pins-l"></div>
+  <div class="pins pins-r"></div>
+  <div class="chip-body">
+    <div class="chip-dot"></div>
+    <div class="chip-led" id="chipLed"></div>
+    <div class="chip-brand">CIRCUITRY</div>
+    <div class="chip-sub">AI-CORE v2.4</div>
+    <div class="chip-etch">N7 · TSMC-7nm · SN 1968-A4</div>
+  </div>
+</div>
+
+<div class="app">
+  <!-- 对话显示区 -->
+  <main class="display" id="display">
+    <div class="display-inner" id="displayInner"></div>
+  </main>
+
+  <!-- 输入插槽 -->
+  <footer class="slot-bar">
+    <div class="leds" id="leds"></div>
+    <div class="slot">
+      <div class="slot-notch"></div>
+      <input id="cmdInput" type="text" placeholder="输入指令，烧录进核心……" autocomplete="off" maxlength="80">
+    </div>
+    <button id="injectBtn" class="inject-btn">注入 ▸</button>
+  </footer>
+</div>
+
+<!-- 示波器 -->
+<div class="scope">
+  <div class="scope-label"><b>SYSCLK</b><span id="scopeMode">IDLE 32kHz</span></div>
+  <canvas id="scopeCanvas" width="340" height="168"></canvas>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const $ = s => document.querySelector(s);
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const rand = (a,b) => a + Math.random()*(b-a);
+
+  const display = $('#display');
+  const displayInner = $('#displayInner');
+  const input = $('#cmdInput');
+  const injectBtn = $('#injectBtn');
+  const chip = $('#chip');
+  const chipLed = $('#chipLed');
+  const svg = $('#traces');
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  let clockTraces = [];
+
+  /* ================= 走线生成 ================= */
+  function genTraces(){
+    const W = innerWidth, H = innerHeight;
+    const chipRect = chip.getBoundingClientRect();
+    const cx = chipRect.left + chipRect.width/2;
+    const cy = chipRect.top + chipRect.height/2;
+    const half = chipRect.width/2 + 16;
+    const all = [];
+
+    function makePath(sx, sy, dir0){
+      let x = sx, y = sy, dir = dir0;
+      let d = 'M ' + x.toFixed(1) + ' ' + y.toFixed(1);
+      const segs = 3 + Math.floor(Math.random()*3);
+      for(let s=0; s<segs; s++){
+        /* 方向取 45 度倍数：在当前方向 ±90° 内偏转 */
+        const turn = (Math.floor(Math.random()*3) - 1) * Math.PI/4;
+        dir = dir + turn;
+        let len = rand(70, 230);
+        let nx = x + Math.cos(dir)*len;
+        let ny = y + Math.sin(dir)*len;
+        nx = Math.max(14, Math.min(W-14, nx));
+        ny = Math.max(14, Math.min(H-14, ny));
+        x = nx; y = ny;
+        d += ' L ' + x.toFixed(1) + ' ' + y.toFixed(1);
+      }
+      return { d, ex:x, ey:y, sx, sy };
+    }
+
+    /* 从芯片四边引脚出发的走线 */
+    const perSide = 5;
+    for(let i=0;i<perSide;i++){
+      const t = (i+0.5)/perSide;
+      const off = (t-0.5)*2*(half-26);
+      /* 上边 */
+      all.push(makePath(cx+off, cy-half, -Math.PI/2 + rand(-.3,.3)));
+      /* 下边 */
+      all.push(makePath(cx+off, cy+half, Math.PI/2 + rand(-.3,.3)));
+      /* 左右 */
+      all.push(makePath(cx-half, cy+off, Math.PI + rand(-.3,.3)));
+      all.push(makePath(cx+half, cy+off, rand(-.3,.3)));
+    }
+    /* 远处自由走线 */
+    for(let i=0;i<8;i++){
+      const sx = rand(W*.05, W*.95);
+      const sy = Math.random()<.5 ? rand(20, H*.16) : rand(H*.84, H-20);
+      all.push(makePath(sx, sy, Math.random()*Math.PI*2));
+    }
+
+    /* 绘制 */
+    all.forEach((t, idx) => {
+      const p = document.createElementNS(SVGNS, 'path');
+      p.setAttribute('d', t.d);
+      p.setAttribute('class', 'trace');
+      p.style.transitionDelay = (idx*42) + 'ms';
+      svg.appendChild(p);
+      t.el = p;
+      /* 终点过孔 */
+      const v = document.createElementNS(SVGNS, 'circle');
+      v.setAttribute('cx', t.ex); v.setAttribute('cy', t.ey);
+      v.setAttribute('r', 3.4);
+      v.setAttribute('class', 'via');
+      v.style.transitionDelay = (idx*42+240) + 'ms';
+      svg.appendChild(v);
+      /* 起点小焊盘 */
+      const v2 = document.createElementNS(SVGNS, 'circle');
+      v2.setAttribute('cx', t.sx); v2.setAttribute('cy', t.sy);
+      v2.setAttribute('r', 2.6);
+      v2.setAttribute('class', 'via');
+      v2.style.transitionDelay = (idx*42) + 'ms';
+      svg.appendChild(v2);
+      t.via = v;
+    });
+    return all;
+  }
+
+  /* 通电自检 */
+  async function powerOn(traces){
+    await sleep(450);
+    chip.classList.add('lit');
+    chipLed.classList.add('on');
+    await sleep(220);
+    const allVias = svg.querySelectorAll('.via');
+    traces.forEach(t => t.el.classList.add('lit'));
+    allVias.forEach(v => v.classList.add('lit'));
+    /* 部分走线常驻信号流动 */
+    await sleep(1900);
+    traces.forEach(t => {
+      if(Math.random() < .3) t.el.classList.add('dash');
+    });
+    clockTraces = traces.filter(() => Math.random() < .18).map(t => t.el);
+  }
+
+  /* ================= 示波器 ================= */
+  const canvas = $('#scopeCanvas');
+  const sctx = canvas.getContext('2d');
+  const scopeMode = $('#scopeMode');
+  let scopeState = 'idle';
+  let phase = 0;
+  function scopeLoop(){
+    phase += scopeState === 'think' ? .22 : .045;
+    const W = canvas.width, H = canvas.height;
+    sctx.fillStyle = 'rgba(2,14,8,.32)';
+    sctx.fillRect(0,0,W,H);
+    /* 网格 */
+    sctx.strokeStyle = 'rgba(126,240,176,.09)';
+    sctx.lineWidth = 1;
+    sctx.beginPath();
+    for(let gx=0; gx<W; gx+=34){ sctx.moveTo(gx,0); sctx.lineTo(gx,H); }
+    for(let gy=0; gy<H; gy+=28){ sctx.moveTo(0,gy); sctx.lineTo(W,gy); }
+    sctx.stroke();
+    /* 波形 */
+    sctx.strokeStyle = scopeState === 'think' ? '#f0c24b' : '#7ef0b0';
+    sctx.lineWidth = 2.4;
+    sctx.shadowColor = sctx.strokeStyle;
+    sctx.shadowBlur = 7;
+    sctx.beginPath();
+    for(let x=0; x<=W; x+=3){
+      const t = (x/W)*Math.PI*5 + phase;
+      let v;
+      if(scopeState === 'think'){
+        v = Math.sin(t) > 0 ? .78 : -.78;
+      } else {
+        v = Math.sin(t)*.42 + Math.sin(t*2.7)*.1;
+      }
+      const y = H/2 - v*H*.38;
+      x === 0 ? sctx.moveTo(x,y) : sctx.lineTo(x,y);
+    }
+    sctx.stroke();
+    sctx.shadowBlur = 0;
+    requestAnimationFrame(scopeLoop);
+  }
+  scopeLoop();
+
+  /* ================= LED 排 ================= */
+  const ledsBox = $('#leds');
+  const leds = [];
+  for(let i=0;i<7;i++){
+    const l = document.createElement('span');
+    l.className = 'led';
+    ledsBox.appendChild(l);
+    leds.push(l);
+  }
+  async function ledSweep(){
+    for(const l of leds){
+      l.classList.add('on');
+      await sleep(38);
+      l.classList.remove('on');
+    }
+  }
+
+  /* ================= 对话 ================= */
+  const REPLIES = [
+    "自检通过。已为你的指令分配 3 条思维总线，时钟频率临时提升至 240MHz。数据正在走线上奔跑，第一包结果已抵达缓存：这件事的核心变量有两个，我把它们焊在了结论的两端。",
+    "中断响应完毕。你的问题触发了一个低优先级进程——说实话，它值得更高的优先级。我翻遍了寄存器堆，在一个旧地址里找到过类似问题的解，正在校验……校验通过，交付。",
+    "散热风扇已接管。这个问题让逻辑门翻转频率上升了 18%，是好事。走线上的信号告诉我：你要的不是答案本身，而是答案为什么长这个样子。行，我把中间的门电路也摊开给你看。",
+    "时钟同步完成。我把你的话拆成了 47 个语义单元，重新编码后只剩 6 个关键位——其余都是噪声。这 6 位合起来的意思是：先动手，再优化，别在仿真里纠结太久。",
+    "睡眠模式解除。刚才我在低功耗状态下做了一个梦：整块电路板变成了一座城市，你的问题是其中唯一亮着灯的房间。我走进那个房间看了看，墙上写着两个字——继续。"
+  ];
+  let lastIdx = -1;
+  function pickReply(){
+    let i;
+    do { i = Math.floor(Math.random()*REPLIES.length); } while(i === lastIdx);
+    lastIdx = i;
+    return REPLIES[i];
+  }
+
+  let hexAddr = 0x3F2A;
+  function nextHead(){
+    hexAddr += 0x1F + Math.floor(Math.random()*0x40);
+    const a = '0x' + hexAddr.toString(16).toUpperCase();
+    const chk = '0x' + Math.floor(Math.random()*256).toString(16).toUpperCase().padStart(2,'0');
+    return a + ' ▸ DATA STREAM ▸ CHK ' + chk;
+  }
+
+  function scrollBottom(){
+    display.scrollTop = display.scrollHeight;
+  }
+
+  function addUser(text){
+    const el = document.createElement('div');
+    el.className = 'msg user';
+    el.innerHTML = '<span class="tx">TX ▸</span><div class="txt"></div>';
+    el.querySelector('.txt').textContent = text;
+    displayInner.appendChild(el);
+    scrollBottom();
+  }
+
+  function addAiShell(){
+    const el = document.createElement('div');
+    el.className = 'msg ai';
+    el.innerHTML = '<div class="hex-head">' + nextHead() + '</div><div class="payload"></div>';
+    displayInner.appendChild(el);
+    scrollBottom();
+    return el;
+  }
+
+  /* 逐字节烧录 */
+  function burnText(container, text){
+    return new Promise(resolve => {
+      const groups = [];
+      let i = 0;
+      while(i < text.length){
+        const n = 3 + Math.floor(Math.random()*2);
+        groups.push(text.slice(i, i+n));
+        i += n;
+      }
+      let g = 0;
+      const timer = setInterval(() => {
+        const pk = document.createElement('span');
+        pk.className = 'packet-cube';
+        container.appendChild(pk);
+        requestAnimationFrame(() => pk.classList.add('in'));
+        setTimeout(() => pk.remove(), 420);
+
+        const s = document.createElement('span');
+        s.className = 'byte-group';
+        s.textContent = groups[g];
+        container.appendChild(s);
+        scrollBottom();
+        g++;
+        if(g >= groups.length){
+          clearInterval(timer);
+          setTimeout(resolve, 420);
+        }
+      }, 135);
+    });
+  }
+
+  /* 思考态 */
+  async function think(ms){
+    scopeState = 'think';
+    scopeMode.textContent = 'RUN 240MHz';
+    chipLed.classList.add('think');
+    clockTraces.forEach(el => el.classList.add('clock'));
+    const el = document.createElement('div');
+    el.className = 'msg ai';
+    el.innerHTML = '<div class="think-line">▸ PROCESSING <span class="blink">▮▮▮</span> BUS 0-2 ACTIVE</div>';
+    displayInner.appendChild(el);
+    scrollBottom();
+    await sleep(ms);
+    el.remove();
+    clockTraces.forEach(el => el.classList.remove('clock'));
+    chipLed.classList.remove('think');
+    scopeState = 'idle';
+    scopeMode.textContent = 'IDLE 32kHz';
+  }
+
+  /* ================= 发送流程 ================= */
+  let busy = false;
+  async function handleSend(){
+    const text = input.value.trim();
+    if(!text || busy) return;
+    busy = true;
+    injectBtn.disabled = true;
+    input.value = '';
+    addUser(text);
+    ledSweep();
+    await sleep(360);
+    await think(rand(1800, 2700));
+    const shell = addAiShell();
+    await sleep(240);
+    await burnText(shell.querySelector('.payload'), pickReply());
+    busy = false;
+    injectBtn.disabled = false;
+    input.focus();
+  }
+
+  injectBtn.addEventListener('click', handleSend);
+  input.addEventListener('keydown', e => {
+    if(e.key === 'Enter') handleSend();
+  });
+
+  /* ================= 启动 ================= */
+  async function boot(){
+    const traces = genTraces();
+    powerOn(traces);
+    await sleep(600);
+    const l1 = document.createElement('div');
+    l1.className = 'boot-line';
+    l1.textContent = '> POWER ON …… 3.3V OK / 5V OK / 1.8V OK';
+    displayInner.appendChild(l1);
+    await sleep(700);
+    const l2 = document.createElement('div');
+    l2.className = 'boot-line';
+    l2.textContent = '> SELF-TEST …… 走线网络就绪 · 过孔导通 · 信号完整性 PASS';
+    displayInner.appendChild(l2);
+    await sleep(1400);
+    const shell = addAiShell();
+    await burnText(shell.querySelector('.payload'),
+      'CIRCUITRY 在线。通电自检完成，所有走线畅通。输入指令，我把它烧进核心。');
+    input.focus();
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

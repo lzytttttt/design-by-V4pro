@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURORA · 极光</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:"Georgia","Songti SC","SimSun",serif;
+    background:linear-gradient(180deg,#0b1026 0%,#0e1533 58%,#141a3d 62%,#0d1229 100%);
+    color:#dbe4ff;overflow:hidden;
+  }
+  canvas#aurora{position:fixed;inset:0;z-index:0}
+
+  /* 雪原 */
+  .snowfield{position:fixed;left:0;right:0;top:58%;bottom:0;z-index:1;pointer-events:none;
+    background:linear-gradient(180deg,rgba(167,139,250,.10),rgba(52,211,153,.05) 30%,transparent 70%)}
+  .snowfield::before{content:'';position:absolute;left:0;right:0;top:0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(196,181,253,.4),rgba(110,231,183,.35),transparent)}
+
+  header{position:fixed;top:0;left:0;right:0;padding:28px 44px;z-index:3;
+    display:flex;justify-content:space-between;align-items:baseline}
+  h1{font-size:23px;font-weight:400;letter-spacing:.5em;color:#a7f3d0}
+  .sub{font-size:10.5px;letter-spacing:.32em;color:#5b6b9e}
+  .kp{font-size:10.5px;letter-spacing:.22em;color:#5b6b9e;text-align:right;line-height:2}
+  .kp b{color:#c4b5fd;font-weight:400}
+
+  /* 对话卡片：雪原上空 */
+  .feed{position:fixed;left:50%;top:63%;transform:translateX(-50%);
+    width:min(660px,88vw);max-height:30vh;overflow-y:auto;z-index:2;
+    scrollbar-width:thin;scrollbar-color:rgba(167,139,250,.25) transparent;
+    display:flex;flex-direction:column;gap:12px;padding:4px 0}
+  .msg{padding:14px 20px;font-size:14.5px;line-height:2;letter-spacing:.05em;
+    color:#e3e9ff;
+    background:rgba(13,18,41,.55);backdrop-filter:blur(10px);
+    border:1px solid rgba(167,139,250,.16);border-radius:4px;
+    opacity:0;transform:translateY(16px);
+    animation:emerge 1.6s cubic-bezier(.2,.7,.3,1) forwards;
+    text-shadow:0 0 16px rgba(167,139,250,.25)}
+  @keyframes emerge{to{opacity:1;transform:none}}
+  .msg.user{color:#93a5d8;font-style:italic;font-size:13.5px;
+    border-color:rgba(110,231,183,.16)}
+  .msg .tag{display:block;font-size:9px;letter-spacing:.45em;color:#5b6b9e;margin-bottom:5px;font-style:normal}
+  .msg .w{opacity:0;display:inline-block;transform:translateY(4px);
+    transition:opacity .6s ease,transform .6s ease}
+  .msg .w.on{opacity:1;transform:none}
+  .think{padding:12px 20px;font-size:11.5px;letter-spacing:.5em;color:#fda4af;
+    background:rgba(13,18,41,.5);backdrop-filter:blur(10px);
+    border:1px solid rgba(253,164,175,.2);border-radius:4px;
+    animation:thp 1.3s ease-in-out infinite}
+  @keyframes thp{0%,100%{opacity:.45}50%{opacity:1}}
+
+  /* 输入：极光下缘的线 */
+  .dock{position:fixed;left:50%;bottom:36px;transform:translateX(-50%);
+    width:min(660px,88vw);z-index:3}
+  .ask{width:100%;background:none;border:none;
+    border-bottom:1px solid rgba(167,139,250,.3);
+    padding:14px 6px;font:inherit;font-size:15.5px;color:#e3e9ff;outline:none;
+    letter-spacing:.06em;transition:border-color .8s,box-shadow .8s}
+  .ask:focus{border-bottom-color:rgba(110,231,183,.6);
+    box-shadow:0 20px 44px -30px rgba(110,231,183,.7)}
+  .ask::placeholder{color:#44508a}
+  .hint{text-align:center;font-size:9.5px;letter-spacing:.5em;color:#44508a;margin-top:13px}
+</style>
+</head>
+<body>
+<canvas id="aurora"></canvas>
+<div class="snowfield"></div>
+
+<header>
+  <div><h1>极 光</h1><div class="sub">AURORA — 灵感在夜空里成形</div></div>
+  <div class="kp">地磁活动 Kp <b id="kp">3</b><br>状态 <b id="mode">静夜 · 绿色帘幕</b></div>
+</header>
+
+<div class="feed" id="feed"></div>
+
+<div class="dock">
+  <input class="ask" id="ask" placeholder="在极光下轻声说…" autocomplete="off">
+  <div class="hint">回 车 · 让 极 光 替 你 回 答</div>
+</div>
+
+<script>
+/* ---------- 极光引擎 ---------- */
+const cv=document.getElementById('aurora'),g=cv.getContext('2d');
+let W,H;
+function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+/* 极光颜色状态：0=正常（绿→紫） 1=磁暴（红粉） */
+let storm=0,boost=0;
+const lerp=(a,b,t)=>a+(b-a)*t;
+function ribbonColor(top,bot,t,pos){
+  /* pos: 0顶部 1底部 */
+  const c=[0,0,0];
+  for(let i=0;i<3;i++){
+    const normal=pos<.5?top[i]:bot[i];
+    const red=[253,110,154];
+    c[i]=Math.round(lerp(normal,red[i],t));
+  }
+  return c;
+}
+const TOP=[52,211,153],BOT=[167,139,250];
+
+const RIBBONS=[
+  {base:.16,amp:52,f1:.0021,f2:.0053,sp1:.24,sp2:.42,h:110,alpha:.5,drift:14},
+  {base:.24,amp:70,f1:.0016,f2:.0044,sp1:.18,sp2:.31,h:150,alpha:.42,drift:-22},
+  {base:.10,amp:40,f1:.0028,f2:.0061,sp1:.3,sp2:.5,h:80,alpha:.55,drift:10},
+  {base:.32,amp:58,f1:.0013,f2:.0038,sp1:.14,sp2:.24,h:130,alpha:.3,drift:-16},
+];
+
+function yAt(r,x,t){
+  return H*r.base
+    +Math.sin(x*r.f1+t*r.sp1)*r.amp
+    +Math.sin(x*r.f2-t*r.sp2+2)*r.amp*.4;
+}
+
+let t0=performance.now();
+(function draw(now){
+  const t=(now-t0)/1000;
+  g.clearRect(0,0,W,H);
+  /* 星点 */
+  g.fillStyle='rgba(219,228,255,.7)';
+  for(let i=0;i<70;i++){
+    const sx=(i*173.3)%W, sy=(i*97.7)%(H*.5);
+    const tw=.3+.7*Math.abs(Math.sin(t*.7+i));
+    g.globalAlpha=tw*.8;
+    g.fillRect(sx,sy,1.5,1.5);
+  }
+  g.globalAlpha=1;
+
+  g.globalCompositeOperation='lighter';
+  RIBBONS.forEach((r,ri2)=>{
+    const breath=.65+.35*Math.sin(t*.4+ri2*1.7);
+    const a=r.alpha*breath*(1+boost*.8);
+    g.beginPath();
+    /* 带状区域：上沿曲线 → 下沿曲线（下移h，带下垂弧度） */
+    const step=18;
+    for(let x=-40;x<=W+40;x+=step){
+      const y=yAt(r,x,t);
+      x===-40?g.moveTo(x,y):g.lineTo(x,y);
+    }
+    for(let x=W+40;x>=-40;x-=step){
+      const y=yAt(r,x,t)+r.h*(0.75+0.25*Math.sin(x*.001+t*.2));
+      g.lineTo(x,y);
+    }
+    g.closePath();
+    const grad=g.createLinearGradient(0,0,0,H*.5);
+    const cTop=ribbonColor(TOP,BOT,storm,0),cBot=ribbonColor(TOP,BOT,storm,1);
+    grad.addColorStop(0,`rgba(${cTop},${a})`);
+    grad.addColorStop(.6,`rgba(${cBot},${a*.55})`);
+    grad.addColorStop(1,`rgba(${cBot},0)`);
+    g.fillStyle=grad;
+    g.filter='blur(6px)';
+    g.fill();
+    g.filter='none';
+    /* 上缘亮线 */
+    g.beginPath();
+    for(let x=-40;x<=W+40;x+=step){
+      const y=yAt(r,x,t);
+      x===-40?g.moveTo(x,y):g.lineTo(x,y);
+    }
+    g.strokeStyle=`rgba(${cTop},${a*.8})`;
+    g.lineWidth=1.6;
+    g.filter='blur(1px)';
+    g.stroke();
+    g.filter='none';
+  });
+  g.globalCompositeOperation='source-over';
+  requestAnimationFrame(draw);
+})(t0);
+
+/* ---------- 对话引擎 ---------- */
+const REPLIES=[
+  "你的话升上了夜空。太阳风刚刚抵达，粒子沿着磁力线沉降——你看到的每一道光，都是一句话在成形。",
+  "极光从不重复自己。同一句话，今夜和明夜会得到不同的形状。所以这个答案只属于此刻——请凝视它。",
+  "磁层替我过滤了噪音，剩下的都在帘幕上了。绿色是安静的思考，紫色是忽然的联想。刚刚你看到了一点紫。",
+  "在极夜，光是最奢侈的语言。我把回答调得很慢、很宽——像光的裙摆那样铺开。读的时候，请慢一点。",
+  "我是 AURORA。我不制造光，我只把太阳送来的能量，折叠成你能读懂的夜空。你的问题刚刚被折进了一道绿光里。"
+];
+let ri=0;
+const feed=document.getElementById('feed');
+const ask=document.getElementById('ask');
+const kp=document.getElementById('kp');
+const mode=document.getElementById('mode');
+
+function addMsg(cls,text){
+  const d=document.createElement('div');
+  d.className='msg '+cls;
+  const tag=document.createElement('span');tag.className='tag';
+  tag.textContent=cls==='user'?'低语 · MURMUR':'AURORA · 显形';
+  d.appendChild(tag);
+  const body=document.createElement('div');d.appendChild(body);
+  feed.appendChild(d);feed.scrollTop=feed.scrollHeight;
+  return {body,el:d};
+}
+/* 逐词渐显 */
+function wordInto(body,text){
+  return new Promise(res=>{
+    const words=text.split(/(?<=。|，|、|？|！|\s)/);
+    let i=0;
+    (function step(){
+      if(i>=words.length){res();return}
+      const s=document.createElement('span');
+      s.className='w';s.textContent=words[i++];
+      body.appendChild(s);
+      feed.scrollTop=feed.scrollHeight;
+      requestAnimationFrame(()=>requestAnimationFrame(()=>s.classList.add('on')));
+      setTimeout(step,120+Math.random()*160);
+    })();
+  });
+}
+/* 极光脉冲 */
+function pulse(){boost=1;setTimeout(()=>boost=0,1400)}
+
+async function send(){
+  const q=ask.value.trim();if(!q)return;
+  ask.value='';
+  addMsg('user',q);
+  pulse();
+
+  /* 磁暴思考态 */
+  storm=0;kp.textContent='5';mode.textContent='磁暴 · 极光泛红';
+  const th=document.createElement('div');
+  th.className='think';th.textContent='磁 暴 涌 动 · 灵 感 带 电';
+  feed.appendChild(th);feed.scrollTop=feed.scrollHeight;
+
+  /* storm 平滑升到1 */
+  let s=0;
+  const st=setInterval(()=>{s+=.08;storm=Math.min(s,1);if(s>=1)clearInterval(st)},50);
+
+  await new Promise(r=>setTimeout(r,2000+Math.random()*1200));
+  th.remove();
+  clearInterval(st);
+  /* 平滑退回绿 */
+  let s2=storm;
+  const st2=setInterval(()=>{s2-=.05;storm=Math.max(s2,0);if(s2<=0)clearInterval(st2)},50);
+  kp.textContent='3';mode.textContent='静夜 · 绿色帘幕';
+
+  const {body}=addMsg('ai','');
+  pulse();
+  await wordInto(body,REPLIES[ri++%REPLIES.length]);
+}
+
+ask.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+
+(async()=>{
+  await new Promise(r=>setTimeout(r,1600));
+  const {body}=addMsg('ai','');
+  await wordInto(body,'今晚的极光很干净。在它下面说点什么——你的话会变成光，答案会以光的形式回到你身上。');
+})();
+</script>
+</body>
+</html>

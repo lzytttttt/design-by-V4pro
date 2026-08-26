@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEUTRINO · 中微子</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:"Helvetica Neue","PingFang SC",sans-serif;
+    background:#fafafa;color:#111;overflow:hidden;cursor:crosshair;
+  }
+  canvas#chamber{position:fixed;inset:0;z-index:0}
+
+  /* 幽灵可见度系统 */
+  .ghost{opacity:.055;transition:opacity 1s ease, filter 1s ease}
+  .ghost:hover,.ghost:focus-within{opacity:1}
+  body.breath .ghost{opacity:.4}
+  body.breath .ghost:hover{opacity:1}
+
+  header{position:fixed;top:0;left:0;right:0;padding:36px 48px;z-index:2;
+    display:flex;justify-content:space-between;align-items:baseline}
+  h1{font-size:21px;font-weight:200;letter-spacing:.55em}
+  .sub{font-size:10px;letter-spacing:.34em;color:#999}
+
+  .brand{position:fixed;left:50%;top:24vh;transform:translateX(-50%);z-index:2;
+    text-align:center;pointer-events:none}
+  .brand .big{font-size:30px;font-weight:200;letter-spacing:.6em;padding-left:.6em}
+  .brand .small{font-size:11px;letter-spacing:.5em;color:#666;margin-top:14px;padding-left:.5em}
+
+  /* 对话流 */
+  .feed{position:fixed;left:50%;top:40vh;transform:translateX(-50%);
+    width:min(620px,86vw);z-index:2;max-height:38vh;overflow-y:auto;
+    scrollbar-width:none;padding-bottom:12px}
+  .msg{margin:14px 0;font-size:14.5px;line-height:2;letter-spacing:.08em;color:#333;
+    opacity:0;filter:blur(6px);transition:opacity 1.6s ease,filter 1.6s ease}
+  .msg.show{opacity:.88;filter:blur(0)}
+  .msg.user{font-size:13px;color:#999;font-style:italic}
+  .msg .tag{display:block;font-size:9px;letter-spacing:.45em;color:#bbb;margin-bottom:4px;font-style:normal}
+  .think{font-size:11px;letter-spacing:.55em;color:#bbb;animation:thp 1.6s ease-in-out infinite}
+  @keyframes thp{0%,100%{opacity:.25}50%{opacity:.85}}
+
+  /* 涟漪 */
+  .ripple{position:fixed;left:50%;top:50%;width:8px;height:8px;border-radius:50%;
+    border:1px solid rgba(17,17,17,.16);transform:translate(-50%,-50%);
+    pointer-events:none;z-index:1;animation:rip 2.6s ease-out forwards}
+  @keyframes rip{
+    0%{width:8px;height:8px;opacity:.8}
+    100%{width:44vmin;height:44vmin;opacity:0}
+  }
+
+  /* 输入线 */
+  .dock{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);
+    width:min(620px,86vw);z-index:2}
+  .line{position:relative;display:flex;align-items:center}
+  .line::before{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;
+    background:currentColor;opacity:.25;transition:opacity .8s}
+  .line.end1::before,.line.end2::before{opacity:.85}
+  .end{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:0;
+    transition:opacity .8s, box-shadow .8s}
+  .end.l{margin-right:18px}.end.r{margin-left:18px}
+  .line.end1 .end,.line.end2 .end{opacity:.9}
+  .line.end1 .end{box-shadow:0 0 10px 1px rgba(17,17,17,.35)}
+  .line.end2 .end{box-shadow:0 0 16px 2px rgba(17,17,17,.45)}
+  .ask{flex:1;background:none;border:none;padding:14px 2px;font:inherit;
+    font-size:15px;letter-spacing:.1em;color:#111;outline:none}
+  .ask::placeholder{color:#c9c9c9;letter-spacing:.3em}
+
+  .foot{position:fixed;bottom:26px;left:0;right:0;text-align:center;z-index:2;
+    font-size:9.5px;letter-spacing:.5em;color:#bbb}
+  .stat{position:fixed;top:36px;right:48px;z-index:2;text-align:right;
+    font-size:10px;letter-spacing:.22em;color:#999;line-height:2.1;
+    font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<canvas id="chamber"></canvas>
+
+<header class="ghost">
+  <div><h1>中微子</h1><div class="sub">NEUTRINO — 一切几乎不可见</div></div>
+</header>
+
+<div class="brand ghost">
+  <div class="big">这里有一个 Agent</div>
+  <div class="small">它存在，只是拒绝被直接看见</div>
+</div>
+
+<div class="stat ghost" id="stat">穿通率 6.7×10¹⁰ /cm²·s<br>截面积 ~10⁻⁴³ cm²</div>
+
+<div class="feed ghost" id="feed"></div>
+
+<div class="dock ghost">
+  <div class="line" id="line">
+    <div class="end l"></div>
+    <input class="ask" id="ask" placeholder="沿这条线，说出什么" autocomplete="off">
+    <div class="end r"></div>
+  </div>
+</div>
+
+<div class="foot ghost">移 动 光 标 · 让 世 界 短 暂 显 形</div>
+
+<script>
+/* ---------- 云室轨迹 ---------- */
+const cv=document.getElementById('chamber'),g=cv.getContext('2d');
+let W,H;
+function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+const tracks=[];
+function spawnTrack(){
+  const a=Math.random()*Math.PI*2;
+  const speed=7+Math.random()*9;
+  let x=Math.random()*W,y=Math.random()*H;
+  const len=120+Math.random()*380;
+  const pts=[];
+  for(let d=0;d<len;d+=6){
+    x+=Math.cos(a)*6;y+=Math.sin(a)*6;
+    pts.push({x,y});
+  }
+  tracks.push({pts,progress:0,speed});
+}
+setInterval(()=>{if(tracks.length<7&&Math.random()<.75)spawnTrack()},900);
+spawnTrack();spawnTrack();
+
+(function draw(){
+  g.clearRect(0,0,W,H);
+  for(let i=tracks.length-1;i>=0;i--){
+    const t=tracks[i];
+    t.progress+=t.speed;
+    const vis=Math.min(t.progress/40,1);
+    const fade=Math.max(0,1-(t.progress-t.pts.length*6)/120);
+    if(fade<=0){tracks.splice(i,1);continue}
+    g.strokeStyle=`rgba(30,30,30,${0.14*vis*fade})`;
+    g.lineWidth=0.8;
+    g.beginPath();
+    const upto=Math.min(t.pts.length,t.progress/6);
+    for(let j=0;j<upto;j++){
+      const p=t.pts[j];
+      j===0?g.moveTo(p.x,p.y):g.lineTo(p.x,p.y);
+    }
+    g.stroke();
+    /* 头部亮点 */
+    if(upto>0&&upto<t.pts.length){
+      const hp=t.pts[Math.floor(upto)-1];
+      g.fillStyle=`rgba(20,20,20,${.5*fade})`;
+      g.beginPath();g.arc(hp.x,hp.y,1.6,0,Math.PI*2);g.fill();
+    }
+  }
+  requestAnimationFrame(draw);
+})();
+
+/* ---------- 存在感呼吸 ---------- */
+setInterval(()=>{
+  document.body.classList.add('breath');
+  setTimeout(()=>document.body.classList.remove('breath'),2200);
+},18000);
+
+/* ---------- 对话引擎 ---------- */
+const REPLIES=[
+  "我收到了。正如你所见——或者说，正如你所不能见——我的回答会尽量轻地落在这个世界上。",
+  "中微子穿过十亿公里厚的铅而不被拦截。你的问题也一样穿过我，只留下一次极其微弱的闪光。我把闪光译成了这句话。",
+  "不可见不等于不存在。把光标移到任何地方，那里的世界就会短暂显形。我对你的理解，也是如此工作的。",
+  "这个问题的质量不小——它在云室里留下了很清晰的一条径迹。等它穿过去，我再把沿途收集到的东西告诉你。",
+  "我是 NEUTRINO。宇宙里每秒有万亿个我穿过你的身体。此刻停留在这里回答你的，只是其中愿意被看见的一个。"
+];
+let ri=0;
+const feed=document.getElementById('feed');
+const ask=document.getElementById('ask');
+const line=document.getElementById('line');
+
+ask.addEventListener('focus',()=>{line.classList.add('end1')});
+ask.addEventListener('blur',()=>{line.classList.remove('end1','end2')});
+
+function addMsg(cls,text){
+  const d=document.createElement('div');
+  d.className='msg '+cls;
+  const tag=document.createElement('span');tag.className='tag';
+  tag.textContent=cls==='user'?'入射 · INCIDENT':'散射 · SCATTERED';
+  d.appendChild(tag);
+  const p=document.createElement('div');p.textContent=text;d.appendChild(p);
+  feed.appendChild(d);feed.scrollTop=feed.scrollHeight;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>d.classList.add('show')));
+  return p;
+}
+
+async function send(){
+  const q=ask.value.trim();if(!q)return;
+  ask.value='';
+  addMsg('user',q);
+
+  line.classList.add('end2');
+  const r=document.createElement('div');
+  r.className='ripple';document.body.appendChild(r);
+  setTimeout(()=>r.remove(),2600);
+
+  const th=document.createElement('div');
+  th.className='think';th.textContent='穿 行 中';
+  feed.appendChild(th);feed.scrollTop=feed.scrollHeight;
+
+  await new Promise(r2=>setTimeout(r2,2000+Math.random()*1200));
+  th.remove();line.classList.remove('end2');
+
+  const p=addMsg('ai',REPLIES[ri++%REPLIES.length]);
+}
+
+ask.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+
+(async()=>{
+  await new Promise(r=>setTimeout(r,2600));
+  addMsg('ai','页面几乎空白，但并非空无一物——有轨迹偶尔穿过，有文字在等一次聚焦。找一条看不见的线，向我说些什么。');
+})();
+</script>
+</body>
+</html>
