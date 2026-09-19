@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AGENT 01 — constructivist poster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     CONSTRUCTIVIST — cream, red, black, steel. No radius, no
+     shadow, no softness. Diagonal ribbons cut the page, and the
+     type on them is rotated to the ribbon's own measured angle.
+     ============================================================ */
+  :root{
+    --cream:#efe7d8;
+    --cream-2:#e4dbc7;
+    --red:#ce2b22;
+    --ink:#141010;
+    --steel:#8a8578;
+    --display:"Anton","Oswald","Arial Narrow",Impact,"Haettenschweiler",sans-serif;
+    --cond:"Oswald","Arial Narrow",system-ui,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    --bandAngle:-6.5deg;
+    --ease:cubic-bezier(.16,.84,.24,1);
+  }
+  *,*::before,*::after{ box-sizing:border-box; border-radius:0; }
+  html{ -webkit-text-size-adjust:100%; scroll-behavior:smooth; }
+  body{
+    margin:0;
+    background:var(--cream);
+    color:var(--ink);
+    font-family:var(--cond);
+    font-size:clamp(15px, .3vw + 14px, 17.5px);
+    line-height:1.5;
+    overflow-x:hidden;
+  }
+  a{ color:inherit; }
+  :focus-visible{ outline:4px solid var(--red); outline-offset:2px; }
+
+  .backlink{
+    position:fixed; z-index:60; right:0; bottom:0;
+    font-weight:700; font-size:10.5px;
+    letter-spacing:.24em; text-transform:uppercase; text-decoration:none;
+    padding:8px 12px;
+    background:var(--ink); color:var(--cream);
+    opacity:.45;
+    transition:opacity 380ms var(--ease), background-color 380ms var(--ease);
+  }
+  .backlink:hover,.backlink:focus-visible{ opacity:1; background:var(--red); }
+
+  .wrap{
+    width:100%; max-width:1440px; margin:0 auto;
+    padding:0 clamp(16px,4vw,60px);
+  }
+  @media (min-width:1101px){
+    .wrap{ padding-right:clamp(200px,15vw,260px); }
+    .wrap.wide{ padding-right:clamp(16px,4vw,60px); }
+  }
+
+  /* ---------- top strip: index + you-are-here ---------- */
+  .strip{
+    position:sticky; top:0; z-index:50;
+    background:var(--ink); color:var(--cream);
+    border-bottom:6px solid var(--red);
+  }
+  .strip .wrap{
+    display:flex; align-items:center; gap:clamp(10px,2vw,34px);
+    min-height:clamp(44px,4.6vw,58px); flex-wrap:nowrap;
+    overflow-x:auto; scrollbar-width:none;
+  }
+  .strip .wrap::-webkit-scrollbar{ display:none; }
+  .mark{
+    font-family:var(--display);
+    font-size:clamp(14px,1.3vw,19px);
+    letter-spacing:-.01em; text-transform:uppercase;
+    text-decoration:none; white-space:nowrap;
+    display:flex; align-items:center; gap:8px;
+  }
+  .mark i{ width:11px; height:11px; background:var(--red); display:inline-block; }
+  .strip nav{ display:flex; gap:0; margin-left:auto; flex:0 0 auto; }
+  .strip nav a{
+    font-weight:500; font-size:11.5px; letter-spacing:.2em; text-transform:uppercase;
+    text-decoration:none; padding:8px 11px; white-space:nowrap;
+    color:var(--cream); opacity:.66;
+    border-left:1px solid rgba(239,231,216,.28);
+    transition:opacity 300ms var(--ease), background-color 300ms var(--ease), color 300ms var(--ease);
+  }
+  .strip nav a i{ font-style:normal; font-family:var(--display); margin-right:6px; letter-spacing:0; }
+  .strip nav a:hover{ opacity:1; background:var(--cream); color:var(--ink); }
+  .strip nav a[aria-current="true"]{ opacity:1; background:var(--red); color:var(--cream); }
+
+  /* ---------- rules & type ---------- */
+  .rule{ border:0; background:var(--ink); height:8px; margin:0; }
+  .rule.thin{ height:3px; }
+  .rule.red{ background:var(--red); }
+  .rule.hair{ height:1px; background:var(--steel); }
+  .kicker{
+    font-weight:700; font-size:10.5px; letter-spacing:.34em; text-transform:uppercase;
+    margin:0 0 14px; display:flex; align-items:center; gap:10px;
+  }
+  .kicker s{ text-decoration:none; width:26px; height:8px; background:var(--red); display:inline-block; }
+  h1,h2,h3{ font-family:var(--display); font-weight:400; text-transform:uppercase; }
+  h1{
+    font-size:clamp(2.6rem, 8.6vw, 8.4rem);
+    line-height:.84; letter-spacing:-.022em;
+    margin:0 0 clamp(14px,2vw,26px);
+    max-width:15ch;
+  }
+  h2{
+    font-size:clamp(1.8rem, 4.2vw, 4rem);
+    line-height:.9; letter-spacing:-.018em;
+    margin:0 0 clamp(12px,1.6vw,20px);
+    max-width:18ch;
+  }
+  h3{
+    font-size:clamp(1.05rem, 1.6vw, 1.5rem);
+    line-height:1; letter-spacing:-.01em; margin:0 0 8px;
+  }
+  p{ margin:0 0 1em; max-width:58ch; }
+  .lead{ font-size:clamp(1.05rem,.7vw + .9rem,1.4rem); font-weight:300; line-height:1.42; max-width:54ch; }
+  .mono{ font-family:var(--mono); font-size:11.5px; letter-spacing:.02em; line-height:1.7; }
+  .steel{ color:var(--steel); }
+  .redtxt{ color:var(--red); }
+  .red-block{ background:var(--red); color:var(--cream); display:inline-block; padding:2px 8px; margin:0 6px 6px 0; }
+  .ink-block{ background:var(--ink); color:var(--cream); display:inline-block; padding:2px 8px; margin:0 6px 6px 0; }
+  strong{ font-weight:700; }
+  abbr{ text-decoration:underline; cursor:help; }
+  /* ---------- masthead ---------- */
+  .mast{ padding:clamp(24px,4.4vw,60px) 0 clamp(20px,3vw,40px); position:relative; }
+  .mast .head{ display:grid; grid-template-columns:minmax(0,1fr); gap:clamp(12px,2vw,22px); }
+  .mast .meta{
+    display:flex; flex-wrap:wrap; gap:6px 26px; align-items:baseline;
+    border-top:3px solid var(--ink); padding-top:10px;
+  }
+  .mast .meta span{ font-size:10.5px; letter-spacing:.24em; text-transform:uppercase; font-weight:500; }
+  .big-num{
+    font-family:var(--display);
+    font-size:clamp(3.4rem, 15vw, 13rem);
+    line-height:.74; color:var(--red);
+    margin:0; letter-spacing:-.03em;
+    transform:rotate(-4.5deg);
+    display:inline-block;
+  }
+  .offaxis{ transform:rotate(var(--rot,-4deg)); display:inline-block; transform-origin:0 50%; }
+
+  .stamp{
+    display:inline-flex; align-items:center; gap:10px;
+    border:4px solid var(--ink); padding:8px 12px;
+    font-weight:700; font-size:11px; letter-spacing:.22em; text-transform:uppercase;
+    transform:rotate(1.6deg);
+  }
+  .stamp b{ font-family:var(--display); font-size:22px; letter-spacing:0; color:var(--red); font-weight:400; }
+
+  /* ---------- cutting ribbons ---------- */
+  .cut{
+    position:relative;
+    height:clamp(200px, 23vw, 330px);
+    margin:calc(-1 * clamp(18px,4vw,64px)) 0;
+    z-index:5;
+  }
+  .ribbon{
+    position:absolute; inset:0;
+    background:var(--red);
+    clip-path:polygon(0 64%, 100% 6%, 100% 42%, 0 100%);
+  }
+  .ribbon.alt{ background:var(--ink); clip-path:polygon(0 6%, 100% 64%, 100% 100%, 0 42%); }
+  .ribbon-text{
+    position:absolute; left:0; right:0; top:53%;
+    margin:0; max-width:none;
+    transform:translateY(-50%) rotate(var(--bandAngle));
+    display:flex; align-items:center; gap:clamp(16px,2.4vw,44px);
+    white-space:nowrap; overflow:hidden;
+    font-family:var(--display); text-transform:uppercase;
+    font-size:clamp(.9rem, 2.1vw, 2.3rem);
+    letter-spacing:-.01em;
+    color:var(--cream);
+    padding:0 clamp(12px,3vw,44px);
+    pointer-events:none;
+  }
+  .ribbon-text.alt{ color:var(--cream); transform:translateY(-50%) rotate(calc(-1 * var(--bandAngle))); }
+  .ribbon-text em{ font-style:normal; color:var(--ink); }
+  .ribbon.alt + .ribbon-text em{ color:var(--red); }
+  .ribbon-text i{ font-style:normal; font-size:.8em; }
+
+  /* ---------- numeral wheel ---------- */
+  .wheel-wrap{
+    position:fixed; z-index:40;
+    right:clamp(10px,2.4vw,34px); top:50%;
+    transform:translateY(-50%);
+    width:clamp(150px,15vw,225px);
+    pointer-events:none;
+  }
+  .wheel{ width:100%; height:auto; display:block; }
+  .wheel .ring{ fill:none; stroke:var(--ink); stroke-width:7; }
+  .wheel .ring2{ fill:none; stroke:var(--steel); stroke-width:1; }
+  .wheel .num{
+    font-family:var(--display); font-size:40px; fill:var(--ink); text-anchor:middle;
+  }
+  .wheel .num.on{ fill:var(--red); }
+  .wheel .tick{ fill:var(--red); }
+  .wheel-readout{
+    font-family:var(--display); font-size:14px; letter-spacing:.08em;
+    text-align:center; margin:6px 0 0; color:var(--ink);
+  }
+  .wheel-cap{ font-size:9.5px; letter-spacing:.22em; text-transform:uppercase; text-align:center; margin:2px 0 0; color:var(--steel); font-weight:500; }
+  @media (max-width:1100px){ .wheel-wrap{ display:none; } }
+  @media (min-width:1101px){ .ribbon-text{ padding-right:clamp(200px,15vw,260px); } }
+  /* ---------- sections ---------- */
+  section.slab{ padding:clamp(30px,5vw,86px) 0 clamp(26px,4vw,70px); position:relative; }
+  .slab-head{ display:flex; align-items:flex-end; gap:clamp(10px,1.6vw,20px); margin-bottom:clamp(16px,2.4vw,30px); }
+  .slab-head .idx{
+    font-family:var(--display); font-size:clamp(1.6rem,3.6vw,3.2rem); line-height:.8;
+    background:var(--ink); color:var(--cream); padding:2px 9px;
+    transform:rotate(-3deg); flex:0 0 auto;
+  }
+  .slab-head .ttl{ font-family:var(--display); text-transform:uppercase; line-height:.9;
+    font-size:clamp(1.3rem,3vw,2.6rem); letter-spacing:-.015em; }
+  .slab-head .ttl small{ display:block; font-family:var(--cond); font-weight:700; font-size:10px;
+    letter-spacing:.3em; color:var(--steel); margin-top:6px; }
+
+  .split{ display:grid; gap:clamp(18px,3vw,48px); grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr)); align-items:start; }
+  .box{ border:5px solid var(--ink); padding:clamp(14px,2vw,26px); }
+  .box.red{ border-color:var(--red); }
+  .box.ink{ background:var(--ink); color:var(--cream); border-color:var(--ink); }
+  .box.ink a{ color:var(--cream); }
+  .box.solid{ background:var(--cream-2); border-color:var(--ink); }
+
+  .steps{ list-style:none; margin:0; padding:0; display:grid; gap:0; }
+  .steps li{
+    display:grid; grid-template-columns:auto minmax(0,1fr); gap:clamp(12px,2vw,28px);
+    padding:clamp(14px,2vw,24px) 0;
+    border-top:3px solid var(--ink); align-items:baseline;
+  }
+  .steps li:last-child{ border-bottom:3px solid var(--ink); }
+  .steps .n{
+    font-family:var(--display); font-size:clamp(2rem,4.4vw,3.6rem); line-height:.8;
+    color:var(--red); transform:rotate(-3.4deg); transform-origin:0 50%;
+  }
+  .steps p{ margin:0; }
+
+  /* ---------- geometric composition (pure shapes) ---------- */
+  .comp{ position:relative; width:100%; aspect-ratio:4/3; overflow:hidden;
+    background:var(--cream-2); border:5px solid var(--ink); }
+  .comp svg{ position:absolute; inset:0; width:100%; height:100%; }
+  .comp .sh{ transition:transform 820ms var(--ease); transform-box:fill-box; }
+  .comp-note{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+
+  .btn{
+    font-family:var(--cond); font-weight:700; font-size:11.5px; letter-spacing:.24em;
+    text-transform:uppercase; cursor:pointer; text-decoration:none;
+    border:4px solid var(--ink); background:var(--ink); color:var(--cream);
+    padding:13px 20px; display:inline-flex; align-items:center; gap:12px;
+    transition:background-color 320ms var(--ease), color 320ms var(--ease), border-color 320ms var(--ease), transform 320ms var(--ease);
+  }
+  .btn i{ font-style:normal; font-family:var(--display); font-size:16px; letter-spacing:0; }
+  .btn:hover{ background:var(--red); border-color:var(--red); color:var(--cream); transform:translate(-2px,-2px); }
+  .btn.ghost{ background:transparent; color:var(--ink); }
+  .btn.ghost:hover{ background:var(--ink); color:var(--cream); border-color:var(--ink); }
+
+  /* ---------- proof ---------- */
+  .figs{ display:grid; gap:clamp(14px,2.4vw,34px); grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr)); }
+  .fig{ border-top:8px solid var(--ink); padding-top:12px; }
+  .fig:nth-child(2n){ border-top-color:var(--red); }
+  .fig b{
+    display:block; font-family:var(--display); font-weight:400;
+    font-size:clamp(2.4rem,6.4vw,5.6rem); line-height:.82; letter-spacing:-.03em;
+  }
+  .fig span{ font-size:11px; letter-spacing:.2em; text-transform:uppercase; font-weight:500; color:var(--steel); }
+  .fig .offaxis{ display:block; margin-bottom:6px; }
+
+  footer.poster{
+    border-top:8px solid var(--ink);
+    margin-top:clamp(24px,4vw,60px);
+    padding:clamp(20px,3vw,40px) 0 clamp(40px,7vw,80px);
+  }
+  footer.poster .cols{ display:grid; gap:clamp(16px,3vw,40px); grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); }
+  footer.poster h3{ font-size:12px; letter-spacing:.3em; }
+  footer.poster ul{ list-style:none; margin:0; padding:0; }
+  footer.poster li{ padding:6px 0; border-top:1px solid var(--steel); font-size:13px; }
+
+  .crop{ position:absolute; width:15px; height:15px; pointer-events:none; }
+  .crop::before,.crop::after{ content:""; position:absolute; background:var(--ink); }
+  .crop::before{ left:0; top:7px; width:15px; height:1px; }
+  .crop::after{ top:0; left:7px; width:1px; height:15px; }
+
+  /* keep the printed column clear of the section wheel */
+  section.slab, .mast, footer.poster{
+    padding-left:clamp(16px,4vw,60px);
+    padding-right:clamp(16px,4vw,60px);
+  }
+  @media (min-width:1101px){
+    section.slab, .mast, footer.poster{ padding-right:clamp(200px,15vw,260px); }
+  }
+
+  @media (max-width:700px){
+    .cut{ height:clamp(150px,34vw,220px); }
+    .ribbon-text{ font-size:11px; gap:14px; }
+    h1{ max-width:none; }
+    .mark{ font-size:13px; }
+    .strip nav a{ font-size:10px; letter-spacing:.1em; padding:8px 7px; }
+    .strip nav a i{ margin-right:4px; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; animation:none !important; }
+    html{ scroll-behavior:auto; }
+    .comp .sh{ transition:none; }
+  }
+</style>
+</head>
+<body>
+<a class="backlink" href="../index.html">[ back to gallery ]</a>
+
+<div class="wheel-wrap" id="wheelWrap" aria-hidden="true">
+  <svg class="wheel" viewBox="0 0 240 240" role="img" aria-label="">
+    <circle cx="120" cy="120" r="117" fill="#efe7d8"></circle>
+    <circle class="ring" cx="120" cy="120" r="112"></circle>
+    <circle class="ring2" cx="120" cy="120" r="94"></circle>
+    <g id="wheel"></g>
+    <polygon class="tick" points="120,2 140,32 100,32"></polygon>
+    <circle cx="120" cy="120" r="7" fill="#ce2b22"></circle>
+  </svg>
+  <p class="wheel-readout"><span id="wheelNum">01</span> / 04</p>
+  <p class="wheel-cap">Section wheel</p>
+</div>
+
+<header class="strip">
+  <div class="wrap wide">
+    <a class="mark" href="#top"><i aria-hidden="true"></i>Agent&nbsp;01</a>
+    <nav aria-label="Poster index" id="stripNav">
+      <a href="#s1" data-sec="s1"><i>01</i>Manifest</a>
+      <a href="#s2" data-sec="s2"><i>02</i>Machine</a>
+      <a href="#s3" data-sec="s3"><i>03</i>Proof</a>
+      <a href="#s4" data-sec="s4"><i>04</i>Access</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="mast wrap" aria-labelledby="h-mast">
+    <p class="kicker"><s aria-hidden="true"></s>Constructivist production &middot; two colours &middot; 2026</p>
+    <h1 id="h-mast">An agent for engineers who read diffs.</h1>
+    <p class="lead">Built like a press: everything on this poster is a rule, a block or a numeral. The agent behind it reads your repository in full, proposes a plan, and stops until you say go.</p>
+    <p style="margin:0">
+      <span class="big-num offaxis" style="--rot:-5deg" aria-hidden="true">01</span>
+      <span class="stamp"><b>0.4.2</b> revision<br>March</span>
+    </p>
+    <div class="meta">
+      <span>Reads before writes</span>
+      <span>Runs local</span>
+      <span>One directory</span>
+      <span>Diff or nothing</span>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section class="slab wrap" id="s1" aria-labelledby="h-s1">
+    <div class="slab-head">
+      <span class="idx" aria-hidden="true">01</span>
+      <h2 class="ttl" id="h-s1">Manifest<small>What we stand behind</small></h2>
+    </div>
+    <div class="split">
+      <div>
+        <p>Every agent we have used guessed. It guessed at a function it never opened, guessed at a test it never read, and handed us a diff that compiled and lied. <strong>So we built the opposite.</strong></p>
+        <p>The agent reads a file end to end before it is allowed to touch it. It records the hash of the revision it read. If the bytes on disk changed while it was thinking, the write is refused and the run stops.</p>
+        <p class="mono steel">No cloud workspace. No index of your private code. No background process. The log lives in <span class="redtxt">./agent01/runs/</span> and belongs to you.</p>
+      </div>
+      <div class="box ink">
+        <p class="kicker" style="color:var(--cream)"><s aria-hidden="true"></s>Placard 01</p>
+        <p style="font-family:var(--display); text-transform:uppercase; font-size:clamp(1.4rem,3vw,2.4rem); line-height:.94; letter-spacing:-.015em; margin:0 0 14px">
+          We do not write to a file we have not <span class="redtxt">read in full</span>.
+        </p>
+        <p class="mono" style="margin:0">Enforced in the writer, not the prompt. The edit call carries the read hash. Mismatch: refuse.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cut" aria-label="Read everything, plan once, write only what you approve">
+    <div class="ribbon"></div>
+    <p class="ribbon-text"><i>&#9632;</i> Read everything <em>&#9632;</em> Plan once <em>&#9632;</em> Write only what you approve <em>&#9632;</em> Read everything <em>&#9632;</em> Plan once</p>
+  </section>
+  <section class="slab wrap" id="s2" aria-labelledby="h-s2">
+    <div class="slab-head">
+      <span class="idx" aria-hidden="true">02</span>
+      <h2 class="ttl" id="h-s2">The machine<small>Four motions, in order</small></h2>
+    </div>
+    <div class="split">
+      <div>
+        <div class="comp" id="comp">
+          <svg viewBox="0 0 400 300" aria-hidden="true" focusable="false">
+            <defs>
+              <pattern id="dots" width="11" height="11" patternUnits="userSpaceOnUse">
+                <circle cx="3" cy="3" r="3" fill="#141010"></circle>
+              </pattern>
+            </defs>
+            <rect x="0" y="0" width="400" height="300" fill="#e4dbc7"></rect>
+            <g class="sh"><circle cx="286" cy="150" r="96" fill="#ce2b22"></circle></g>
+            <g class="sh"><rect x="204" y="58" width="124" height="124" fill="url(#dots)"></rect></g>
+            <g class="sh"><rect x="352" y="0" width="14" height="300" fill="#ce2b22"></rect></g>
+            <g class="sh"><rect x="-40" y="118" width="490" height="32" fill="#141010"></rect></g>
+            <g class="sh"><polygon points="0,300 132,300 62,192" fill="#8a8578"></polygon></g>
+            <g class="sh"><path d="M118 252 A 92 92 0 0 1 302 252" fill="none" stroke="#141010" stroke-width="15"></path></g>
+            <g class="sh"><rect x="28" y="0" width="86" height="86" fill="#141010"></rect></g>
+            <g class="sh"><rect x="0" y="254" width="400" height="46" fill="#141010"></rect></g>
+            <g class="sh"><rect x="150" y="266" width="120" height="10" fill="#ce2b22"></rect></g>
+          </svg>
+        </div>
+        <div class="comp-note">
+          <button class="btn ghost" id="shuffle" type="button"><i>&#9632;</i>Reprint composition</button>
+          <span class="mono steel">Plate A &middot; recombines the same nine shapes</span>
+        </div>
+      </div>
+      <div>
+        <ol class="steps">
+          <li><span class="n" aria-hidden="true">01</span><div><h3>Read</h3><p>Walks the tree, resolves imports, opens every candidate file in full. No window, no sample.</p></div></li>
+          <li><span class="n" aria-hidden="true">02</span><div><h3>Plan</h3><p>A numbered list of edits in plain language, each tied to one file and one reason.</p></div></li>
+          <li><span class="n" aria-hidden="true">03</span><div><h3>Write</h3><p>Unified diffs, one per file, held until you approve. Hash mismatch: refused.</p></div></li>
+          <li><span class="n" aria-hidden="true">04</span><div><h3>Verify</h3><p>Runs your own tests and type checks, then prints exit codes whether or not they flatter us.</p></div></li>
+        </ol>
+        <p class="mono steel" style="margin-top:18px">Commands: <span class="ink-block">agent01 read</span> <span class="ink-block">agent01 plan</span> <span class="ink-block">agent01 diff</span> <span class="ink-block">agent01 revert</span></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cut" aria-label="Local only, one directory, one budget, one command to undo">
+    <div class="ribbon alt"></div>
+    <p class="ribbon-text alt"><i>&#9632;</i> Local only <em>&#9632;</em> One directory <em>&#9632;</em> One command to undo <em>&#9632;</em> Local only <em>&#9632;</em> One directory</p>
+  </section>
+
+  <section class="slab wrap" id="s3" aria-labelledby="h-s3">
+    <div class="slab-head">
+      <span class="idx" aria-hidden="true">03</span>
+      <h2 class="ttl" id="h-s3">Proof<small>1,412 runs, nine repositories, median</small></h2>
+    </div>
+    <div class="figs">
+      <div class="fig"><b class="offaxis" style="--rot:-3deg">71%</b><span>Diffs accepted without a change</span></div>
+      <div class="fig"><b class="offaxis" style="--rot:2.6deg">1.6%</b><span>Approved edits that broke a test</span></div>
+      <div class="fig"><b class="offaxis" style="--rot:-2deg">23</b><span>Files read before the first edit</span></div>
+      <div class="fig"><b class="offaxis" style="--rot:3.4deg">0</b><span>Writes refused for a stale hash</span></div>
+    </div>
+    <p class="mono steel" style="margin-top:22px">The 1.6% is printed because hiding it would make the other three figures worthless. Full tables in the run log.</p>
+  </section>
+
+  <hr class="rule red">
+
+  <section class="slab wrap" id="s4" aria-labelledby="h-s4">
+    <div class="slab-head">
+      <span class="idx" aria-hidden="true">04</span>
+      <h2 class="ttl" id="h-s4">Access<small>Install it, then read the log</small></h2>
+    </div>
+    <div class="split">
+      <div>
+        <p style="font-size:clamp(1.1rem,1.5vw,1.5rem); font-weight:300; max-width:40ch">Give it one small job: a failing test, a renaming, a function nobody understands any more. It reads, it plans, then it waits for you.</p>
+        <p>
+          <a class="btn" href="#top"><i>&#9632;</i>Install agent 01</a>
+          &nbsp;
+          <a class="btn ghost" href="#s2">Read the machine</a>
+        </p>
+      </div>
+      <div class="box solid">
+        <h3>Facts of production</h3>
+        <ul style="list-style:none; margin:0; padding:0" class="mono">
+          <li style="padding:7px 0; border-top:1px solid var(--steel)">Plateforms &middot; macOS, Linux, Windows</li>
+          <li style="padding:7px 0; border-top:1px solid var(--steel)">Licence &middot; MIT, no account</li>
+          <li style="padding:7px 0; border-top:1px solid var(--steel)">Contact &middot; mail@agent01.dev</li>
+          <li style="padding:7px 0; border-top:1px solid var(--steel)">Reply &middot; two working days</li>
+          <li style="padding:7px 0; border-top:1px solid var(--steel); border-bottom:1px solid var(--steel)">Telemetry &middot; none</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer class="poster wrap">
+    <div class="cols">
+      <div>
+        <h3>Agent 01</h3>
+        <p class="mono steel">Set in Anton and Oswald. Printed in two colours: red 22, black. Nothing on this page is a photograph.</p>
+      </div>
+      <div>
+        <h3>Index</h3>
+        <ul>
+          <li><a href="#s1">01 Manifest</a></li>
+          <li><a href="#s2">02 The machine</a></li>
+          <li><a href="#s3">03 Proof</a></li>
+          <li><a href="#s4">04 Access</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Elsewhere</h3>
+        <ul>
+          <li><a href="../index.html">All twenty designs</a></li>
+          <li><a href="#top">Back to the top</a></li>
+          <li><a href="#s3">Run statistics</a></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+</main>
+<script>
+(function () {
+  "use strict";
+
+  var NS = "http://www.w3.org/2000/svg";
+  var reduceMQ = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+  var reduce = !!(reduceMQ && reduceMQ.matches);
+
+  var wheelGroup = document.getElementById("wheel");
+  var wheelNum = document.getElementById("wheelNum");
+  var cutEls = document.querySelectorAll(".cut");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("main section.slab"));
+  var navLinks = Array.prototype.slice.call(document.querySelectorAll("#stripNav a[data-sec]"));
+  var nums = [];
+  var targetRot = 0, curRot = 0, lastIdx = -1, ticking = false, raf = 0, running = false;
+
+  function buildWheel() {
+    if (!wheelGroup) { return; }
+    for (var i = 0; i < secs.length; i++) {
+      var A = (360 / secs.length) * i;
+      var g = document.createElementNS(NS, "g");
+      g.setAttribute("transform", "rotate(" + A + " 120 120)");
+      var t = document.createElementNS(NS, "text");
+      t.setAttribute("class", "num");
+      t.setAttribute("x", "120");
+      t.setAttribute("y", "62");
+      t.setAttribute("transform", "rotate(" + (-A) + " 120 120)");
+      t.textContent = "0" + (i + 1);
+      g.appendChild(t);
+      wheelGroup.appendChild(g);
+      nums.push(t);
+    }
+  }
+
+  function setAngles() {
+    for (var i = 0; i < cutEls.length; i++) {
+      var r = cutEls[i].getBoundingClientRect();
+      if (!r.width || !r.height) { continue; }
+      var deg = -Math.atan((0.58 * r.height) / r.width) * (180 / Math.PI);
+      cutEls[i].style.setProperty("--bandAngle", deg.toFixed(2) + "deg");
+    }
+  }
+
+  function progress() {
+    var ref = (window.innerHeight || 800) * 0.45;
+    var idx = 0, frac = 0;
+    for (var i = 0; i < secs.length; i++) {
+      var r = secs[i].getBoundingClientRect();
+      if (r.top - ref <= 0) {
+        idx = i;
+        frac = Math.min(1, Math.max(0, (ref - r.top) / Math.max(1, r.height)));
+      }
+    }
+    return { i: idx, f: frac };
+  }
+
+  function applyRotation(v) {
+    if (wheelGroup) {
+      wheelGroup.setAttribute("transform", "rotate(" + v.toFixed(2) + " 120 120)");
+    }
+  }
+
+  function setActive(idx) {
+    if (idx === lastIdx) { return; }
+    lastIdx = idx;
+    for (var i = 0; i < navLinks.length; i++) {
+      if (navLinks[i].getAttribute("data-sec") === secs[idx].id) {
+        navLinks[i].setAttribute("aria-current", "true");
+      } else {
+        navLinks[i].removeAttribute("aria-current");
+      }
+    }
+    for (var n = 0; n < nums.length; n++) {
+      if (n === idx) { nums[n].classList.add("on"); } else { nums[n].classList.remove("on"); }
+    }
+    if (wheelNum) { wheelNum.textContent = "0" + (idx + 1); }
+  }
+
+  function measure() {
+    var p = progress();
+    targetRot = -90 * (p.i + p.f * 0.85);
+    setActive(p.i);
+    if (reduce) { curRot = targetRot; applyRotation(curRot); }
+  }
+
+  function loop() {
+    if (!running) { return; }
+    var d = targetRot - curRot;
+    if (Math.abs(d) < 0.02) { curRot = targetRot; }
+    else { curRot += d * 0.085; }
+    applyRotation(curRot);
+    raf = window.requestAnimationFrame(loop);
+  }
+
+  function start() { if (!running && !reduce) { running = true; raf = window.requestAnimationFrame(loop); } }
+  function stop() { running = false; if (raf) { window.cancelAnimationFrame(raf); } raf = 0; }
+
+  function onScroll() {
+    if (ticking) { return; }
+    ticking = true;
+    window.requestAnimationFrame(function () { ticking = false; measure(); });
+  }
+
+  var shuffle = document.getElementById("shuffle");
+  if (shuffle) {
+    var shapes = Array.prototype.slice.call(document.querySelectorAll(".comp .sh"));
+    shuffle.addEventListener("click", function () {
+      for (var i = 0; i < shapes.length; i++) {
+        var s = shapes[i];
+        if (reduce) { s.style.transition = "none"; }
+        var tx = (Math.random() * 2 - 1) * 20;
+        var ty = (Math.random() * 2 - 1) * 14;
+        var rt = (Math.random() * 2 - 1) * 13;
+        s.style.transform = "translate(" + tx.toFixed(1) + "px," + ty.toFixed(1) + "px) rotate(" + rt.toFixed(1) + "deg)";
+      }
+    });
+  }
+
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", function () { setAngles(); measure(); });
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { stop(); } else { start(); }
+  });
+
+  buildWheel();
+  setAngles();
+  measure();
+  start();
+})();
+</script>
+
+
+
+</body>
+</html>

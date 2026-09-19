@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aperture — spatial agent OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     APERTURE — visionOS-grade depth. Panels are material, not cards.
+     Paradigm: a spatial field. Depth is the layout.
+     Pointer drives parallax AND the implied light source.
+     ============================================================ */
+  :root{
+    --warm:255,206,150;
+    --cool:150,190,255;
+    --ink:#f2f3fb;
+    --ink-2:#c3c7e0;
+    --ink-3:#8e93b4;
+    --violet:#6a5cff;
+
+    --font:"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    /* pointer state, -1 .. 1 */
+    --px:0;
+    --py:0;
+
+    --ease:cubic-bezier(.22,.78,.24,1);
+    --ease-glass:cubic-bezier(.34,.1,.16,1);
+
+    /* depth defaults (overridden per [data-depth]) */
+    --blur:18px;
+    --sat:1.05;
+    --bri:.92;
+    --fill:rgba(20,20,48,.5);
+    --rimA:.45;
+    --rate:14px;
+    --shy:34px;
+    --shA:.5;
+    --z:1;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:#07060f;
+    color:var(--ink);
+    font-family:var(--font);
+    font-size:15px;
+    line-height:1.55;
+    font-weight:400;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  ::selection{background:rgba(255,206,150,.28)}
+  :focus-visible{outline:2px solid rgba(255,206,150,.9);outline-offset:3px;border-radius:8px}
+  .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+  /* ---------------- the void ---------------- */
+  .void{
+    position:fixed;inset:0;z-index:0;overflow:hidden;
+    background:
+      radial-gradient(120% 90% at 18% 6%, #1b1740 0%, rgba(27,23,64,0) 58%),
+      radial-gradient(100% 80% at 88% 96%, #241a3d 0%, rgba(36,26,61,0) 62%),
+      linear-gradient(168deg,#0a0818 0%,#0d0b1f 42%,#080612 100%);
+  }
+  #bloom{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:.9}
+  .keylight{
+    position:absolute;inset:-20%;
+    background:radial-gradient(38% 38% at calc(50% + var(--px) * 34%) calc(50% + var(--py) * 34%),
+      rgba(255,206,150,.22) 0%, rgba(255,180,120,.10) 34%, rgba(255,206,150,0) 68%);
+    mix-blend-mode:screen;
+    transition:opacity .6s var(--ease);
+    pointer-events:none;
+  }
+  .grain{
+    position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.05;
+    mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='.55'/></svg>");
+  }
+
+  /* ---------------- chrome: floating menu bar ---------------- */
+  .menubar{
+    position:fixed;top:0;left:0;right:0;z-index:50;
+    display:flex;justify-content:center;
+    padding:14px clamp(12px,2.4vw,26px);
+    pointer-events:none;
+  }
+  .menubar-in{
+    pointer-events:auto;
+    display:flex;align-items:center;gap:clamp(10px,1.6vw,22px);
+    padding:8px 10px 8px 16px;
+    border-radius:16px;
+    border:1px solid transparent;
+    background:
+      linear-gradient(rgba(24,24,52,.55),rgba(24,24,52,.55)) padding-box,
+      linear-gradient(120deg, rgba(255,206,150,.30), rgba(160,180,255,.14) 46%, rgba(255,255,255,.05)) border-box;
+    backdrop-filter:blur(14px) saturate(1.2) brightness(.95);
+    box-shadow:0 18px 40px -22px rgba(4,2,16,.9), inset 0 1px 0 rgba(255,255,255,.07);
+    max-width:100%;
+  }
+  .brand{display:flex;align-items:center;gap:9px;font-weight:600;letter-spacing:-.01em;white-space:nowrap}
+  .brand .orb{
+    width:14px;height:14px;border-radius:50%;flex:none;
+    background:radial-gradient(circle at 32% 28%, #fff8ee 0%, rgba(255,206,150,.95) 34%, rgba(255,150,90,.55) 66%, rgba(255,150,90,0) 78%);
+    box-shadow:0 0 14px rgba(255,190,130,.55);
+  }
+  .menubar .sep{width:1px;height:20px;background:rgba(255,255,255,.12);flex:none}
+  .menubar .m{font-size:12.5px;color:var(--ink-3);white-space:nowrap}
+  .menubar .m b{color:var(--ink-2);font-weight:500}
+  .menubar .back{
+    margin-left:auto;
+    font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;
+    color:var(--ink-3);text-decoration:none;
+    border:1px solid rgba(255,255,255,.12);border-radius:9px;
+    padding:5px 10px;white-space:nowrap;
+    transition:color .34s var(--ease),border-color .34s var(--ease),background .34s var(--ease);
+  }
+  .menubar .back:hover,.menubar .back:focus-visible{
+    color:#0b0918;background:rgba(255,206,150,.92);border-color:rgba(255,206,150,.92);
+  }
+  @media (max-width:720px){ .menubar .m{display:none} }
+
+  /* ---------------- the field ---------------- */
+  .field{
+    position:relative;z-index:1;
+    width:min(1560px,100%);
+    margin:0 auto;
+    min-height:1180px;
+    padding:96px clamp(14px,2.6vw,40px) 220px;
+  }
+  .p-foot{
+    position:absolute;left:7%;bottom:58px;
+    font-size:11.5px;letter-spacing:.06em;color:var(--ink-3);
+    transform:translate3d(calc(var(--px) * 18px), calc(var(--py) * 10px), 0);
+  }
+  .p-foot a{color:var(--ink-2);text-decoration:none;border-bottom:1px solid rgba(255,255,255,.22);padding-bottom:1px}
+  .p-foot a:hover,.p-foot a:focus-visible{color:rgba(var(--warm),1);border-bottom-color:rgba(var(--warm),.8)}
+
+  /* ---------------- material ---------------- */
+  .panel{
+    position:relative;
+    border:1px solid transparent;
+    border-radius:var(--r,26px);
+    background:
+      linear-gradient(var(--fill),var(--fill)) padding-box,
+      radial-gradient(150% 150% at calc(50% + var(--px) * 62%) calc(50% + var(--py) * 62%),
+        rgba(var(--warm),var(--rimA)) 0%,
+        rgba(var(--warm),calc(var(--rimA) * .22)) 26%,
+        rgba(var(--cool),.10) 58%,
+        rgba(255,255,255,.035) 100%) border-box;
+    backdrop-filter:blur(var(--blur)) saturate(var(--sat)) brightness(var(--bri));
+    -webkit-backdrop-filter:blur(var(--blur)) saturate(var(--sat)) brightness(var(--bri));
+    box-shadow:
+      0 var(--shy) calc(var(--shy) * 2.6) rgba(4,2,16,var(--shA)),
+      0 2px 0 rgba(255,255,255,.03) inset,
+      inset 0 1px 0 rgba(255,255,255,.07);
+    transform:translate3d(calc(var(--px) * var(--rate)), calc(var(--py) * var(--rate)), 0);
+    transition:box-shadow .7s var(--ease-glass), border-radius .5s var(--ease-glass);
+    will-change:transform;
+    z-index:var(--z);
+  }
+  /* top sheen — the light that grazes the glass */
+  .panel::before{
+    content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:linear-gradient(180deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.02) 22%, rgba(255,255,255,0) 46%);
+    opacity:.9;
+  }
+  /* warm inner scatter near the light */
+  .panel::after{
+    content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:radial-gradient(70% 60% at calc(50% + var(--px) * 70%) calc(50% + var(--py) * 70%),
+      rgba(var(--warm),calc(var(--rimA) * .18)) 0%, rgba(var(--warm),0) 70%);
+  }
+  .panel[data-depth="far"]{--blur:32px;--sat:.72;--bri:.72;--fill:rgba(15,15,38,.44);--rimA:.16;--rate:7px;--shy:18px;--shA:.32;--z:1}
+  .panel[data-depth="mid"]{--blur:19px;--sat:1.02;--bri:.9;--fill:rgba(20,20,48,.52);--rimA:.42;--rate:15px;--shy:32px;--shA:.48;--z:4}
+  .panel[data-depth="near"]{--blur:11px;--sat:1.22;--bri:1;--fill:rgba(28,27,62,.66);--rimA:.85;--rate:26px;--shy:52px;--shA:.66;--z:9}
+
+  .win-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.07)}
+  .win-h .t{
+    font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;
+    color:var(--ink-3);
+  }
+  .win-h .grow{flex:1}
+  .win-h .lights{display:flex;gap:6px}
+  .win-h .lights i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.16);display:block}
+  .win-h .lights i:first-child{background:rgba(var(--warm),.6)}
+  .win-b{padding:clamp(16px,1.6vw,24px)}
+
+  /* ---------------- placement in the field ---------------- */
+  .field > .panel{position:absolute}
+  .p-hero  {left:5%;top:112px;width:40%;--r:30px}
+  .p-fleet {left:70%;top:110px;width:26%}
+  .p-note  {left:48%;top:76px;width:250px;--r:18px}
+  .p-thread{left:70%;top:356px;width:26%}
+  .p-orbit {left:48%;top:360px;width:20%}
+  .p-tools {left:5%;top:520px;width:24%}
+  .p-cta   {left:32%;top:604px;width:24%}
+  .p-pulse {left:5%;top:738px;width:20%}
+
+  @media (max-width:1180px){
+    .p-hero{width:46%}
+    .p-fleet{left:66%;width:30%}
+    .p-thread{left:66%;width:30%}
+    .p-orbit{left:44%;width:22%}
+    .p-tools{left:4%;width:27%}
+    .p-cta{left:33%;width:28%}
+    .p-pulse{left:4%;width:22%}
+  }
+  @media (max-width:900px){
+    .field{min-height:0;padding:92px 14px 150px}
+    .field > .panel{position:static;width:auto;--rate:0px}
+    .field > .panel + .panel{margin-top:14px}
+    .p-note{width:auto}
+    .p-pulse{display:none}
+    .p-foot{position:static;transform:none;margin-top:26px}
+    .panel{transform:none !important}
+  }
+
+  /* ---------------- type ---------------- */
+  h1{
+    margin:0 0 16px;
+    font-size:clamp(2.1rem,1.15rem + 3.1vw,4.1rem);
+    line-height:1.02;
+    letter-spacing:-.038em;
+    font-weight:600;
+    max-width:15ch;
+    text-wrap:balance;
+  }
+  h1 .glow{
+    background:linear-gradient(96deg,#fff3e2 0%,rgba(255,206,150,.95) 44%,rgba(178,180,255,.95) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  h2{margin:0 0 10px;font-size:clamp(1.05rem,0.9rem + .5vw,1.4rem);line-height:1.2;letter-spacing:-.022em;font-weight:600}
+  h3{margin:0 0 4px;font-size:13.5px;line-height:1.35;letter-spacing:-.01em;font-weight:600}
+  p{margin:0 0 14px;color:var(--ink-2);max-width:54ch}
+  p.small{font-size:13.5px;line-height:1.6;color:var(--ink-3)}
+  .big{font-size:clamp(1.5rem,1.1rem + 1.1vw,2.1rem);font-weight:600;letter-spacing:-.04em;line-height:1.05;font-variant-numeric:tabular-nums}
+  .lbl{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;color:var(--ink-3)}
+
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin:26px 0 0}
+  .btn{
+    font:inherit;font-size:14px;font-weight:600;letter-spacing:-.005em;
+    padding:11px 20px;border-radius:13px;cursor:pointer;
+    border:1px solid transparent;color:#140d05;
+    background:linear-gradient(180deg,rgba(255,231,204,.98),rgba(255,196,138,.95));
+    box-shadow:0 12px 30px -12px rgba(255,180,110,.6), inset 0 1px 0 rgba(255,255,255,.7);
+    transition:transform .4s var(--ease-glass),box-shadow .4s var(--ease-glass),filter .4s var(--ease);
+  }
+  .btn:hover{transform:translateY(-2px);box-shadow:0 20px 44px -14px rgba(255,180,110,.7), inset 0 1px 0 rgba(255,255,255,.8)}
+  .btn:active{transform:translateY(0)}
+  .btn.ghost{
+    background:rgba(255,255,255,.05);color:var(--ink);
+    border-color:rgba(255,255,255,.16);box-shadow:none;
+  }
+  .btn.ghost:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.28);box-shadow:none}
+
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:6px}
+  .stat{border-top:1px solid rgba(255,255,255,.1);padding-top:12px}
+  .stat .v{font-size:22px;font-weight:600;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
+  .stat .k{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-top:2px}
+
+  .msg{display:grid;grid-template-columns:24px 1fr;gap:11px;padding:12px 0;border-top:1px solid rgba(255,255,255,.07)}
+  .msg:first-of-type{border-top:0}
+  .msg .av{
+    width:24px;height:24px;border-radius:8px;display:grid;place-items:center;
+    font-size:9.5px;font-weight:700;letter-spacing:.02em;
+    background:rgba(255,255,255,.09);color:var(--ink-2);border:1px solid rgba(255,255,255,.1);
+  }
+  .msg.agent .av{background:radial-gradient(circle at 34% 28%, rgba(255,235,213,.95), rgba(255,180,120,.55));color:#1a1206;border-color:rgba(255,210,160,.4)}
+  .msg .b{font-size:13.5px;line-height:1.55;color:var(--ink-2)}
+  .msg .b b{color:var(--ink);font-weight:600}
+  .msg .tm{font-size:10.5px;color:var(--ink-3);margin-left:8px;font-variant-numeric:tabular-nums}
+
+  .ti{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .tool{
+    font-size:11.5px;color:var(--ink-2);
+    border:1px solid rgba(255,255,255,.12);border-radius:8px;
+    padding:4px 9px;background:rgba(255,255,255,.04);
+    display:inline-flex;align-items:center;gap:7px;
+  }
+  .tool .d{width:5px;height:5px;border-radius:50%;background:rgba(var(--warm),.85)}
+  .tool.dim{opacity:.55}
+
+  .orbitring{position:relative;display:grid;place-items:center;padding:6px 0 2px}
+  .orbitring svg{width:96px;height:96px;transform:rotate(-90deg)}
+  .orbitring .tr{fill:none;stroke:rgba(255,255,255,.1);stroke-width:6}
+  .orbitring .vl{fill:none;stroke:rgba(var(--warm),.9);stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset 1.4s var(--ease-glass)}
+  .orbitring .ct{position:absolute;font-size:17px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+
+  /* ---------------- dock ---------------- */
+  .dock{
+    position:fixed;left:50%;bottom:22px;z-index:55;
+    transform:translate3d(calc(-50% + var(--px) * 40px), calc(var(--py) * 22px), 0);
+    display:flex;gap:10px;padding:10px;
+    border-radius:22px;border:1px solid transparent;
+    background:
+      linear-gradient(rgba(22,22,50,.6),rgba(22,22,50,.6)) padding-box,
+      linear-gradient(140deg, rgba(255,206,150,.34), rgba(170,180,255,.18) 50%, rgba(255,255,255,.06)) border-box;
+    backdrop-filter:blur(16px) saturate(1.25) brightness(.98);
+    -webkit-backdrop-filter:blur(16px) saturate(1.25) brightness(.98);
+    box-shadow:0 30px 60px -26px rgba(4,2,16,.95), inset 0 1px 0 rgba(255,255,255,.08);
+    will-change:transform;
+  }
+  .dock button{
+    width:46px;height:46px;border-radius:15px;cursor:pointer;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.055);
+    color:var(--ink-2);display:grid;place-items:center;position:relative;
+    transition:transform .42s var(--ease-glass),background .42s var(--ease),border-color .42s var(--ease),color .42s var(--ease);
+  }
+  .dock button svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .dock button:hover{transform:translateY(-6px) scale(1.06);background:rgba(255,255,255,.13);border-color:rgba(var(--warm),.5);color:var(--ink)}
+  .dock button[aria-pressed="true"]{
+    background:radial-gradient(circle at 34% 26%, rgba(255,240,222,.95), rgba(255,190,130,.7));
+    border-color:rgba(255,215,170,.7);color:#1a1206;
+    box-shadow:0 10px 26px -10px rgba(255,190,130,.75);
+  }
+  .dock button .dot{
+    position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);
+    width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.28);
+  }
+  .dock button[aria-pressed="true"] .dot{background:rgba(var(--warm),1)}
+
+  @media (max-width:900px){
+    .dock{bottom:14px;padding:8px;gap:7px}
+    .dock button{width:40px;height:40px;border-radius:13px}
+  }
+
+  /* promote pulse, driven from JS */
+  @keyframes rise{
+    from{transform:translate3d(calc(var(--px) * var(--rate)), calc(var(--py) * var(--rate)), 0) scale(.985);
+         filter:brightness(1.25)}
+    to{transform:translate3d(calc(var(--px) * var(--rate)), calc(var(--py) * var(--rate)), 0) scale(1);
+       filter:brightness(1)}
+  }
+  .panel.rise{animation:rise .6s var(--ease-glass)}
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{transition-duration:.001ms !important;animation-duration:.001ms !important}
+    .panel,.dock{transform:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="void" aria-hidden="true">
+  <canvas id="bloom"></canvas>
+  <div class="keylight" id="keylight"></div>
+</div>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="menubar">
+  <div class="menubar-in">
+    <span class="brand"><span class="orb" aria-hidden="true"></span>Aperture</span>
+    <span class="sep" aria-hidden="true"></span>
+    <span class="m">Spatial desktop &nbsp;·&nbsp; <b>4 agents on the floor</b></span>
+    <a class="back" href="../index.html">Gallery</a>
+  </div>
+</header>
+
+<main class="field">
+
+  <section class="panel p-hero" data-depth="near" id="win-hero" aria-labelledby="hero-h">
+    <div class="win-h">
+      <span class="t">Floor / overview</span>
+      <span class="grow"></span>
+      <span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <div class="win-b">
+      <h1 id="hero-h">Your agents finally have <span class="glow">somewhere to stand</span>.</h1>
+      <p>Aperture gives every running agent a place in space: a window you can walk toward, a floor that keeps its state, and light that tells you where it is looking. Depth is not decoration — it is how you keep nine parallel runs in your head at once.</p>
+      <div class="actions">
+        <button class="btn" type="button">Enter the floor</button>
+        <button class="btn ghost" type="button">Watch a run</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel p-fleet" data-depth="mid" id="win-fleet" aria-labelledby="fleet-h">
+    <div class="win-h">
+      <span class="t">Fleet</span>
+      <span class="grow"></span>
+      <span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <div class="win-b">
+      <h2 id="fleet-h" class="sr">Fleet state</h2>
+      <span class="lbl">Live</span>
+      <div class="stat-row">
+        <div class="stat"><div class="v" data-count="9">9</div><div class="k">Agents</div></div>
+        <div class="stat"><div class="v" data-count="23">23</div><div class="k">In flight</div></div>
+        <div class="stat"><div class="v">1.9<span style="font-size:13px">s</span></div><div class="k">p50</div></div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="panel p-note" data-depth="near" id="win-note">
+    <div class="win-b" style="padding:14px 16px">
+      <span class="lbl">Handoff &nbsp;·&nbsp; now</span>
+      <p style="margin:8px 0 0;font-size:13.5px;color:var(--ink)">Runner <b style="font-weight:600">atlas-04</b> finished the queue patch. 3 files, 14 tests green.</p>
+    </div>
+  </aside>
+
+  <section class="panel p-thread" data-depth="mid" id="win-thread" aria-labelledby="thread-h">
+    <div class="win-h">
+      <span class="t">Thread / queue saturation</span>
+      <span class="grow"></span>
+      <span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <div class="win-b" style="padding-top:6px;padding-bottom:8px">
+      <h2 id="thread-h" class="sr">Thread</h2>
+      <div class="msg">
+        <span class="av" aria-hidden="true">AR</span>
+        <div class="b">The retry path drops events when the queue saturates.<span class="tm">09:12</span></div>
+      </div>
+      <div class="msg agent">
+        <span class="av" aria-hidden="true">AP</span>
+        <div class="b"><b>Found it.</b> <code style="font-family:inherit;color:rgba(255,206,150,.9)">drain()</code> treats a full queue as permanent failure.<span class="tm">09:13</span></div>
+      </div>
+      <div class="msg agent">
+        <span class="av" aria-hidden="true">AP</span>
+        <div class="b">Patched, re-armed with backoff, 14 tests pass. Draft PR is open.</div>
+      </div>
+      <div class="ti">
+        <span class="tool"><span class="d" aria-hidden="true"></span>read 3 files</span>
+        <span class="tool"><span class="d" aria-hidden="true"></span>ran code</span>
+        <span class="tool dim"><span class="d" aria-hidden="true"></span>opened #4182</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel p-tools" data-depth="far" id="win-tools" aria-labelledby="tools-h">
+    <div class="win-h">
+      <span class="t">Instruments</span>
+      <span class="grow"></span>
+      <span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <div class="win-b">
+      <h2 id="tools-h" class="sr">Instruments</h2>
+      <div class="ti" style="margin-top:0">
+        <span class="tool"><span class="d" aria-hidden="true"></span>read_file</span>
+        <span class="tool"><span class="d" aria-hidden="true"></span>apply_patch</span>
+        <span class="tool"><span class="d" aria-hidden="true"></span>run_process</span>
+        <span class="tool dim"><span class="d" aria-hidden="true"></span>search_index</span>
+        <span class="tool dim"><span class="d" aria-hidden="true"></span>browse_docs</span>
+      </div>
+      <p class="small" style="margin:16px 0 0">No shell escape. Every tool is scoped to your role.</p>
+    </div>
+  </section>
+
+  <section class="panel p-orbit" data-depth="far" id="win-orbit" aria-labelledby="orbit-h">
+    <div class="win-h">
+      <span class="t">Context</span>
+      <span class="grow"></span>
+      <span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <div class="win-b">
+      <h2 id="orbit-h" class="sr">Context budget</h2>
+      <div class="orbitring">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="tr" cx="50" cy="50" r="42"></circle>
+          <circle class="vl" id="orbitVal" cx="50" cy="50" r="42" stroke-dasharray="263.9" stroke-dashoffset="164"></circle>
+        </svg>
+        <span class="ct" id="orbitNum">38%</span>
+      </div>
+      <p class="small" style="text-align:center;margin:14px 0 0">of 200k tokens<br>compaction at 80%</p>
+    </div>
+  </section>
+
+  <section class="panel p-cta" data-depth="mid" id="win-cta" aria-labelledby="cta-h">
+    <div class="win-h">
+      <span class="t">Floor plan</span>
+      <span class="grow"></span>
+      <span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <div class="win-b">
+      <h2 id="cta-h">Spatial by default, not by toggle</h2>
+      <p style="margin-bottom:0">Windows keep their depth and their light. Close the lid; the floor is exactly where you left it.</p>
+    </div>
+  </section>
+
+  <section class="panel p-pulse" data-depth="far" id="win-pulse" aria-labelledby="pulse-h">
+    <div class="win-b" style="padding:14px 16px">
+      <h2 id="pulse-h" class="sr">Throughput pulse</h2>
+      <span class="lbl">Pulse</span>
+      <canvas id="spark" style="display:block;width:100%;height:52px;margin-top:10px" aria-hidden="true"></canvas>
+    </div>
+  </section>
+
+  <footer class="p-foot">
+    <span>© Aperture Spatial Systems &nbsp;·&nbsp; <a href="../index.html">Return to gallery</a></span>
+  </footer>
+
+</main>
+
+<nav class="dock" aria-label="Bring a window forward">
+  <button type="button" data-target="win-hero" aria-pressed="true" aria-label="Overview">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><span class="dot" aria-hidden="true"></span>
+  </button>
+  <button type="button" data-target="win-fleet" aria-pressed="false" aria-label="Fleet">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg><span class="dot" aria-hidden="true"></span>
+  </button>
+  <button type="button" data-target="win-thread" aria-pressed="false" aria-label="Thread">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a7 7 0 01-7 7H8l-4 3v-6.5A7 7 0 0111 5h2a7 7 0 017 7z"/></svg><span class="dot" aria-hidden="true"></span>
+  </button>
+  <button type="button" data-target="win-tools" aria-pressed="false" aria-label="Instruments">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5a4 4 0 105.2 5.2L21 9.4 14.6 3z"/><path d="M13 11L4 20l1.5 1.5L14.5 12.5"/></svg><span class="dot" aria-hidden="true"></span>
+  </button>
+  <button type="button" data-target="win-orbit" aria-pressed="false" aria-label="Context budget">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 018 8"/></svg><span class="dot" aria-hidden="true"></span>
+  </button>
+</nav>
+<script>
+(function(){
+  "use strict";
+
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var root   = document.documentElement;
+  var bloom  = document.getElementById("bloom");
+  var spark  = document.getElementById("spark");
+
+  /* ============================================================
+     1. POINTER — one source of truth for parallax AND the light
+     ============================================================ */
+  var px = 0, py = 0, tx = 0, ty = 0;
+
+  function applyPointer(){
+    px += (tx - px) * 0.085;
+    py += (ty - py) * 0.085;
+    if(Math.abs(tx - px) < 0.0006) px = tx;
+    if(Math.abs(ty - py) < 0.0006) py = ty;
+    root.style.setProperty("--px", px.toFixed(4));
+    root.style.setProperty("--py", py.toFixed(4));
+  }
+
+  function onMove(e){
+    tx = (e.clientX / window.innerWidth) * 2 - 1;
+    ty = (e.clientY / window.innerHeight) * 2 - 1;
+    if(tx < -1) tx = -1; if(tx > 1) tx = 1;
+    if(ty < -1) ty = -1; if(ty > 1) ty = 1;
+    wake();
+  }
+
+  /* ============================================================
+     2. BLOOM — volumetric light, drawn at 1/6 resolution
+     ============================================================ */
+  var bctx = null, bw = 1, bh = 1;
+  function sizeBloom(){
+    var w = Math.max(2, Math.round(window.innerWidth / 6));
+    var h = Math.max(2, Math.round(window.innerHeight / 6));
+    bw = w; bh = h;
+    bloom.width = w; bloom.height = h;
+    bctx = bloom.getContext("2d");
+  }
+
+  function orb(x, y, r, rgb, a){
+    var g = bctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, "rgba(" + rgb + "," + a + ")");
+    g.addColorStop(0.45, "rgba(" + rgb + "," + (a * 0.35).toFixed(3) + ")");
+    g.addColorStop(1, "rgba(" + rgb + ",0)");
+    bctx.fillStyle = g;
+    bctx.beginPath();
+    bctx.arc(x, y, r, 0, 6.2832);
+    bctx.fill();
+  }
+
+  function drawBloom(t){
+    if(!bctx) sizeBloom();
+    bctx.globalCompositeOperation = "source-over";
+    bctx.clearRect(0, 0, bw, bh);
+    bctx.globalCompositeOperation = "lighter";
+
+    var cx = bw * (0.5 + px * 0.16);
+    var cy = bh * (0.5 + py * 0.16);
+
+    var w1x = cx + Math.sin(t * 0.00021) * bw * 0.30;
+    var w1y = cy + Math.cos(t * 0.00030) * bh * 0.26;
+    orb(w1x, w1y, bw * 0.52, "255,186,124", 0.62);
+
+    var w2x = bw * (0.84 + Math.sin(t * 0.00017 + 2) * 0.05) - px * bw * 0.06;
+    var w2y = bh * (0.86 + Math.cos(t * 0.00023 + 1) * 0.05) - py * bh * 0.06;
+    orb(w2x, w2y, bw * 0.46, "150,146,255", 0.40);
+
+    var w3x = bw * 0.14 + Math.cos(t * 0.00013) * bw * 0.05 - px * bw * 0.04;
+    var w3y = bh * 0.16 + Math.sin(t * 0.00019) * bh * 0.05;
+    orb(w3x, w3y, bw * 0.38, "108,132,255", 0.34);
+
+    bctx.globalCompositeOperation = "source-over";
+  }
+
+  /* ============================================================
+     3. SPARK — the pulse window
+     ============================================================ */
+  var sctx = null, sw = 1, sh = 1, series = [];
+  for(var si = 0; si < 60; si++) series.push(0.4 + Math.random() * 0.28);
+
+  function sizeSpark(){
+    var box = spark.getBoundingClientRect();
+    sw = Math.max(2, Math.round(box.width));
+    sh = Math.max(2, Math.round(box.height));
+    var d = Math.min(window.devicePixelRatio || 1, 2);
+    spark.width  = Math.round(sw * d);
+    spark.height = Math.round(sh * d);
+    sctx = spark.getContext("2d");
+    sctx.setTransform(d, 0, 0, d, 0, 0);
+  }
+
+  function drawSpark(advance){
+    if(!sctx) sizeSpark();
+    if(advance){
+      series.push(Math.max(0.06, Math.min(0.96, series[59] + (Math.random() - 0.5) * 0.18)));
+      series.shift();
+    }
+    sctx.clearRect(0, 0, sw, sh);
+    var pad = 3;
+    var X = function(i){ return pad + (i / 59) * (sw - pad * 2); };
+    var Y = function(v){ return sh - pad - v * (sh - pad * 2); };
+
+    sctx.beginPath();
+    sctx.moveTo(X(0), Y(series[0]));
+    for(var i = 1; i < 60; i++) sctx.lineTo(X(i), Y(series[i]));
+    sctx.strokeStyle = "rgba(255,206,150,.95)";
+    sctx.lineWidth = 1.6;
+    sctx.lineJoin = "round";
+    sctx.stroke();
+
+    var g = sctx.createLinearGradient(0, 0, 0, sh);
+    g.addColorStop(0, "rgba(255,206,150,.26)");
+    g.addColorStop(1, "rgba(255,206,150,0)");
+    sctx.lineTo(X(59), sh);
+    sctx.lineTo(X(0), sh);
+    sctx.closePath();
+    sctx.fillStyle = g;
+    sctx.fill();
+  }
+
+  /* ============================================================
+     4. THE LOOP
+     ============================================================ */
+  var frame = 0, raf = 0, running = false, t0 = 0;
+
+  function loop(ts){
+    if(!t0) t0 = ts;
+    var t = ts - t0;
+    frame++;
+
+    applyPointer();
+    if(frame % 2 === 0) drawBloom(t);
+    if(frame % 4 === 0) drawSpark(true);
+
+    raf = requestAnimationFrame(loop);
+  }
+  function start(){
+    if(running || reduce) return;
+    running = true;
+    raf = requestAnimationFrame(loop);
+  }
+  function stop(){
+    running = false;
+    if(raf) cancelAnimationFrame(raf);
+    raf = 0;
+    t0 = 0;
+  }
+  function wake(){ if(!running && !reduce && !document.hidden) start(); }
+
+  document.addEventListener("visibilitychange", function(){
+    if(document.hidden) stop(); else wake();
+  });
+
+  /* ============================================================
+     5. WINDOW PROMOTION — the dock re-stacks real depth
+     ============================================================ */
+  var dock = document.querySelector(".dock");
+  var promoted = "win-hero";
+
+  function promote(id){
+    if(!id || id === promoted) return;
+    var next = document.getElementById(id);
+    if(!next) return;
+    var prev = document.getElementById(promoted);
+
+    if(prev && next.getAttribute("data-depth") !== "near"){
+      prev.setAttribute("data-depth", "mid");
+    }
+    next.setAttribute("data-depth", "near");
+
+    Array.prototype.forEach.call(dock.querySelectorAll("button"), function(b){
+      b.setAttribute("aria-pressed", b.getAttribute("data-target") === id ? "true" : "false");
+    });
+
+    if(!reduce){
+      next.classList.remove("rise");
+      void next.offsetWidth;
+      next.classList.add("rise");
+    }
+    promoted = id;
+  }
+
+  if(dock){
+    dock.addEventListener("click", function(e){
+      var b = e.target.closest ? e.target.closest("button[data-target]") : null;
+      if(!b) return;
+      promote(b.getAttribute("data-target"));
+    });
+    /* keyboard: 1..5 reach the dock items */
+    document.addEventListener("keydown", function(e){
+      if(e.metaKey || e.ctrlKey || e.altKey) return;
+      var n = parseInt(e.key, 10);
+      if(!(n >= 1 && n <= 5)) return;
+      var t = e.target;
+      if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      var btns = dock.querySelectorAll("button[data-target]");
+      if(btns[n - 1]){ e.preventDefault(); promote(btns[n - 1].getAttribute("data-target")); }
+    });
+  }
+
+  /* ============================================================
+     6. SLOW NUMBERS — fleet counters and the context ring
+     ============================================================ */
+  var counters = Array.prototype.map.call(document.querySelectorAll("[data-count]"), function(el){
+    return { el:el, base:parseInt(el.getAttribute("data-count"), 10) || 0 };
+  });
+  function tickCounters(){
+    for(var i = 0; i < counters.length; i++){
+      var c = counters[i];
+      var v = Math.max(1, c.base + Math.round((Math.random() - 0.5) * (i === 1 ? 9 : 4)));
+      c.el.textContent = String(v);
+    }
+  }
+
+  var orbitVal = document.getElementById("orbitVal");
+  var orbitNum = document.getElementById("orbitNum");
+  var ORBIT_C = 2 * Math.PI * 42;
+  function tickOrbit(){
+    if(!orbitVal || !orbitNum) return;
+    var pct = 0.26 + Math.random() * 0.46;
+    orbitVal.setAttribute("stroke-dashoffset", String(ORBIT_C * (1 - pct)));
+    orbitNum.textContent = Math.round(pct * 100) + "%";
+  }
+
+  window.setInterval(function(){
+    if(document.hidden) return;
+    tickCounters();
+  }, 4200);
+  window.setInterval(function(){
+    if(document.hidden) return;
+    tickOrbit();
+  }, 5400);
+
+  /* ============================================================
+     7. INIT
+     ============================================================ */
+  if(reduce){
+    sizeBloom(); drawBloom(4200);
+    sizeSpark(); drawSpark(false);
+    root.style.setProperty("--px", "0");
+    root.style.setProperty("--py", "0");
+  } else {
+    sizeBloom();
+    sizeSpark();
+    drawBloom(1200);
+    drawSpark(false);
+    window.addEventListener("pointermove", onMove, { passive:true });
+    start();
+  }
+
+  var rt = 0;
+  window.addEventListener("resize", function(){
+    window.clearTimeout(rt);
+    rt = window.setTimeout(function(){
+      sizeBloom(); sizeSpark();
+      drawBloom(2400); drawSpark(false);
+    }, 180);
+  });
+})();
+</script>
+</body>
+</html>

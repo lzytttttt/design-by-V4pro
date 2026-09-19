@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loom — working session</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     LOOM — the page IS a conversation, already in progress.
+     Paradigm: transcript-first. No hero, no features grid.
+     ============================================================ */
+  :root{
+    --paper:#f7f6f3;
+    --surface:#fffffe;
+    --ink:#191816;
+    --ink-2:#514e48;
+    --ink-3:#8d8981;
+    --ink-4:#b3afa7;
+    --rule:#e5e2db;
+    --rule-2:#efede7;
+    --accent:#1c6b58;
+    --accent-ink:#155446;
+    --accent-wash:rgba(28,107,88,.07);
+    --warn:#9a5b12;
+
+    --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+    --fs-xs:   0.6875rem;   /* 11 — metadata */
+    --fs-sm:   0.8125rem;   /* 13 — chip text */
+    --fs-base: 0.9375rem;   /* 15 — body */
+    --fs-md:   1.0625rem;   /* 17 — lead-in */
+    --fs-lg:   clamp(1.1875rem, 1.09rem + 0.42vw, 1.4375rem);
+    --fs-xl:   clamp(1.875rem, 1.35rem + 2.3vw, 3rem);
+
+    --lh-body: 1.62;
+    --lh-tight: 1.18;
+    --tr-display: -0.032em;
+    --tr-tight: -0.014em;
+
+    --gut: clamp(16px, 3.4vw, 40px);
+    --rail: 34px;
+    --top: 54px;
+    --bottom: 176px;
+
+    --ease-out: cubic-bezier(.22,.78,.24,1);
+    --ease-soft: cubic-bezier(.4,.14,.2,1);
+  }
+
+  *,*::before,*::after{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font);
+    font-size:var(--fs-base);
+    line-height:var(--lh-body);
+    font-feature-settings:"cv05" 1,"ss01" 1;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  ::selection{background:rgba(28,107,88,.16)}
+
+  :focus-visible{
+    outline:2px solid var(--accent);
+    outline-offset:2px;
+    border-radius:3px;
+  }
+
+  /* ---------- chrome: fixed top bar ---------- */
+  .topbar{
+    position:fixed; inset:0 0 auto 0; z-index:40;
+    height:var(--top);
+    display:flex; align-items:center; gap:14px;
+    padding:0 var(--gut);
+    background:rgba(247,246,243,.86);
+    backdrop-filter:blur(9px) saturate(1.1);
+    border-bottom:1px solid var(--rule);
+  }
+  @supports not (backdrop-filter:blur(2px)){ .topbar{background:var(--paper)} }
+
+  .back{
+    font-size:var(--fs-xs);
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    font-weight:500;
+    color:var(--ink-3);
+    text-decoration:none;
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 8px 6px 4px;
+    opacity:.62;
+    transition:opacity .3s var(--ease-out), color .3s var(--ease-out);
+    white-space:nowrap;
+  }
+  .back:hover,.back:focus-visible{opacity:1;color:var(--accent-ink)}
+  .back .tick{
+    width:14px;height:1px;background:currentColor;display:block;
+    transition:width .34s var(--ease-out);
+  }
+  .back:hover .tick{width:22px}
+
+  .bar-div{width:1px;height:16px;background:var(--rule);flex:none}
+
+  .who{display:flex;align-items:center;gap:9px;min-width:0}
+  .who .mono-av{
+    width:22px;height:22px;flex:none;border-radius:6px;
+    background:var(--ink);color:#fff;
+    font-size:9px;font-weight:700;letter-spacing:.04em;
+    display:grid;place-items:center;
+  }
+  .who b{font-size:var(--fs-sm);font-weight:600;letter-spacing:var(--tr-tight)}
+  .who .meta{
+    font-size:var(--fs-xs);color:var(--ink-3);
+    font-family:var(--mono);letter-spacing:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .bar-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+  .live{
+    display:inline-flex;align-items:center;gap:7px;
+    font-size:var(--fs-xs);letter-spacing:.06em;text-transform:uppercase;
+    color:var(--ink-3);font-weight:500;
+  }
+  .live .dot{
+    width:6px;height:6px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 0 0 rgba(28,107,88,.4);
+    animation:pulse 2.6s var(--ease-soft) infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(28,107,88,.38)}
+    70%{box-shadow:0 0 0 7px rgba(28,107,88,0)}
+    100%{box-shadow:0 0 0 0 rgba(28,107,88,0)}
+  }
+  @media (max-width:640px){ .who .meta, .live{display:none} }
+
+  /* ---------- thread ---------- */
+  main{
+    max-width:820px;
+    margin:0 auto;
+    padding:calc(var(--top) + 26px) var(--gut) var(--bottom);
+  }
+
+  .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+  /* opening block — doubles as the "about" section, discovered by scrolling up */
+  .opening{
+    border:1px solid var(--rule);
+    background:var(--surface);
+    border-radius:14px;
+    padding:clamp(20px,3.4vw,34px);
+    margin-bottom:34px;
+    position:relative;
+  }
+  .opening::after{
+    content:"";
+    position:absolute;left:50%;bottom:-19px;width:1px;height:18px;
+    background:linear-gradient(var(--rule),transparent);
+  }
+  .opening .kicker{
+    display:flex;align-items:center;gap:10px;
+    font-size:var(--fs-xs);letter-spacing:.11em;text-transform:uppercase;
+    color:var(--ink-3);font-weight:600;margin:0 0 16px;
+  }
+  .opening .kicker .ln{height:1px;flex:1;background:var(--rule)}
+  h1{
+    margin:0 0 14px;
+    font-size:var(--fs-xl);
+    line-height:var(--lh-tight);
+    letter-spacing:var(--tr-display);
+    font-weight:600;
+    max-width:19ch;
+    text-wrap:balance;
+  }
+  h1 em{font-style:normal;color:var(--accent-ink)}
+  .opening p{
+    margin:0 0 6px;color:var(--ink-2);max-width:56ch;font-size:var(--fs-base);
+  }
+  .opening p.lead{font-size:var(--fs-md);color:var(--ink);line-height:1.5}
+  .starters{
+    display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;
+    padding-top:18px;border-top:1px dashed var(--rule);
+  }
+  .starter{
+    font:inherit;font-size:var(--fs-sm);
+    background:var(--paper);border:1px solid var(--rule);
+    color:var(--ink-2);
+    padding:7px 12px;border-radius:999px;cursor:pointer;
+    transition:border-color .28s var(--ease-out),color .28s var(--ease-out),background .28s var(--ease-out),transform .28s var(--ease-out);
+  }
+  .starter:hover{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-wash);transform:translateY(-1px)}
+  .starter:active{transform:translateY(0)}
+  .hint-scroll{
+    margin:18px 0 0;font-size:var(--fs-xs);color:var(--ink-4);
+    display:flex;align-items:center;gap:8px;
+  }
+  .hint-scroll .arw{animation:nudge 2.4s var(--ease-soft) infinite}
+  @keyframes nudge{0%,100%{transform:translateY(0);opacity:.5}50%{transform:translateY(-3px);opacity:1}}
+
+  .daystamp{
+    display:flex;align-items:center;gap:14px;
+    margin:0 0 26px;color:var(--ink-4);
+    font-size:var(--fs-xs);letter-spacing:.09em;text-transform:uppercase;font-weight:500;
+  }
+  .daystamp::before,.daystamp::after{content:"";height:1px;background:var(--rule);flex:1}
+
+  /* messages */
+  ol.msgs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:26px}
+  .msg{display:grid;grid-template-columns:var(--rail) 1fr;gap:14px;align-items:start}
+  @media (max-width:560px){ .msg{grid-template-columns:26px 1fr;gap:10px} }
+
+  .av{
+    width:var(--rail);height:var(--rail);border-radius:50%;
+    display:grid;place-items:center;
+    font-size:var(--fs-xs);font-weight:700;letter-spacing:.02em;
+    background:var(--ink);color:#fff;
+    user-select:none;
+  }
+  @media (max-width:560px){ .av{width:26px;height:26px;font-size:9px} }
+
+  .col{min-width:0}
+  .hd{display:flex;align-items:baseline;gap:9px;margin-bottom:5px;flex-wrap:wrap}
+  .hd .nm{font-size:var(--fs-sm);font-weight:600;letter-spacing:var(--tr-tight)}
+  .hd .tm{font-size:var(--fs-xs);color:var(--ink-4);font-family:var(--mono)}
+  .hd .tag{
+    font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;
+    color:var(--accent-ink);background:var(--accent-wash);
+    padding:2px 6px;border-radius:4px;
+  }
+  .body{font-size:var(--fs-base);color:var(--ink-2)}
+  .body p{margin:0 0 10px}
+  .body p:last-child{margin-bottom:0}
+  .body strong{color:var(--ink);font-weight:600}
+  code{
+    font-family:var(--mono);font-size:.87em;
+    background:var(--rule-2);border:1px solid var(--rule);
+    padding:1px 5px;border-radius:4px;color:var(--ink);
+    white-space:nowrap;
+  }
+
+  /* --- AGENT vs USER differentiation: shape, alignment, ornament, not just colour --- */
+  .msg.agent .body{
+    border-left:2px solid var(--rule);
+    padding-left:15px;
+  }
+  .msg.agent .av{border-radius:6px}
+  .msg.user{grid-template-columns:1fr var(--rail);}
+  .msg.user .av{
+    grid-column:2;grid-row:1;
+    background:var(--surface);color:var(--ink);
+    border:1px solid var(--ink);border-radius:50%;
+  }
+  .msg.user .col{grid-column:1;grid-row:1;display:flex;flex-direction:column;align-items:flex-end}
+  .msg.user .hd{flex-direction:row-reverse}
+  .msg.user .body{
+    background:var(--surface);
+    border:1px solid var(--rule);
+    border-right:3px solid var(--ink);
+    border-radius:12px 3px 12px 12px;
+    padding:11px 15px;
+    color:var(--ink);
+    max-width:60ch;
+  }
+  @media (max-width:560px){ .msg.user{grid-template-columns:1fr 26px} }
+
+  /* streaming tokens */
+  .w{display:inline;opacity:0;filter:blur(3px);transition:opacity .42s var(--ease-out),filter .42s var(--ease-out)}
+  .w.on{opacity:1;filter:blur(0)}
+  @media (prefers-reduced-motion:reduce){
+    .w{opacity:1;filter:none;transition:none}
+  }
+  .caret{
+    display:inline-block;width:7px;height:1.05em;vertical-align:-.18em;
+    background:var(--accent);margin-left:3px;
+    animation:blink 1.05s steps(1,end) infinite;
+  }
+  @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+
+  /* typing indicator */
+  .typing{display:inline-flex;gap:4px;align-items:center;padding:7px 0 3px}
+  .typing i{
+    width:6px;height:6px;border-radius:50%;background:var(--ink-4);
+    animation:bob 1.25s var(--ease-soft) infinite;
+  }
+  .typing i:nth-child(2){animation-delay:.13s}
+  .typing i:nth-child(3){animation-delay:.26s}
+  @keyframes bob{0%,60%,100%{transform:translateY(0);opacity:.45}30%{transform:translateY(-4px);opacity:1}}
+
+  /* tool chips — secondary by design */
+  .tools{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+  .tools.wide{flex-direction:column;align-items:stretch}
+  .chip{
+    font:inherit;font-size:var(--fs-sm);
+    display:inline-flex;align-items:center;gap:7px;
+    background:transparent;
+    border:1px solid var(--rule);
+    color:var(--ink-3);
+    padding:4px 9px 4px 7px;border-radius:7px;cursor:pointer;
+    transition:color .26s var(--ease-out),border-color .26s var(--ease-out),background .26s var(--ease-out);
+    max-width:100%;
+  }
+  .chip:hover{color:var(--ink);border-color:var(--ink-4);background:var(--surface)}
+  .chip .ico{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .chip .lab{font-weight:500;letter-spacing:var(--tr-tight);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chip .cnt{font-family:var(--mono);font-size:var(--fs-xs);color:var(--ink-4)}
+  .chip .cs{
+    width:9px;height:9px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;
+    stroke-linecap:round;stroke-linejoin:round;
+    transition:transform .34s var(--ease-out);
+  }
+  .chip[aria-expanded="true"]{color:var(--accent-ink);border-color:rgba(28,107,88,.45);background:var(--accent-wash)}
+  .chip[aria-expanded="true"] .cs{transform:rotate(90deg)}
+
+  .panel{
+    display:grid;grid-template-rows:0fr;
+    visibility:hidden;
+    opacity:0;
+    transition:grid-template-rows .42s var(--ease-out),opacity .3s var(--ease-out),visibility 0s linear .42s;
+  }
+  .panel.open{grid-template-rows:1fr;visibility:visible;opacity:1;transition:grid-template-rows .42s var(--ease-out),opacity .3s var(--ease-out),visibility 0s}
+  .panel > .inner{overflow:hidden;min-height:0}
+  .panel .card{
+    margin-top:9px;
+    border:1px solid var(--rule);
+    background:var(--surface);
+    border-radius:9px;
+    overflow:hidden;
+    font-size:var(--fs-sm);
+  }
+  .panel .cap{
+    padding:7px 12px;border-bottom:1px solid var(--rule-2);
+    color:var(--ink-4);font-size:var(--fs-xs);
+    letter-spacing:.06em;text-transform:uppercase;font-weight:600;
+    display:flex;justify-content:space-between;gap:10px;
+  }
+  pre.term{
+    margin:0;padding:11px 12px;
+    font-family:var(--mono);font-size:12px;line-height:1.65;
+    color:var(--ink-2);overflow-x:auto;white-space:pre;
+  }
+  pre.term .ok{color:var(--accent-ink)}
+  pre.term .dim{color:var(--ink-4)}
+  pre.diff{
+    margin:0;padding:11px 0;font-family:var(--mono);font-size:12px;line-height:1.7;
+    overflow-x:auto;
+  }
+  pre.diff b{display:block;font-weight:400;padding:0 12px;white-space:pre}
+  pre.diff b.add{background:rgba(28,107,88,.075);color:var(--accent-ink)}
+  pre.diff b.del{background:rgba(154,91,18,.075);color:var(--warn)}
+  pre.diff b.ctx{color:var(--ink-3)}
+  .srcs{list-style:none;margin:0;padding:5px 0}
+  .srcs li{display:flex;gap:9px;padding:7px 12px;align-items:baseline;border-top:1px solid var(--rule-2)}
+  .srcs li:first-child{border-top:0}
+  .srcs .n{font-family:var(--mono);font-size:var(--fs-xs);color:var(--ink-4);flex:none;width:14px}
+  .srcs .t{color:var(--ink);letter-spacing:var(--tr-tight)}
+  .srcs .u{font-family:var(--mono);font-size:var(--fs-xs);color:var(--ink-4);margin-left:auto;flex:none}
+
+  /* jump-to-latest */
+  .jump{
+    position:fixed;left:50%;bottom:calc(var(--bottom) + 6px);
+    transform:translate(-50%,14px);
+    z-index:35;
+    display:inline-flex;align-items:center;gap:8px;
+    font:inherit;font-size:var(--fs-sm);font-weight:500;
+    background:var(--ink);color:#fff;border:1px solid var(--ink);
+    padding:7px 14px;border-radius:999px;cursor:pointer;
+    opacity:0;pointer-events:none;
+    transition:opacity .3s var(--ease-out),transform .3s var(--ease-out);
+    box-shadow:0 6px 22px -8px rgba(0,0,0,.4);
+  }
+  .jump.show{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+  .jump:hover{background:var(--accent);border-color:var(--accent)}
+  .jump svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ---------- composer ---------- */
+  .composer{
+    position:fixed;inset:auto 0 0 0;z-index:38;
+    background:linear-gradient(to top,var(--paper) 62%,rgba(247,246,243,0));
+    padding:22px var(--gut) 20px;
+  }
+  .comp-inner{max-width:820px;margin:0 auto}
+  .ctx{
+    display:flex;gap:7px;align-items:center;margin-bottom:9px;
+    font-size:var(--fs-xs);color:var(--ink-4);overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .ctx::-webkit-scrollbar{display:none}
+  .ctx .cx{
+    display:inline-flex;align-items:center;gap:6px;flex:none;
+    border:1px solid var(--rule);border-radius:6px;
+    padding:3px 8px;font-family:var(--mono);font-size:var(--fs-xs);
+    color:var(--ink-3);background:rgba(255,255,254,.7);
+  }
+  .ctx .cx b{font-weight:500;color:var(--ink-2)}
+  .ctx .cx .d{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+
+  form.bar{
+    display:flex;gap:10px;align-items:flex-end;
+    background:var(--surface);
+    border:1px solid var(--rule);
+    border-radius:14px;
+    padding:9px 9px 9px 15px;
+    box-shadow:0 10px 30px -18px rgba(25,24,22,.4);
+    transition:border-color .3s var(--ease-out),box-shadow .3s var(--ease-out);
+  }
+  form.bar:focus-within{
+    border-color:rgba(28,107,88,.5);
+    box-shadow:0 12px 34px -18px rgba(25,24,22,.45),0 0 0 3px rgba(28,107,88,.08);
+  }
+  textarea#input{
+    flex:1;min-width:0;
+    font:inherit;font-size:var(--fs-base);line-height:1.5;
+    color:var(--ink);background:transparent;border:0;outline:none;
+    resize:none;padding:7px 0 6px;max-height:132px;
+    font-family:var(--font);
+  }
+  textarea#input::placeholder{color:var(--ink-4)}
+  .send{
+    flex:none;width:34px;height:34px;border-radius:9px;
+    display:grid;place-items:center;cursor:pointer;
+    background:var(--ink);color:#fff;border:1px solid var(--ink);
+    transition:background .26s var(--ease-out),transform .26s var(--ease-out),opacity .26s var(--ease-out);
+  }
+  .send svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .send:hover{background:var(--accent);border-color:var(--accent);transform:translateY(-1px)}
+  .send:active{transform:translateY(0) scale(.96)}
+  .send[disabled]{opacity:.32;cursor:not-allowed;transform:none;background:var(--ink-4);border-color:var(--ink-4)}
+  .comp-foot{
+    display:flex;justify-content:space-between;gap:12px;
+    margin-top:9px;font-size:var(--fs-xs);color:var(--ink-4);
+  }
+  .comp-foot kbd{
+    font-family:var(--mono);font-size:10px;
+    border:1px solid var(--rule);border-bottom-width:2px;border-radius:4px;
+    padding:1px 4px;color:var(--ink-3);background:var(--surface);
+  }
+  @media (max-width:560px){ .comp-foot{display:none} .ctx{margin-bottom:7px} }
+
+  /* new-message entrance */
+  .msg.enter{animation:riseIn .5s var(--ease-out) both}
+  @keyframes riseIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{
+      animation-duration:.001ms !important;
+      animation-iteration-count:1 !important;
+      transition-duration:.001ms !important;
+    }
+    .hint-scroll .arw{animation:none}
+    .live .dot{animation:none}
+    .msg.enter{animation:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="back" href="../index.html"><span class="tick" aria-hidden="true"></span>Gallery</a>
+  <span class="bar-div" aria-hidden="true"></span>
+  <div class="who">
+    <span class="mono-av" aria-hidden="true">LM</span>
+    <b>Loom</b>
+    <span class="meta">session · atlas-web</span>
+  </div>
+  <div class="bar-right">
+    <span class="live"><span class="dot" aria-hidden="true"></span>agent active</span>
+  </div>
+</header>
+
+<main>
+  <section class="opening" aria-labelledby="about-h">
+    <p class="kicker"><span>Loom</span><span class="ln" aria-hidden="true"></span><span>start of thread</span></p>
+    <h1 id="about-h">An agent that works the way a good engineer does — <em>in the open</em>.</h1>
+    <p class="lead">Loom reads your repository, runs code in a sandbox, and shows every step it takes. Nothing is hidden behind a progress bar.</p>
+    <p>It keeps a persistent thread per project, so context survives the handoff from your laptop to a teammate's. Tool calls are expandable — click any one to see the exact files, diffs and test output behind the answer.</p>
+    <div class="starters">
+      <button class="starter" type="button" data-seed="Audit the queue drain path for dropped events.">Audit the queue drain path</button>
+      <button class="starter" type="button" data-seed="Write a regression test for the saturation case.">Write a regression test</button>
+      <button class="starter" type="button" data-seed="Summarise what changed in this thread.">Summarise this thread</button>
+    </div>
+    <p class="hint-scroll"><span class="arw" aria-hidden="true">&#8593;</span> This opening is the about page. Scroll down for the live session.</p>
+  </section>
+
+  <h2 class="sr">Working session</h2>
+  <p class="daystamp">Tuesday · 14 January</p>
+  <ol class="msgs" id="msgs"></ol>
+</main>
+
+<button class="jump" id="jump" type="button" hidden>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+  Jump to latest
+</button>
+
+<footer class="composer">
+  <div class="comp-inner">
+    <div class="ctx">
+      <span class="cx"><span class="d" aria-hidden="true"></span><b>atlas-web</b></span>
+      <span class="cx">main · 8f2c1a4</span>
+      <span class="cx">context 42k / 200k</span>
+    </div>
+    <form class="bar" id="form" autocomplete="off">
+      <label class="sr" for="input">Message Loom</label>
+      <textarea id="input" name="input" rows="1" placeholder="Reply to Loom…"></textarea>
+      <button class="send" id="send" type="submit" aria-label="Send message">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
+      </button>
+    </form>
+    <div class="comp-foot">
+      <span><kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line</span>
+      <span id="status" aria-live="polite">2 files changed in this thread</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var msgs     = document.getElementById("msgs");
+  var form     = document.getElementById("form");
+  var input    = document.getElementById("input");
+  var sendBtn  = document.getElementById("send");
+  var jump     = document.getElementById("jump");
+  var statusEl = document.getElementById("status");
+
+  /* ---------------- icons (inline SVG strings) ---------------- */
+  var ICON = {
+    search:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>',
+    file:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h7l5 5v13H6z"/><path d="M13 3v5h5"/></svg>',
+    code:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5"/></svg>',
+    test:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
+    term:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 10l3 2.5-3 2.5M12.5 15.5H17"/></svg>'
+  };
+
+  /* ---------------- time helpers ---------------- */
+  function clock(d){
+    var h = d.getHours(), m = d.getMinutes();
+    return (h<10?"0":"")+h+":"+(m<10?"0":"")+m;
+  }
+  var now = new Date();
+  function ago(mins){ return new Date(now.getTime() - mins*60000); }
+
+  /* ---------------- element helper ---------------- */
+  function h(tag, cls, txt){
+    var n = document.createElement(tag);
+    if(cls) n.className = cls;
+    if(txt != null) n.textContent = txt;
+    return n;
+  }
+
+  /* ---------------- tool chip + expandable panel ---------------- */
+  var panelSeq = 0;
+  function buildChip(tool){
+    var id = "panel-" + (++panelSeq);
+
+    var btn = h("button", "chip");
+    btn.type = "button";
+    btn.setAttribute("aria-expanded", "false");
+    btn.setAttribute("aria-controls", id);
+    btn.innerHTML = (ICON[tool.icon] || ICON.term) +
+      '<span class="lab">' + tool.label + '</span>' +
+      (tool.count ? '<span class="cnt">' + tool.count + '</span>' : "") +
+      '<svg class="cs" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+
+    var panel = h("div", "panel");
+    panel.id = id;
+    var inner = h("div", "inner");
+    var card  = h("div", "card");
+    card.innerHTML = tool.html;
+    inner.appendChild(card);
+    panel.appendChild(inner);
+
+    btn.addEventListener("click", function(){
+      var open = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", open ? "false" : "true");
+      panel.classList.toggle("open", !open);
+    });
+
+    var frag = document.createDocumentFragment();
+    frag.appendChild(btn);
+    frag.appendChild(panel);
+    return frag;
+  }
+
+  function buildTools(tools){
+    var box = h("div", "tools");
+    tools.forEach(function(t){ box.appendChild(buildChip(t)); });
+    return box;
+  }
+
+  /* ---------------- message construction ---------------- */
+  function makeMessage(opts){
+    var li = h("li", "msg " + opts.role);
+    var av = h("span", "av");
+    av.setAttribute("aria-hidden", "true");
+    av.textContent = opts.role === "user" ? (opts.initials || "AR") : "LM";
+
+    var col = h("div", "col");
+    var hd  = h("div", "hd");
+    hd.appendChild(h("span", "nm", opts.role === "user" ? "You" : "Loom"));
+    if(opts.role === "agent") hd.appendChild(h("span", "tag", "agent"));
+    hd.appendChild(h("span", "tm", opts.time));
+
+    var body = h("div", "body");
+    col.appendChild(hd);
+    col.appendChild(body);
+
+    li.appendChild(av);
+    li.appendChild(col);
+    return { li:li, body:body, col:col };
+  }
+
+  function addMessage(opts){
+    var m = makeMessage(opts);
+    if(!opts.noEnter){
+      m.li.classList.add("enter");
+      if(reduce) m.li.classList.remove("enter");
+    }
+    msgs.appendChild(m.li);
+
+    function finish(){
+      if(opts.tools && opts.tools.length){
+        m.col.appendChild(buildTools(opts.tools));
+      }
+      scrollDown(true, true);
+      if(opts.then) opts.then();
+    }
+
+    if(opts.stream && !reduce){
+      streamWords(m.body, opts.text, finish);
+    } else {
+      m.body.innerHTML = "<p>" + opts.text + "</p>";
+      finish();
+    }
+    return m.li;
+  }
+
+  /* word-by-word streaming with proper sentence reflow */
+  function streamWords(body, text, done){
+    var p = document.createElement("p");
+    var caret = document.createElement("span");
+    caret.className = "caret";
+    caret.setAttribute("aria-hidden", "true");
+    p.appendChild(caret);
+    body.appendChild(p);
+
+    var words = text.split(" ");
+    var i = 0;
+    var instant = reduce;
+    var delay = instant ? 0 : 34;
+
+    function step(){
+      if(i >= words.length){
+        caret.remove();
+        body.setAttribute("aria-busy", "false");
+        if(done) done();
+        return;
+      }
+      var s = document.createElement("span");
+      s.className = "w";
+      s.textContent = words[i] + (i < words.length - 1 ? " " : "");
+      p.insertBefore(s, caret);
+      /* force reflow-free activation on next frame */
+      requestAnimationFrame(function(){ s.classList.add("on"); });
+      i++;
+      /* keep the streamed turn in view while the reader is parked at the bottom */
+      if(i % 6 === 0 && atBottom()) window.scrollTo(0, docEl.scrollHeight);
+      if(instant) step(); else window.setTimeout(step, delay);
+    }
+    body.setAttribute("aria-busy", "true");
+    step();
+  }
+
+  /* ---------------- scroll behaviour ---------------- */
+  var docEl = document.documentElement;
+  function atBottom(){
+    return (window.innerHeight + window.scrollY) >= (docEl.scrollHeight - 140);
+  }
+  function scrollDown(instant, force){
+    /* auto-follow only while the reader is already parked at the bottom */
+    if(!force && !atBottom()) return;
+    var top = docEl.scrollHeight;
+    window.scrollTo({ top: top, behavior: (instant || reduce) ? "auto" : "smooth" });
+  }
+  window.addEventListener("scroll", function(){
+    var show = !atBottom() && (docEl.scrollHeight - window.innerHeight) > 900;
+    if(jump.hidden) jump.hidden = false;
+    jump.classList.toggle("show", show);
+  }, { passive:true });
+  jump.addEventListener("click", function(){ scrollDown(false); });
+
+  /* ---------------- canned session data ---------------- */
+  var SEED = [
+    {
+      role:"user", time:clock(ago(26)),
+      text:"The webhook retry path is dropping events when the queue saturates. Where does it give up?"
+    },
+    {
+      role:"agent", time:clock(ago(24)),
+      text:"Found it. <code>drain()</code> treats a full queue as a permanent failure, so it returns without re-queuing. That loses the batch rather than backing off. Two call sites depend on it — <code>intake.ts</code> and <code>replay.ts</code>.",
+      tools:[
+        { icon:"file", label:"read 3 files", count:"1.2k lines", html:
+          '<div class="cap"><span>files read</span><span>read-only</span></div>' +
+          '<ol class="srcs">' +
+            '<li><span class="n">1</span><span class="t">src/queue/drain.ts</span><span class="u">412&ndash;498</span></li>' +
+            '<li><span class="n">2</span><span class="t">src/queue/intake.ts</span><span class="u">88&ndash;140</span></li>' +
+            '<li><span class="n">3</span><span class="t">src/queue/backoff.ts</span><span class="u">1&ndash;63</span></li>' +
+          '</ol>' },
+        { icon:"term", label:"ran code", count:"exit 0", html:
+          '<div class="cap"><span>sandbox</span><span>node 22</span></div>' +
+          '<pre class="term"><span class="dim">$</span> node -e "require(\'./sim\').saturate(1e4)"\n' +
+          'queue.depth  <span class="dim">=</span> 10000\n' +
+          'drained      <span class="dim">=</span> 9987\n' +
+          '<span class="ok">dropped      = 13   &lt;- reproduced</span>\n' +
+          'wall         <span class="dim">=</span> 812ms</pre>' }
+      ]
+    },
+    {
+      role:"user", time:clock(ago(19)),
+      text:"Yes — that's the one. Patch it, and put a regression test on the saturation case."
+    },
+    {
+      role:"agent", time:clock(ago(17)),
+      text:"Done. <code>drain()</code> now re-arms with exponential backoff instead of returning early, and the saturated batch is re-queued with its original offset. Fourteen tests pass, including the new one.",
+      tools:[
+        { icon:"code", label:"edited 2 files", count:"+31 &minus;9", html:
+          '<div class="cap"><span>src/queue/drain.ts</span><span>+31 &minus;9</span></div>' +
+          '<pre class="diff">' +
+          '<b class="ctx">@@ drain(batch) @@</b>' +
+          '<b class="del">-  if (q.depth >= q.limit) return batch.ack();</b>' +
+          '<b class="add">+  if (q.depth &gt;= q.limit) {</b>' +
+          '<b class="add">+    q.requeue(batch, { at: batch.offset });</b>' +
+          '<b class="add">+    return backoff.schedule(batch.attempt + 1);</b>' +
+          '<b class="add">+  }</b>' +
+          '<b class="ctx">   return q.write(batch);</b>' +
+          '</pre>' },
+        { icon:"test", label:"ran 14 tests", count:"all passing", html:
+          '<div class="cap"><span>vitest</span><span>14 passed</span></div>' +
+          '<pre class="term">' +
+          '<span class="ok">&#10003;</span> drain.spec.ts  <span class="dim">(11)</span>\n' +
+          '<span class="ok">&#10003;</span> intake.spec.ts <span class="dim">(2)</span>\n' +
+          '<span class="ok">&#10003;</span> saturation.spec.ts <span class="dim">(1)  new</span>\n' +
+          '\n<span class="dim">duration 1.94s</span></pre>' }
+      ]
+    }
+  ];
+
+  var REPLIES = [
+    {
+      text:"Opened a draft PR — branch <code>fix/queue-saturation</code>, two commits, CI already green on the Linux runner. The macOS job is still queued.",
+      tools:[{ icon:"code", label:"created pull request", count:"#4182", html:
+        '<div class="cap"><span>github</span><span>draft</span></div>' +
+        '<ol class="srcs">' +
+          '<li><span class="n">&#9679;</span><span class="t">fix/queue-saturation &rarr; main</span><span class="u">#4182</span></li>' +
+          '<li><span class="n">&#9679;</span><span class="t">2 commits · 2 files</span><span class="u">+31 &minus;9</span></li>' +
+        '</ol>' }]
+    },
+    {
+      text:"The retry window is now capped at 90 seconds at the tail, which keeps the p99 under budget without starving the intake path. I left the burst allowance at 4&times; — raising it makes the saturation case worse.",
+      tools:[
+        { icon:"search", label:"searched docs", count:"6 results", html:
+          '<div class="cap"><span>knowledge</span><span>ranked</span></div>' +
+          '<ol class="srcs">' +
+            '<li><span class="n">1</span><span class="t">Backpressure and admission control</span><span class="u">0.94</span></li>' +
+            '<li><span class="n">2</span><span class="t">Retry budgets in queue workers</span><span class="u">0.88</span></li>' +
+            '<li><span class="n">3</span><span class="t">At-least-once delivery guarantees</span><span class="u">0.81</span></li>' +
+            '<li><span class="n">4</span><span class="t">p99 latency budgets</span><span class="u">0.74</span></li>' +
+          '</ol>' }
+      ]
+    },
+    {
+      text:"I traced the same pattern in two other services — <code>billing-worker</code> and <code>notify</code> share the early-return. Worth the same fix, but I'd keep it in a separate change so this one stays reviewable.",
+      tools:[{ icon:"file", label:"scanned 12 files", count:"2 matches", html:
+        '<div class="cap"><span>grep</span><span>pattern</span></div>' +
+        '<pre class="term"><span class="dim">pattern:</span> depth &gt;= limit</pre>' +
+        '<ol class="srcs">' +
+          '<li><span class="n">1</span><span class="t">services/billing-worker/queue.ts</span><span class="u">:212</span></li>' +
+          '<li><span class="n">2</span><span class="t">services/notify/dispatch.ts</span><span class="u">:77</span></li>' +
+        '</ol>' }]
+    },
+    {
+      text:"Rolled the summary into the thread. Nothing else changed today — the diff is contained to the queue module and the one new spec file.",
+      tools:[{ icon:"term", label:"summarised thread", count:"18 turns", html:
+        '<div class="cap"><span>digest</span><span>today</span></div>' +
+        '<pre class="term">turns      <span class="dim">=</span> 18\n' +
+        'files      <span class="dim">=</span> 3 touched\n' +
+        'tests      <span class="dim">=</span> <span class="ok">14 green</span>\n' +
+        'open       <span class="dim">=</span> 1 draft PR</pre>' }]
+    }
+  ];
+  var replyIndex = 0;
+
+  /* ---------------- typing indicator ---------------- */
+  function typingRow(){
+    var li = h("li", "msg agent");
+    var av = h("span", "av");
+    av.setAttribute("aria-hidden", "true");
+    av.textContent = "LM";
+    var col = h("div", "col");
+    var hd = h("div", "hd");
+    hd.appendChild(h("span", "nm", "Loom"));
+    hd.appendChild(h("span", "tm", "now"));
+    var body = h("div", "body");
+    var t = h("div", "typing");
+    t.setAttribute("role", "status");
+    t.setAttribute("aria-label", "Loom is replying");
+    t.innerHTML = "<i></i><i></i><i></i>";
+    body.appendChild(t);
+    col.appendChild(hd);
+    col.appendChild(body);
+    li.appendChild(av);
+    li.appendChild(col);
+    msgs.appendChild(li);
+    scrollDown(true, true);
+    return li;
+  }
+
+  var busy = false;
+  function respond(){
+    if(busy) return;
+    busy = true;
+    sendBtn.disabled = true;
+    input.disabled = false;
+    var waitTyping = reduce ? 220 : 760;
+    var t = typingRow();
+    window.setTimeout(function(){
+      t.remove();
+      var r = REPLIES[replyIndex % REPLIES.length];
+      replyIndex++;
+      addMessage({
+        role:"agent",
+        time:clock(new Date()),
+        text:r.text,
+        tools:r.tools,
+        stream:true,
+        then:function(){
+          busy = false;
+          sendBtn.disabled = false;
+          input.focus();
+        }
+      });
+    }, waitTyping);
+  }
+
+  /* ---------------- submit ---------------- */
+  function submit(text){
+    var clean = text.trim();
+    if(!clean || busy) return;
+    addMessage({ role:"user", time:clock(new Date()), text:escapeHtml(clean), instant:true });
+    input.value = "";
+    autosize();
+    respond();
+  }
+
+  function escapeHtml(s){
+    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  form.addEventListener("submit", function(e){
+    e.preventDefault();
+    submit(input.value);
+  });
+  input.addEventListener("keydown", function(e){
+    if(e.key === "Enter" && !e.shiftKey){
+      e.preventDefault();
+      submit(input.value);
+    }
+  });
+
+  /* ---------------- textarea autosize ---------------- */
+  function autosize(){
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 132) + "px";
+  }
+  input.addEventListener("input", autosize);
+
+  /* ---------------- starter prompts ---------------- */
+  Array.prototype.forEach.call(document.querySelectorAll(".starter"), function(b){
+    b.addEventListener("click", function(){
+      input.value = b.getAttribute("data-seed");
+      autosize();
+      input.focus();
+    });
+  });
+
+  /* ---------------- boot the session ---------------- */
+  SEED.forEach(function(m){ addMessage({ role:m.role, time:m.time, text:m.text, tools:m.tools, instant:true, noEnter:true }); });
+
+  /* open scrolled near the bottom, then stream the final agent turn */
+  var booted = false;
+  function boot(){
+    if(booted) return;
+    booted = true;
+    window.scrollTo(0, docEl.scrollHeight);
+    window.setTimeout(function(){
+      addMessage({
+        role:"agent",
+        time:clock(new Date()),
+        text:"While that runs — I also added a guard so the saturated batch keeps its original ordering. That was the subtle one: the events were arriving out of order after a retry.",
+        tools:[{ icon:"test", label:"ran 3 checks", count:"no ordering violations", html:
+          '<div class="cap"><span>invariant</span><span>ordering</span></div>' +
+          '<pre class="term">offset monotonic  <span class="ok">&#10003;</span>\n' +
+          'no duplicates     <span class="ok">&#10003;</span>\n' +
+          'no gaps           <span class="ok">&#10003;</span>\n' +
+          '\n<span class="dim">window 24h · 1.4M events</span></pre>' }],
+        stream:true,
+        instant:true,
+        then:function(){ statusEl.textContent = "3 files changed in this thread"; }
+      });
+    }, reduce ? 60 : 620);
+  }
+  window.addEventListener("load", boot);
+  if(document.readyState === "complete") boot();
+
+  window.addEventListener("resize", function(){
+    if(atBottom()) window.scrollTo(0, docEl.scrollHeight);
+  });
+})();
+</script>
+</body>
+</html>

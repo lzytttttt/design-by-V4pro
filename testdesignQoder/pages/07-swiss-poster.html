@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meridian 08 — International style study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Archivo+Black&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     MERIDIAN — International Typographic Style, executed flat.
+     Paradigm: the visible grid is the design. No decoration exists.
+     Paper, ink, one red. No radius, no shadow, no gradient.
+     ============================================================ */
+  :root{
+    --paper:#f4f1ea;
+    --ink:#111110;
+    --red:#e30613;
+    --grey:#8c8983;
+    --rule:rgba(17,17,16,.16);
+    --col-rule:rgba(17,17,16,.14);
+    --base-rule:rgba(17,17,16,.075);
+
+    --font:"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --display:"Archivo Black", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+    --unit:24px;          /* the baseline grid. everything vertical is a multiple. */
+    --head-h:24px;
+    --ruler-h:24px;
+    --ruler-w:30px;
+    --base-off:17px;      /* half-leading of 15px type on a 24px line: baseline lands here */
+    --pad:clamp(20px,4.6vw,64px);
+
+    --fs-micro:10px;
+    --fs-cap:12px;
+    --fs-body:15px;
+    --fs-lead:19px;
+    --fs-h2:clamp(1.5rem,1.02rem + 1.55vw,2.5rem);
+    --fs-statement:clamp(1.75rem,0.9rem + 3.4vw,4.25rem);
+    --fs-num:clamp(3.5rem,1.15rem + 8.6vw,10.5rem);
+    --fs-h1:clamp(2.5rem,0.85rem + 7.6vw,8.5rem);
+  }
+
+  *,*::before,*::after{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--font);
+    font-size:var(--fs-body);
+    line-height:var(--unit);
+    font-weight:400;
+    -webkit-font-smoothing:antialiased;
+    font-feature-settings:"tnum" 1,"kern" 1;
+  }
+  ::selection{background:var(--red);color:var(--paper)}
+  :focus-visible{outline:3px solid var(--red);outline-offset:2px}
+  .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+  /* ---------------- the sheet ---------------- */
+  .sheet{
+    position:relative;
+    max-width:1720px;
+    margin:0 auto;
+    padding:0 var(--pad);
+  }
+  /* the 12-column measure. every grid on this page uses it, so the ruler aligns to the content by construction. */
+  .cols{display:grid;grid-template-columns:repeat(12,minmax(0,1fr))}
+  @media (max-width:900px){ .cols{grid-template-columns:repeat(6,minmax(0,1fr))} }
+
+  /* ---------------- rulers (always on, they scroll with the sheet) ---------------- */
+  .ruler-x{
+    height:var(--ruler-h);
+    border-bottom:1px solid var(--ink);
+    position:relative;z-index:3;
+  }
+  .ruler-x .cx{
+    position:relative;
+    border-left:1px solid var(--ink);
+    height:var(--ruler-h);
+    display:flex;align-items:flex-end;
+    padding:0 0 5px 5px;
+    font-size:var(--fs-micro);
+    letter-spacing:.1em;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+  }
+  .ruler-x .cx:last-of-type{border-right:1px solid var(--ink)}
+  .ruler-x .cx span{opacity:.45}
+  .ruler-x .cx::after{
+    content:"";position:absolute;left:0;bottom:0;width:1px;height:9px;background:var(--ink);
+  }
+  .ruler-x .meta{
+    position:absolute;left:0;right:0;top:0;height:22px;
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    font-size:var(--fs-micro);letter-spacing:.14em;text-transform:uppercase;font-weight:700;
+    padding:0 0 0 1px;
+  }
+  .ruler-x .meta .r{display:flex;gap:16px;align-items:center}
+  .ruler-x .meta a{
+    color:var(--ink);text-decoration:none;opacity:.5;
+    border-bottom:1px solid transparent;padding-bottom:1px;
+    transition:opacity .22s cubic-bezier(.22,.78,.24,1),border-color .22s cubic-bezier(.22,.78,.24,1);
+  }
+  .ruler-x .meta a:hover,.ruler-x .meta a:focus-visible{opacity:1;border-bottom-color:var(--red);color:var(--red)}
+
+  /* grid toggle control */
+  .toggle{
+    font:inherit;font-size:var(--fs-micro);letter-spacing:.14em;text-transform:uppercase;font-weight:700;
+    background:transparent;border:1px solid var(--ink);color:var(--ink);
+    padding:3px 9px;cursor:pointer;line-height:1.5;
+    transition:background .2s cubic-bezier(.22,.78,.24,1),color .2s cubic-bezier(.22,.78,.24,1);
+    display:inline-flex;align-items:center;gap:7px;
+  }
+  .toggle:hover{background:var(--ink);color:var(--paper)}
+  .toggle .bx{width:9px;height:9px;border:1px solid currentColor;display:block;position:relative}
+  .toggle .bx i{position:absolute;inset:1px;background:currentColor;display:block;transition:opacity .2s linear}
+  .toggle[aria-pressed="false"] .bx i{opacity:0}
+  .toggle[aria-pressed="false"]{color:var(--grey);border-color:var(--grey)}
+
+  /* the rendered grid */
+  .grid-x,.grid-y{position:absolute;pointer-events:none;z-index:2;opacity:0;transition:opacity .3s cubic-bezier(.22,.78,.24,1)}
+  .grid-x{left:var(--pad);right:var(--pad);top:calc(var(--head-h) + var(--ruler-h));bottom:0}
+  .grid-x .gx{grid-column:span 1;border-left:1px solid var(--col-rule)}
+  .grid-x .gx.b{border-right:1px solid var(--col-rule)}
+  .grid-y{left:0;right:0;top:calc(var(--head-h) + var(--ruler-h));bottom:0;
+    background-image:repeating-linear-gradient(to bottom,var(--base-rule) 0 1px,transparent 1px var(--unit));
+    background-position:0 var(--base-off);}
+  body.grid-on .grid-x,body.grid-on .grid-y{opacity:1}
+
+  /* left ruler — baseline ticks, generated in the document so they stay true */
+  .ruler-y{
+    position:absolute;left:0;top:calc(var(--head-h) + var(--ruler-h));width:var(--ruler-w);bottom:0;
+    border-right:1px solid var(--ink);z-index:3;pointer-events:none;
+  }
+  .ruler-y .tick{position:absolute;left:0;height:1px;background:var(--ink);width:6px}
+  .ruler-y .tick.mid{width:10px}
+  .ruler-y .tick.maj{width:16px}
+  .ruler-y .lab{
+    position:absolute;left:17px;font-size:9px;line-height:1;
+    font-variant-numeric:tabular-nums;letter-spacing:.06em;font-weight:700;
+    color:var(--ink);opacity:.55;transform:translateY(-4px);
+  }
+  .ruler-y .vert{
+    position:absolute;left:3px;top:14px;
+    writing-mode:vertical-rl;
+    font-size:9px;letter-spacing:.2em;text-transform:uppercase;font-weight:700;
+    color:var(--grey);
+    background:var(--paper);padding:5px 0;
+  }
+
+  /* ---------------- block furniture ---------------- */
+  .stage{position:relative;z-index:1}
+  section{position:relative}
+  .rule-h{height:4px;background:var(--ink);width:100%}
+  .rule-h.red{background:var(--red);height:2px}
+  .rule-h.hair{height:1px;background:var(--rule)}
+  .diag{
+    position:absolute;height:2px;background:var(--ink);
+    transform-origin:left center;pointer-events:none;z-index:0;
+  }
+  .diag.red{background:var(--red);height:3px}
+
+  .micro{
+    font-size:var(--fs-micro);letter-spacing:.14em;text-transform:uppercase;
+    font-weight:700;line-height:var(--unit);
+  }
+  .micro .dot{color:var(--red)}
+  .cap{font-size:var(--fs-cap);line-height:var(--unit);color:var(--ink)}
+  .muted{color:var(--grey)}
+
+  h1{
+    font-family:var(--display);font-weight:400;
+    font-size:var(--fs-h1);
+    line-height:.86;
+    letter-spacing:-.035em;
+    margin:0;
+    text-transform:uppercase;
+  }
+  h2{
+    font-family:var(--display);font-weight:400;
+    font-size:var(--fs-h2);
+    line-height:.98;
+    letter-spacing:-.025em;
+    margin:0 0 var(--unit);
+    text-transform:uppercase;
+    max-width:22ch;
+  }
+  h3{
+    font-size:var(--fs-body);font-weight:700;margin:0 0 6px;
+    letter-spacing:-.01em;line-height:var(--unit);
+  }
+  p{margin:0 0 var(--unit);max-width:58ch}
+  p.lead{font-size:var(--fs-lead);line-height:var(--unit);letter-spacing:-.012em}
+  p.tight{max-width:34ch}
+  ul,ol{margin:0 0 var(--unit);padding:0;list-style:none}
+  li{padding-left:0}
+  a{color:var(--ink);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+  a:hover{color:var(--red)}
+
+  .num{
+    font-family:var(--display);font-weight:400;
+    font-size:var(--fs-num);
+    line-height:.78;
+    letter-spacing:-.05em;
+    display:block;
+    font-variant-numeric:tabular-nums;
+  }
+  .num.red{color:var(--red)}
+  .num.hollow{color:transparent;-webkit-text-stroke:2px var(--ink)}
+
+  /* numbered list with big arabic figures and hairline rules */
+  .indexed li{
+    display:grid;grid-template-columns:56px 1fr;gap:0 16px;
+    border-top:1px solid var(--rule);padding:var(--unit) 0;
+  }
+  .indexed li:last-child{border-bottom:1px solid var(--rule)}
+  .indexed .i{font-family:var(--display);font-size:20px;letter-spacing:-.02em;line-height:var(--unit);font-variant-numeric:tabular-nums}
+  .indexed .t{min-width:0}
+  @media (max-width:620px){ .indexed li{grid-template-columns:34px 1fr} }
+
+  table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  caption{
+    text-align:left;font-size:var(--fs-micro);letter-spacing:.14em;text-transform:uppercase;
+    font-weight:700;padding:0 0 12px;color:var(--ink);
+  }
+  th,td{
+    text-align:left;padding:11px 12px 11px 0;
+    border-bottom:1px solid var(--rule);
+    font-size:var(--fs-cap);line-height:1.35;vertical-align:top;
+  }
+  th{
+    font-size:var(--fs-micro);letter-spacing:.12em;text-transform:uppercase;
+    border-bottom:2px solid var(--ink);color:var(--ink);
+  }
+  td.n{font-family:var(--display);font-size:var(--fs-cap);letter-spacing:-.01em}
+  td.r{color:var(--red)}
+
+  .statement{
+    font-family:var(--display);font-weight:400;text-transform:uppercase;
+    font-size:var(--fs-statement);line-height:.94;letter-spacing:-.03em;margin:0;
+  }
+  .statement em{font-style:normal;color:var(--red)}
+
+  .contact{border-top:4px solid var(--ink);padding-top:var(--unit)}
+  .contact .row{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:0}
+  @media (max-width:900px){ .contact .row{grid-template-columns:repeat(6,minmax(0,1fr))} }
+
+  .sec{padding:calc(var(--unit)*2) 0}
+  .sec-head{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:0;margin-bottom:var(--unit)}
+  @media (max-width:900px){ .sec-head{grid-template-columns:repeat(6,minmax(0,1fr))} }
+  .span-1{grid-column:span 1}.span-2{grid-column:span 2}.span-3{grid-column:span 3}
+  .span-4{grid-column:span 4}.span-5{grid-column:span 5}.span-6{grid-column:span 6}
+  .span-7{grid-column:span 7}.span-8{grid-column:span 8}.span-9{grid-column:span 9}
+  .span-10{grid-column:span 10}.span-11{grid-column:span 11}.span-12{grid-column:span 12}
+  @media (max-width:900px){
+    .m-span-1{grid-column:span 1}.m-span-2{grid-column:span 2}.m-span-3{grid-column:span 3}
+    .m-span-4{grid-column:span 4}.m-span-5{grid-column:span 5}.m-span-6{grid-column:span 6}
+    .span-7,.span-8,.span-9,.span-10,.span-11,.span-12{grid-column:span 6}
+    .span-4,.span-5,.span-6{grid-column:span 6}
+  }
+  .gut{padding-right:var(--unit)}
+
+  footer{margin-top:calc(var(--unit)*2)}
+  .colophon{
+    display:grid;grid-template-columns:repeat(12,minmax(0,1fr));
+    border-top:1px solid var(--ink);
+    padding-top:var(--unit);
+    gap:0;
+  }
+  @media (max-width:900px){ .colophon{grid-template-columns:repeat(6,minmax(0,1fr))} }
+  .colophon div{font-size:var(--fs-micro);letter-spacing:.1em;text-transform:uppercase;font-weight:700;line-height:1.6}
+
+  /* ---------------- furniture ---------------- */
+  .meta-strip{
+    height:var(--head-h);
+    align-items:center;
+    border-bottom:1px solid var(--ink);
+    position:relative;z-index:4;
+  }
+  .meta-strip .back{
+    font-size:var(--fs-micro);letter-spacing:.14em;text-transform:uppercase;font-weight:700;
+    color:var(--ink);text-decoration:none;opacity:.55;
+    transition:opacity .24s cubic-bezier(.22,.78,.24,1),color .24s cubic-bezier(.22,.78,.24,1);
+  }
+  .meta-strip .back:hover,.meta-strip .back:focus-visible{opacity:1;color:var(--red)}
+  .meta-strip .micro{margin:0}
+
+  /* section boundary: a 24px band so the baseline grid never breaks */
+  .band{position:relative;height:var(--unit)}
+  .band i{position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--ink);display:block}
+
+  /* numerals are pulled out of flow so the text columns stay locked to the grid */
+  .numcell{position:relative;min-height:1px}
+  .numcell .num{position:absolute;left:0;top:-.09em;pointer-events:none;z-index:0}
+
+  .mast{padding-top:var(--unit)}
+
+  .cmd{
+    border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);
+    padding:var(--unit) 0;
+  }
+  .cmd p{margin:0;font-size:16px;line-height:var(--unit);letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+  .cmd .p{color:var(--red);font-weight:700;margin-right:10px}
+
+  @media (max-width:900px){
+    .sec-head > *,.contact .row > *,.colophon > *{grid-column:span 6 !important;text-align:left !important}
+    .meta-strip > *{grid-column:span 6 !important}
+    .meta-strip > *:last-child{text-align:right !important}
+    .gut{padding-right:0}
+    .numcell{min-height:0}
+    .num{position:static !important}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{transition-duration:.001ms !important;animation-duration:.001ms !important}
+  }
+</style>
+</head>
+<body class="grid-on">
+<div class="sheet">
+
+  <div class="meta-strip cols">
+    <a class="back" href="../index.html" style="grid-column:1 / span 4">&#8592; Gallery / index 07</a>
+    <span class="micro" style="grid-column:5 / span 5">Meridian — autonomous agent system</span>
+    <span style="grid-column:10 / span 3;text-align:right">
+      <button class="toggle" id="gridToggle" type="button" aria-pressed="true">
+        <span class="bx" aria-hidden="true"><i></i></span><span id="toggleLabel">Grid on</span>
+      </button>
+    </span>
+  </div>
+
+  <div class="ruler-x cols" id="rulerX" aria-hidden="true"></div>
+
+  <div class="ruler-y" id="rulerY" aria-hidden="true"></div>
+  <div class="grid-x cols" id="gridX" aria-hidden="true"></div>
+  <div class="grid-y" aria-hidden="true"></div>
+
+  <main class="stage">
+
+    <section class="mast" aria-labelledby="title">
+      <div class="band" aria-hidden="true"><i></i></div>
+      <div class="sec-head" style="margin-top:24px">
+        <p class="micro" style="grid-column:1 / span 3;margin:0">Sheet 08 <span class="dot">&#9679;</span> Revision C</p>
+        <p class="micro muted" style="grid-column:4 / span 4;margin:0">Zürich / remote</p>
+        <p class="micro" style="grid-column:9 / span 4;margin:0;text-align:right">12 columns &#8239;/&#8239; 24&#8239;px baseline</p>
+      </div>
+
+      <h1 id="title">Meridian</h1>
+      <p class="lead" style="margin-top:24px;max-width:44ch">An autonomous agent for engineering teams. It reads the repository, plans in the open, runs its own code in a sealed sandbox, and hands back a pull request with the reasoning attached.</p>
+
+      <div class="sec-head" style="margin-top:48px">
+        <div style="grid-column:1 / span 3" class="gut"><p class="micro" style="margin:0">01 &nbsp;Context</p><p class="cap" style="margin:0">128k tokens per thread</p></div>
+        <div style="grid-column:4 / span 3" class="gut"><p class="micro" style="margin:0">02 &nbsp;Tools</p><p class="cap" style="margin:0">Nine, all sandboxed</p></div>
+        <div style="grid-column:7 / span 3" class="gut"><p class="micro" style="margin:0">03 &nbsp;Latency</p><p class="cap" style="margin:0">p50 1.9&#8239;s / p99 4.1&#8239;s</p></div>
+        <div style="grid-column:10 / span 3"><p class="micro" style="margin:0">04 &nbsp;Audit</p><p class="cap" style="margin:0">Every action logged</p></div>
+      </div>
+      <div class="diag red" style="width:36%;left:54%;top:120px" aria-hidden="true"></div>
+    </section>
+
+    <div class="band" aria-hidden="true"><i></i></div>
+    <section class="sec" aria-labelledby="s1">
+      <div class="sec-head">
+        <div class="numcell" style="grid-column:1 / span 3">
+          <span class="num" aria-hidden="true">01</span>
+        </div>
+        <div style="grid-column:4 / span 6">
+          <p class="micro" style="margin:0 0 12px">Premise</p>
+          <h2 id="s1">It does the work, not the talking</h2>
+          <p>Most assistants stop at a suggestion. Meridian opens the file, changes it, runs the suite, and reports what broke. You review a diff, not a paragraph.</p>
+          <p class="tight muted">Everything it did is stored beside the change: which files it read, which commands it ran, what came back.</p>
+        </div>
+        <div style="grid-column:11 / span 2">
+          <p class="micro muted" style="margin:0">Fig. 1a<br>Perceive / plan / act</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="band" aria-hidden="true"><i></i></div>
+    <section class="sec" aria-labelledby="s2">
+      <div class="sec-head" style="margin-bottom:0">
+        <div class="numcell" style="grid-column:9 / span 4">
+          <span class="num red" aria-hidden="true">02</span>
+        </div>
+        <div style="grid-column:1 / span 7">
+          <p class="micro" style="margin:0 0 12px">Method</p>
+          <h2 id="s2">Four moves, always in this order</h2>
+          <ol class="indexed">
+            <li><span class="i">1.</span><span class="t"><h3>Read</h3><span class="cap muted">The whole tree, ranked by relevance. Nothing is edited before it is understood.</span></span></li>
+            <li><span class="i">2.</span><span class="t"><h3>Plan</h3><span class="cap muted">A numbered plan, written before the first edit and shown to you.</span></span></li>
+            <li><span class="i">3.</span><span class="t"><h3>Execute</h3><span class="cap muted">Edits and commands, each one reversible and each one logged.</span></span></li>
+            <li><span class="i">4.</span><span class="t"><h3>Report</h3><span class="cap muted">A diff, the test output, and the two decisions worth questioning.</span></span></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <div class="band" aria-hidden="true"><i></i></div>
+    <section class="sec" aria-labelledby="s3">
+      <div class="sec-head">
+        <div class="numcell" style="grid-column:1 / span 2">
+          <span class="num hollow" aria-hidden="true">03</span>
+        </div>
+        <div style="grid-column:3 / span 4" class="gut">
+          <p class="micro" style="margin:0 0 12px">Memory</p>
+          <h2 id="s3">Four tiers, one address space</h2>
+          <p class="tight">Context is budgeted, not accumulated. Each tier carries a retention rule and a cost you can read off the sheet.</p>
+        </div>
+        <div style="grid-column:8 / span 5">
+          <table>
+            <caption>Tier / retention / scope / cost</caption>
+            <thead>
+              <tr>
+                <th scope="col">Tier</th><th scope="col">Retention</th><th scope="col">Scope</th>
+                <th scope="col" style="text-align:right">Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Working</td><td>One turn</td><td>Thread</td><td class="n" style="text-align:right">1&times;</td></tr>
+              <tr><td class="r">Episodic</td><td>30 days</td><td>Project</td><td class="n" style="text-align:right">2&times;</td></tr>
+              <tr><td>Semantic</td><td>Indefinite</td><td>Organisation</td><td class="n" style="text-align:right">4&times;</td></tr>
+              <tr><td>Repository</td><td>Until re-index</td><td>Tree</td><td class="n" style="text-align:right">8&times;</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <div class="band" aria-hidden="true"><i></i></div>
+    <section class="sec" aria-labelledby="s4">
+      <div class="sec-head" style="margin-bottom:0">
+        <div class="numcell" style="grid-column:11 / span 2">
+          <span class="num" aria-hidden="true">04</span>
+        </div>
+        <div style="grid-column:1 / span 5" class="gut">
+          <p class="micro" style="margin:0 0 12px">Instruments</p>
+          <h2 id="s4">Nine tools, no shell escape</h2>
+          <p class="tight">Every tool declares a capability set. The agent can never exceed the intersection of the tool scope and your role.</p>
+        </div>
+        <div style="grid-column:7 / span 6">
+          <ol class="indexed">
+            <li><span class="i">A</span><span class="t"><h3>read_file <span class="micro muted">/ read</span></h3><span class="cap muted">Path-scoped, 400&#8239;ms median</span></span></li>
+            <li><span class="i">B</span><span class="t"><h3>apply_patch <span class="micro muted">/ write</span></h3><span class="cap muted">Unified diff, atomic per file</span></span></li>
+            <li><span class="i">C</span><span class="t"><h3>run_process <span class="micro muted">/ sealed</span></h3><span class="cap muted">No network, 90&#8239;s wall clock</span></span></li>
+            <li><span class="i">D</span><span class="t"><h3>search_index <span class="micro muted">/ read</span></h3><span class="cap muted">Hybrid lexical and vector</span></span></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <div class="band" aria-hidden="true"><i></i></div>
+    <section class="sec" aria-labelledby="s5">
+      <p class="micro" style="margin:0 0 24px">05 &nbsp;Guardrails</p>
+      <h2 class="sr" id="s5">Guardrails</h2>
+      <p class="statement" style="max-width:24ch">Nothing leaves the sandbox <em>without a signature</em>.</p>
+      <div class="sec-head" style="margin-top:48px;margin-bottom:0">
+        <div style="grid-column:1 / span 4" class="gut">
+          <p class="micro muted" style="margin:0 0 12px">Escalation</p>
+          <p class="cap" style="margin:0">Writes outside the working tree, credential reads and any network egress stop the run and ask.</p>
+        </div>
+        <div style="grid-column:5 / span 4" class="gut">
+          <p class="micro muted" style="margin:0 0 12px">Reversibility</p>
+          <p class="cap" style="margin:0">Every run is a branch. Discarding it is one command and leaves no residue.</p>
+        </div>
+        <div style="grid-column:9 / span 4">
+          <p class="micro muted" style="margin:0 0 12px">Records</p>
+          <p class="cap" style="margin:0">Append-only log, exportable as JSON or as a signed transcript.</p>
+        </div>
+      </div>
+      <div class="diag" style="width:28%;left:6%;top:210px" aria-hidden="true"></div>
+    </section>
+
+    <div class="band" aria-hidden="true"><i></i></div>
+    <section class="sec" aria-labelledby="s6">
+      <div class="sec-head" style="margin-bottom:0">
+        <div class="numcell" style="grid-column:1 / span 3">
+          <span class="num red" aria-hidden="true">06</span>
+        </div>
+        <div style="grid-column:4 / span 4" class="gut">
+          <p class="micro" style="margin:0 0 12px">Budget</p>
+          <h2 id="s6">Measured, not promised</h2>
+          <p class="tight">Figures from the reference deployment: 412 repositories, 96 engineers, ninety days.</p>
+        </div>
+        <div style="grid-column:8 / span 5">
+          <ol class="indexed">
+            <li><span class="i">p50</span><span class="t"><h3>1.9&#8239;s to first edit</h3><span class="cap muted">Median across 18,400 runs</span></span></li>
+            <li><span class="i">p99</span><span class="t"><h3>4.1&#8239;s to first edit</h3><span class="cap muted">Hard ceiling enforced at 6&#8239;s</span></span></li>
+            <li><span class="i">tok</span><span class="t"><h3>42k average context</h3><span class="cap muted">Against a 200k ceiling</span></span></li>
+            <li><span class="i">&#8593;</span><span class="t"><h3>71% merged without edit</h3><span class="cap muted">Reviewed, then accepted as written</span></span></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <div class="band" aria-hidden="true"><i></i></div>
+    <section class="sec" aria-labelledby="s7">
+      <div class="sec-head">
+        <div class="numcell" style="grid-column:1 / span 2">
+          <span class="num hollow" aria-hidden="true">07</span>
+        </div>
+        <div style="grid-column:3 / span 6">
+          <p class="micro" style="margin:0 0 12px">Handoff</p>
+          <h2 id="s7">The thread outlives the session</h2>
+          <p>A run belongs to the repository, not to a laptop. Hand it to a colleague and they inherit the plan, the sandbox and the reasoning, then continue in the same thread.</p>
+          <p class="tight muted">Two engineers may read one thread at once. Only one may act on it.</p>
+        </div>
+        <div style="grid-column:10 / span 3">
+          <p class="micro muted" style="margin:0 0 12px">Reading order</p>
+          <ol class="indexed" style="margin-bottom:0">
+            <li style="grid-template-columns:28px 1fr;padding:12px 0"><span class="i" style="font-size:14px">a</span><span class="t"><span class="cap">Diff</span></span></li>
+            <li style="grid-template-columns:28px 1fr;padding:12px 0"><span class="i" style="font-size:14px">b</span><span class="t"><span class="cap">Tool calls</span></span></li>
+            <li style="grid-template-columns:28px 1fr;padding:12px 0"><span class="i" style="font-size:14px">c</span><span class="t"><span class="cap">Test output</span></span></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <div class="band" aria-hidden="true"><i style="background:var(--red);height:2px"></i></div>
+    <section class="sec" aria-labelledby="s8">
+      <div class="sec-head" style="margin-bottom:0">
+        <div style="grid-column:1 / span 4" class="gut">
+          <p class="num" aria-hidden="true" style="font-size:clamp(2.5rem,1rem + 4vw,5rem);margin-bottom:24px">08</p>
+          <p class="micro" style="margin:0 0 12px">Start</p>
+          <h2 id="s8">Three lines to a branch</h2>
+          <p class="tight">Install the runner, point it at a repository, open a thread. The first run indexes the tree and stops there.</p>
+        </div>
+        <div style="grid-column:6 / span 7">
+          <p class="micro muted" style="margin:0 0 12px">Reference &nbsp;/&nbsp; v2.4.1</p>
+          <div class="cmd">
+            <p><span class="p">&#8594;</span> npm i -g meridian-runner</p>
+            <p><span class="p">&#8594;</span> meridian init --repo ./atlas-web</p>
+            <p><span class="p">&#8594;</span> meridian thread open --plan</p>
+          </div>
+          <div class="sec-head" style="margin:48px 0 0">
+            <div style="grid-column:1 / span 4" class="gut">
+              <p class="micro muted" style="margin:0 0 12px">Support</p>
+              <p class="cap" style="margin:0"><a href="../index.html">hello@meridian.systems</a></p>
+            </div>
+            <div style="grid-column:5 / span 3">
+              <p class="micro muted" style="margin:0 0 12px">Licence</p>
+              <p class="cap" style="margin:0">Commercial, per seat</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="colophon">
+      <div style="grid-column:span 3">Meridian<br>Sheet 08 of the study</div>
+      <div style="grid-column:span 3">Type: Inter / Archivo Black</div>
+      <div style="grid-column:span 3">Grid: 12 &#215; 24&#8239;px</div>
+      <div style="grid-column:span 3;text-align:right"><a href="../index.html">Return to index</a></div>
+    </div>
+  </footer>
+
+</div>
+<script>
+(function(){
+  "use strict";
+
+  var rulerX = document.getElementById("rulerX");
+  var rulerY = document.getElementById("rulerY");
+  var gridX  = document.getElementById("gridX");
+  var toggle = document.getElementById("gridToggle");
+  var label  = document.getElementById("toggleLabel");
+  var sheet  = document.querySelector(".sheet");
+  var body   = document.body;
+
+  var UNIT = 24;      /* baseline grid */
+  var OFF  = 17;      /* half-leading: where the baseline actually sits */
+  var HEAD = 48;      /* meta strip + top ruler */
+
+  function colCount(){
+    var v = window.getComputedStyle(rulerX).gridTemplateColumns;
+    var n = v.split(" ").filter(function(s){ return s && s !== "none"; }).length;
+    return n > 0 ? n : 12;
+  }
+
+  function buildColumns(){
+    var n = colCount();
+    var fx = document.createDocumentFragment();
+    var fg = document.createDocumentFragment();
+
+    for(var i = 0; i < n; i++){
+      var cx = document.createElement("div");
+      cx.className = "cx";
+      var s = document.createElement("span");
+      s.textContent = (i + 1 < 10 ? "0" : "") + (i + 1);
+      cx.appendChild(s);
+      fx.appendChild(cx);
+
+      var gx = document.createElement("div");
+      gx.className = "gx" + (i === n - 1 ? " b" : "");
+      fg.appendChild(gx);
+    }
+    rulerX.textContent = "";
+    gridX.textContent  = "";
+    rulerX.appendChild(fx);
+    gridX.appendChild(fg);
+    rulerX.__n = n;
+  }
+
+  function buildBaselines(){
+    var h = sheet.getBoundingClientRect().height;
+    if(h < 10) return;
+    var count = Math.min(Math.ceil(h / UNIT), 900);
+    var frag = document.createDocumentFragment();
+
+    for(var i = 0; i < count; i++){
+      var top = i * UNIT + OFF;
+      if(top > h - HEAD) break;
+
+      var t = document.createElement("div");
+      t.className = "tick" + (i % 4 === 0 ? " maj" : (i % 2 === 0 ? " mid" : ""));
+      t.style.top = top + "px";
+      frag.appendChild(t);
+
+      if(i % 4 === 0){
+        var lb = document.createElement("div");
+        lb.className = "lab";
+        lb.style.top = top + "px";
+        lb.textContent = String(i + 1);
+        frag.appendChild(lb);
+      }
+    }
+
+    var v = document.createElement("div");
+    v.className = "vert";
+    v.textContent = "24 px baseline";
+    frag.appendChild(v);
+
+    rulerY.textContent = "";
+    rulerY.appendChild(frag);
+  }
+
+  function rebuild(force){
+    var n = colCount();
+    if(force || rulerX.__n !== n) buildColumns();
+    buildBaselines();
+  }
+
+  /* ---------------- grid toggle ---------------- */
+  function setGrid(on){
+    body.classList.toggle("grid-on", on);
+    toggle.setAttribute("aria-pressed", on ? "true" : "false");
+    label.textContent = on ? "Grid on" : "Grid off";
+  }
+  toggle.addEventListener("click", function(){
+    setGrid(!body.classList.contains("grid-on"));
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "g" && e.key !== "G") return;
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+    e.preventDefault();
+    setGrid(!body.classList.contains("grid-on"));
+  });
+
+  /* ---------------- boot ---------------- */
+  rebuild(true);
+
+  if(document.fonts && document.fonts.ready && document.fonts.ready.then){
+    document.fonts.ready.then(function(){ rebuild(true); });
+  }
+  window.addEventListener("load", function(){ rebuild(true); });
+
+  var rt = 0;
+  window.addEventListener("resize", function(){
+    window.clearTimeout(rt);
+    rt = window.setTimeout(function(){ rebuild(false); }, 160);
+  });
+})();
+</script>
+</body>
+</html>

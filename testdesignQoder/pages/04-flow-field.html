@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nexus — Thought Stream</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#05070a;
+    --ink:#eef2f7;
+    --dim:#8e9aad;
+    --dimmer:#5a6478;
+    --teal:#23d5ab;
+    --violet:#8b5cf6;
+    --amber:#f5a524;
+    --grot:"Space Grotesk","Inter",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:var(--grot);font-weight:300;
+    overflow:hidden;-webkit-font-smoothing:antialiased;
+    font-size:16px;line-height:1.5;
+  }
+  #field{position:fixed;inset:0;width:100%;height:100%;display:block}
+
+  .vignette{
+    position:fixed;inset:0;pointer-events:none;z-index:2;
+    background:
+      radial-gradient(ellipse 120% 90% at 50% 50%, transparent 30%, rgba(3,4,6,.42) 74%, rgba(2,3,4,.86) 100%);
+  }
+
+  /* ---------- overlay ---------- */
+  .overlay{position:fixed;inset:0;z-index:3;pointer-events:none;
+    display:flex;flex-direction:column;justify-content:space-between;
+    padding:clamp(20px,3.4vw,58px) clamp(20px,4vw,72px)}
+
+  .top{max-width:min(46ch,52vw)}
+  .kicker{
+    font-family:var(--mono);font-size:.68rem;font-weight:400;
+    letter-spacing:.34em;text-transform:uppercase;color:var(--dim);
+    margin:0 0 clamp(14px,1.8vw,26px);
+    display:flex;align-items:center;gap:.9em;
+  }
+  .kicker .tick{width:6px;height:6px;border-radius:50%;background:var(--teal);
+    box-shadow:0 0 10px 1px rgba(35,213,171,.8);flex:0 0 auto}
+  h1{
+    font-size:clamp(2rem,4.4vw,3.7rem);
+    font-weight:300;line-height:1.02;letter-spacing:-.028em;
+    margin:0;text-wrap:balance;
+  }
+  h1 em{font-style:normal;font-weight:500;
+    background:linear-gradient(92deg,var(--teal),var(--violet) 58%,var(--amber));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--teal)}
+  .sub{
+    margin:clamp(14px,1.8vw,24px) 0 0;
+    font-size:clamp(.9rem,1.06vw,1.06rem);line-height:1.62;
+    color:var(--dim);max-width:44ch;font-weight:300;
+    transition:color .8s cubic-bezier(.2,.7,.3,1),opacity .8s cubic-bezier(.2,.7,.3,1);
+  }
+  body.settled .sub{color:#b6c1d1}
+
+  /* ---------- bottom bar ---------- */
+  .bottom{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+
+  .controls{display:flex;gap:6px;pointer-events:auto;flex-wrap:wrap;align-items:center}
+  .seg{
+    display:inline-flex;border:1px solid rgba(255,255,255,.14);border-radius:9px;
+    padding:3px;background:rgba(9,12,17,.6);backdrop-filter:blur(10px);
+  }
+  .seg button{
+    font-family:var(--mono);font-size:.68rem;font-weight:400;
+    letter-spacing:.14em;text-transform:uppercase;
+    color:var(--dim);background:transparent;border:0;border-radius:6px;
+    padding:.62em .95em;cursor:pointer;
+    transition:color .34s cubic-bezier(.2,.7,.3,1),
+               background .34s cubic-bezier(.2,.7,.3,1),
+               box-shadow .34s cubic-bezier(.2,.7,.3,1);
+  }
+  .seg button:hover{color:var(--ink);background:rgba(255,255,255,.055)}
+  .seg button:focus-visible{outline:1px dashed var(--ink);outline-offset:2px}
+  .seg button[aria-pressed="true"]{
+    color:#05070a;background:var(--ink);
+    box-shadow:0 0 0 0 rgba(238,242,247,.3);
+  }
+  .settle{
+    font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--dim);background:rgba(9,12,17,.6);
+    border:1px solid rgba(255,255,255,.14);border-radius:9px;
+    padding:.66em 1.05em;cursor:pointer;backdrop-filter:blur(10px);
+    display:inline-flex;align-items:center;gap:.6em;
+    transition:color .34s cubic-bezier(.2,.7,.3,1),border-color .34s cubic-bezier(.2,.7,.3,1),
+               background .34s cubic-bezier(.2,.7,.3,1);
+  }
+  .settle .led{width:6px;height:6px;border-radius:50%;background:var(--dimmer);flex:0 0 auto;
+    transition:background .4s cubic-bezier(.2,.7,.3,1),box-shadow .4s cubic-bezier(.2,.7,.3,1)}
+  .settle:hover{color:var(--ink);border-color:rgba(255,255,255,.3)}
+  .settle:focus-visible{outline:1px dashed var(--ink);outline-offset:3px}
+  .settle[aria-pressed="true"]{
+    color:var(--teal);border-color:rgba(35,213,171,.5);background:rgba(35,213,171,.09);
+  }
+  .settle[aria-pressed="true"] .led{background:var(--teal);box-shadow:0 0 10px 1px rgba(35,213,171,.8)}
+
+  .readout{
+    font-family:var(--mono);font-size:.64rem;font-weight:400;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--dimmer);
+    margin:0;text-align:right;line-height:1.9;white-space:nowrap;
+  }
+  .readout b{color:var(--dim);font-weight:400}
+
+  /* ---------- gallery link ---------- */
+  .back{
+    position:fixed;top:clamp(20px,3.4vw,58px);right:clamp(20px,4vw,72px);z-index:5;
+    font-family:var(--mono);font-size:.66rem;font-weight:400;
+    letter-spacing:.2em;text-transform:uppercase;text-decoration:none;
+    color:var(--dim);opacity:.45;
+    padding-bottom:3px;
+    border-bottom:1px solid transparent;
+    transition:opacity .42s cubic-bezier(.2,.7,.3,1),color .42s cubic-bezier(.2,.7,.3,1),
+               border-color .42s cubic-bezier(.2,.7,.3,1),letter-spacing .42s cubic-bezier(.2,.7,.3,1);
+  }
+  .back::after{content:" \2197"}
+  .back:hover,.back:focus-visible{opacity:1;color:var(--teal);border-bottom-color:var(--teal);letter-spacing:.26em}
+  .back:focus-visible{outline:1px dashed var(--teal);outline-offset:4px}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:900px){
+    .top{max-width:min(100%,60ch)}
+    .readout{text-align:left;white-space:normal}
+  }
+  @media (max-width:560px){
+    .overlay{padding:20px 18px 22px}
+    h1{font-size:1.85rem;letter-spacing:-.02em}
+    .sub{font-size:.86rem;max-width:34ch}
+    .kicker{font-size:.6rem;letter-spacing:.24em}
+    .bottom{gap:12px}
+    .seg button{padding:.55em .7em;font-size:.62rem}
+    .settle{font-size:.62rem;padding:.6em .85em}
+    .back{top:18px;right:18px;font-size:.6rem}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition-duration:.08s !important;animation-duration:.08s !important}
+  }
+</style>
+</head>
+<body>
+
+<main>
+<canvas id="field" aria-hidden="true"></canvas>
+<div class="vignette" aria-hidden="true"></div>
+
+<div class="overlay">
+  <header class="top">
+    <p class="kicker"><span class="tick" aria-hidden="true"></span>Agent &middot; Thought stream</p>
+    <h1>The agent is already <em>thinking</em>.</h1>
+    <p class="sub" id="sub">Not a chat box. A continuous field of intent &#8212; reading, ranking, discarding. Move your cursor: the stream bends around it.</p>
+  </header>
+
+  <footer class="bottom">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Field behaviour">
+        <button type="button" id="m-curl" aria-pressed="true">Curl</button>
+        <button type="button" id="m-vortex" aria-pressed="false">Vortex</button>
+        <button type="button" id="m-attract" aria-pressed="false">Attract</button>
+      </div>
+      <button type="button" class="settle" id="settle" aria-pressed="false">
+        <span class="led" aria-hidden="true"></span>Settle
+      </button>
+    </div>
+    <p class="readout" id="readout">field <b>curl</b> &middot; <b>0</b> particles &middot; <b>dpr 1</b></p>
+  </footer>
+</div>
+</main>
+
+<a class="back" href="../index.html">Gallery</a>
+
+<script>
+(function(){
+  "use strict";
+  var REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var cv = document.getElementById("field");
+  var ctx = cv.getContext("2d", {alpha:false});
+  var readout = document.getElementById("readout");
+  var settleBtn = document.getElementById("settle");
+  var subEl = document.getElementById("sub");
+
+  var cw = 0, ch = 0, dpr = 1;
+  var mode = "curl";
+  var settle = false;
+  var settleMix = 0;               /* 0 = free flow, 1 = fully settled */
+
+  /* ---------------------------------------------------------------- ramp */
+  var STOPS = [
+    [0.00, [35, 213, 171]],
+    [0.46, [139, 92, 246]],
+    [0.80, [214, 118, 178]],
+    [1.00, [245, 165, 36]]
+  ];
+  function ramp(t){
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    for (var i=0;i<STOPS.length-1;i++){
+      var a = STOPS[i], b = STOPS[i+1];
+      if (t >= a[0] && t <= b[0]){
+        var f = (b[0] - a[0]) === 0 ? 0 : (t - a[0]) / (b[0] - a[0]);
+        f = f*f*(3-2*f);
+        return [
+          Math.round(a[1][0] + (b[1][0]-a[1][0])*f),
+          Math.round(a[1][1] + (b[1][1]-a[1][1])*f),
+          Math.round(a[1][2] + (b[1][2]-a[1][2])*f)
+        ];
+      }
+    }
+    return STOPS[STOPS.length-1][1];
+  }
+
+  /* pre-rendered soft-glow sprites, one per ramp bucket */
+  var BUCKETS = 48, SPR = 30, sprites = [];
+  (function buildSprites(){
+    for (var i=0;i<BUCKETS;i++){
+      var c = document.createElement("canvas");
+      c.width = c.height = SPR;
+      var g = c.getContext("2d");
+      var col = ramp(i/(BUCKETS-1));
+      var rgb = col[0] + "," + col[1] + "," + col[2];
+      var rg = g.createRadialGradient(SPR/2, SPR/2, 0, SPR/2, SPR/2, SPR/2);
+      rg.addColorStop(0,    "rgba(" + rgb + ",0.95)");
+      rg.addColorStop(0.24, "rgba(" + rgb + ",0.36)");
+      rg.addColorStop(0.62, "rgba(" + rgb + ",0.07)");
+      rg.addColorStop(1,    "rgba(" + rgb + ",0)");
+      g.fillStyle = rg;
+      g.fillRect(0, 0, SPR, SPR);
+      sprites.push(c);
+    }
+  })();
+
+  /* ---------------------------------------------------------------- field */
+  /* velocity = curl of an analytic scalar potential -> divergence-free */
+  function curl(x, y, t, out){
+    var vx = 0, vy = 0;
+    var a1 = 0.00208, b1 = 0.00174;
+    var s1 = Math.sin(x*a1 + t*0.31), c1 = Math.cos(x*a1 + t*0.31);
+    var s2 = Math.sin(y*b1 - t*0.24), c2 = Math.cos(y*b1 - t*0.24);
+    vx += -b1 * s1 * s2;
+    vy += -a1 * c1 * c2;
+
+    var a2 = 0.00455, b2 = 0.00391;
+    var s3 = Math.sin(x*a2 - t*0.19), c3 = Math.cos(x*a2 - t*0.19);
+    var s4 = Math.sin(y*b2 + t*0.28), c4 = Math.cos(y*b2 + t*0.28);
+    vx += -0.62 * b2 * s3 * s4;
+    vy += -0.62 * a2 * c3 * c4;
+
+    var a3 = 0.00127, b3 = 0.00149;
+    vx += -0.34 * b3 * Math.sin((x + y)*a3 + t*0.41) * Math.sin((y - x)*b3 - t*0.17);
+    vy +=  0.34 * a3 * Math.cos((y - x)*b3 - t*0.17) * Math.cos((x + y)*a3 + t*0.41);
+
+    var k = 2400;
+    out[0] = vx * k;
+    out[1] = vy * k;
+    return out;
+  }
+
+  /* ---------------------------------------------------------------- particles */
+  var N = 0;
+  var px, py, pvx, pvy, ptg, pid;
+  var vec = [0, 0];
+  var cursor = {x:-9999, y:-9999, active:false};
+  var TEXT = "NEXUS";
+  var targets = null, targetCount = 0;
+
+  function pickCount(){
+    var area = cw * ch;
+    var n = Math.round(area / 1050);
+    N = Math.max(900, Math.min(2200, n));
+  }
+
+  function spawn(i){
+    px[i] = Math.random() * cw;
+    py[i] = Math.random() * ch;
+    pvx[i] = 0; pvy[i] = 0;
+    pid[i] = 0;
+    ptg[i] = -1;
+    if (targets && targetCount > 0){
+      pid[i] = Math.round(Math.random() * (BUCKETS-1));
+      ptg[i] = i % targetCount;
+    }
+  }
+
+  function alloc(){
+    pickCount();
+    px = new Float32Array(N); py = new Float32Array(N);
+    pvx = new Float32Array(N); pvy = new Float32Array(N);
+    ptg = new Int32Array(N); pid = new Uint8Array(N);
+    for (var i=0;i<N;i++) spawn(i);
+  }
+
+  /* ---------------------------------------------------------------- text targets */
+  /* Rasterise the wordmark offscreen, then sample its pixels into a point cloud.
+     Particles are steered onto those points, so the word resolves out of density. */
+  var MASK_S = 0.5;
+  var maskCanvas = document.createElement("canvas");
+  var maskCtx = maskCanvas.getContext("2d", {willReadFrequently:true});
+
+  function buildTargets(){
+    if (!cw || !ch) return;
+    var mw = Math.max(1, Math.round(cw * MASK_S));
+    var mh = Math.max(1, Math.round(ch * MASK_S));
+    maskCanvas.width = mw; maskCanvas.height = mh;
+    var g = maskCtx;
+    g.clearRect(0, 0, mw, mh);
+    g.fillStyle = "#fff";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+
+    /* size the wordmark to fit 74% width / 40% height */
+    var fs = 400;
+    var family = '"Space Grotesk","Inter",system-ui,sans-serif';
+    var maxW = mw * 0.74, maxH = mh * 0.40;
+    g.font = "500 " + fs + "px " + family;
+    var w0 = g.measureText(TEXT).width || 1;
+    fs = fs * (maxW / w0);
+    if (fs > maxH) fs = maxH;
+    g.font = "500 " + fs + "px " + family;
+
+    var cx = mw / 2, cy = mh * 0.60;
+    g.fillText(TEXT, cx, cy);
+
+    var data;
+    try{
+      data = g.getImageData(0, 0, mw, mh).data;
+    }catch(err){
+      targets = null; targetCount = 0; return;
+    }
+
+    var stride = 3;
+    var pts = [];
+    for (var y=0; y<mh; y+=stride){
+      for (var x=0; x<mw; x+=stride){
+        if (data[(y*mw + x)*4 + 3] > 130){
+          pts.push(x / MASK_S, y / MASK_S);
+        }
+      }
+    }
+    /* even out the distribution so the silhouette fills evenly */
+    var n = pts.length / 2;
+    for (var i=n-1;i>0;i--){
+      var j = (Math.random() * (i+1)) | 0;
+      var ax = pts[i*2], ay = pts[i*2+1];
+      pts[i*2] = pts[j*2]; pts[i*2+1] = pts[j*2+1];
+      pts[j*2] = ax; pts[j*2+1] = ay;
+    }
+    targets = pts;
+    targetCount = n;
+
+    for (var k=0;k<N;k++){
+      ptg[k] = targetCount ? (k % targetCount) : -1;
+    }
+  }
+
+  /* ---------------------------------------------------------------- sizing */
+  function resize(){
+    var w = window.innerWidth, h = window.innerHeight;
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    cw = w; ch = h;
+    cv.width = Math.max(1, Math.round(w * dpr));
+    cv.height = Math.max(1, Math.round(h * dpr));
+    cv.style.width = w + "px";
+    cv.style.height = h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "#05070a";
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.globalCompositeOperation = "lighter";
+
+    var prevN = N;
+    pickCount();
+    if (!px || N !== prevN){
+      alloc();
+    } else {
+      for (var i=0;i<N;i++){
+        if (px[i] > cw) px[i] = Math.random() * cw;
+        if (py[i] > ch) py[i] = Math.random() * ch;
+      }
+    }
+    buildTargets();
+    if (settle) settleMix = 1;
+    readout.innerHTML = "field <b>" + mode + "</b> &middot; <b>" + N +
+      "</b> particles &middot; <b>dpr " + dpr + "</b>";
+  }
+
+  /* ---------------------------------------------------------------- step */
+  var t = 0;
+  var spdNormMax = 2.4;
+  var VSCALE = 0.34;   /* field sample -> desired px/frame */
+  var VMAX   = 3.0;    /* hard speed cap, px/frame */
+  var EASE   = 0.075;  /* velocity smoothing */
+  var STEER_K = 0.055; /* pull toward a wordmark point */
+  var STEER_MAX = 2.5;
+
+  function step(dt){
+    t += dt * 0.016;
+    var cx0 = cursor.x, cy0 = cursor.y;
+    var R2 = 210 * 210;
+    var settleTarget = settleMix;
+    var freeMix = 1 - settleTarget;
+
+    for (var i=0;i<N;i++){
+      var x = px[i], y = py[i];
+
+      curl(x, y, t, vec);
+      var vx = vec[0], vy = vec[1];
+
+      /* cursor influence: bend around (curl), swirl about (vortex), pull in (attract) */
+      if (cursor.active){
+        var dx = x - cx0, dy = y - cy0;
+        var d2 = dx*dx + dy*dy;
+        var d = Math.sqrt(d2) || 1;
+        var falloff = Math.exp(-d2 / R2);
+        if (mode === "attract"){
+          vx -= (dx / d) * 3400 * falloff;
+          vy -= (dy / d) * 3400 * falloff;
+        } else if (mode === "vortex"){
+          vx += (-dy / d) * 4200 * falloff;
+          vy += ( dx / d) * 4200 * falloff;
+          vx -= (dx / d) * 260 * falloff;
+          vy -= (dy / d) * 260 * falloff;
+        } else {
+          /* curl: the stream parts around the cursor */
+          vx += (dx / d) * 2600 * falloff;
+          vy += (dy / d) * 2600 * falloff;
+          vx += (-dy / d) * 1500 * falloff;
+          vy += ( dx / d) * 1500 * falloff;
+        }
+      }
+
+      /* desired velocity, in px per frame */
+      var dvx = vx * VSCALE * freeMix;
+      var dvy = vy * VSCALE * freeMix;
+
+      /* settle: blend the free field out and steer onto a wordmark point */
+      if (settleTarget > 0.001 && targets){
+        var ti = ptg[i];
+        if (ti >= 0 && ti < targetCount){
+          var sx = (targets[ti*2]   - x) * STEER_K;
+          var sy = (targets[ti*2+1] - y) * STEER_K;
+          var sm = Math.sqrt(sx*sx + sy*sy);
+          if (sm > STEER_MAX){ sx = sx / sm * STEER_MAX; sy = sy / sm * STEER_MAX; }
+          dvx += sx * settleTarget;
+          dvy += sy * settleTarget;
+        }
+      }
+
+      /* ease stored velocity toward the desired velocity */
+      var e = EASE * dt;
+      if (e > 1) e = 1;
+      var nvx = pvx[i] + (dvx - pvx[i]) * e;
+      var nvy = pvy[i] + (dvy - pvy[i]) * e;
+
+      var sp2 = nvx*nvx + nvy*nvy;
+      if (sp2 > VMAX*VMAX){
+        var sc = VMAX / Math.sqrt(sp2);
+        nvx *= sc; nvy *= sc;
+        sp2 = VMAX*VMAX;
+      }
+      pvx[i] = nvx; pvy[i] = nvy;
+
+      x += nvx * dt;
+      y += nvy * dt;
+
+      /* wrap with a margin so the field never visibly empties at the edges */
+      if (x < -30){ x += cw + 60; } else if (x > cw + 30){ x -= cw + 60; }
+      if (y < -30){ y += ch + 60; } else if (y > ch + 30){ y -= ch + 60; }
+
+      px[i] = x; py[i] = y;
+
+      var bucket = ((0.60 * Math.min(1, Math.sqrt(sp2) / spdNormMax) +
+                     0.40 * (x / (cw || 1))) * (BUCKETS - 1)) | 0;
+      if (bucket < 0) bucket = 0;
+      if (bucket > BUCKETS - 1) bucket = BUCKETS - 1;
+      pid[i] = bucket;
+    }
+  }
+
+  /* ---------------------------------------------------------------- render */
+  function render(){
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = settleMix > 0.6 ? "rgba(5,7,10,0.15)" : "rgba(5,7,10,0.068)";
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.globalCompositeOperation = "lighter";
+
+    var size = settle ? 17 : 21;
+    var half = size / 2;
+    var alpha = settle ? 0.30 : 0.34;
+    ctx.globalAlpha = alpha;
+    for (var i=0;i<N;i++){
+      ctx.drawImage(sprites[pid[i]] || sprites[0], px[i] - half, py[i] - half, size, size);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* ---------------------------------------------------------------- loop */
+  var running = false, last = 0, fpsAccum = 0, fpsCount = 0;
+
+  function frame(ts){
+    if (!last) last = ts;
+    var dt = Math.min(3.2, (ts - last) / 16.667);
+    last = ts;
+
+    if (settle && settleMix < 1){
+      settleMix = Math.min(1, settleMix + dt * 0.020);
+      if (settleMix >= 1) revealSettled();
+    } else if (!settle && settleMix > 0){
+      settleMix = Math.max(0, settleMix - dt * 0.045);
+    }
+
+    step(dt);
+    render();
+
+    fpsAccum += dt * 16.667; fpsCount++;
+    if (fpsCount >= 30){
+      fpsAccum = 0; fpsCount = 0;
+    }
+
+    if (running) requestAnimationFrame(frame);
+  }
+
+  function start(){
+    if (running) return;
+    if (REDUCED) return;   /* reduced motion keeps only the static render */
+    running = true; last = 0;
+    requestAnimationFrame(frame);
+  }
+  function stop(){ running = false; }
+
+  document.addEventListener("visibilitychange", function(){
+    if (document.hidden) stop();
+    else if (!REDUCED) start();
+  });
+
+  /* ---------------------------------------------------------------- settle reveal */
+  var revealed = false;
+  function revealSettled(){
+    if (revealed) return;
+    revealed = true;
+    document.body.classList.add("settled");
+    subEl.textContent = "Settled. " + N.toLocaleString("en-US") +
+      " particles holding a single word \u2014 the same word the runtime holds on to when it stops deliberating.";
+  }
+  function unreveal(){
+    revealed = false;
+    document.body.classList.remove("settled");
+    subEl.textContent = "Not a chat box. A continuous field of intent \u2014 reading, ranking, discarding. Move your cursor: the stream bends around it.";
+  }
+
+  /* ---------------------------------------------------------------- controls */
+  var MODES = ["curl", "vortex", "attract"];
+  var modeBtns = {
+    curl: document.getElementById("m-curl"),
+    vortex: document.getElementById("m-vortex"),
+    attract: document.getElementById("m-attract")
+  };
+
+  function setMode(m){
+    if (MODES.indexOf(m) === -1) return;
+    mode = m;
+    MODES.forEach(function(k){
+      modeBtns[k].setAttribute("aria-pressed", k === m ? "true" : "false");
+    });
+    readout.innerHTML = "field <b>" + mode + "</b> &middot; <b>" + N +
+      "</b> particles &middot; <b>dpr " + dpr + "</b>";
+    burst();
+  }
+  MODES.forEach(function(k){
+    modeBtns[k].addEventListener("click", function(){ setMode(k); });
+  });
+
+  function setSettle(on){
+    settle = !!on;
+    settleBtn.setAttribute("aria-pressed", settle ? "true" : "false");
+    if (settle){
+      buildTargets();
+      for (var i=0;i<N;i++) ptg[i] = targetCount ? (i % targetCount) : -1;
+      if (REDUCED){
+        /* no animation available: snap straight to the resolved state */
+        settleMix = 1;
+        for (var k=0;k<N;k++){
+          var ti = ptg[k];
+          if (targetCount && ti >= 0){
+            px[k] = targets[ti*2]; py[k] = targets[ti*2+1];
+          }
+        }
+        render();
+        revealSettled();
+      }
+    } else {
+      unreveal();
+      if (REDUCED) render();
+    }
+  }
+  settleBtn.addEventListener("click", function(){ setSettle(!settle); });
+
+  /* a small outward kick whenever the field changes, so the switch is felt */
+  function burst(){
+    var cx0 = cw/2, cy0 = ch/2;
+    for (var i=0;i<N;i++){
+      var dx = px[i] - cx0, dy = py[i] - cy0;
+      var d = Math.sqrt(dx*dx + dy*dy) || 1;
+      var k = 1.7 + Math.random() * 1.4;
+      pvx[i] += (dx/d) * k;
+      pvy[i] += (dy/d) * k;
+    }
+  }
+
+  /* pointer tracking (whole window, so the field reacts anywhere) */
+  cursor.active = false;
+  window.addEventListener("pointermove", function(e){
+    cursor.x = e.clientX; cursor.y = e.clientY; cursor.active = true;
+  }, {passive:true});
+  window.addEventListener("pointerleave", function(){ cursor.active = false; });
+  window.addEventListener("pointerdown", function(e){
+    cursor.x = e.clientX; cursor.y = e.clientY; cursor.active = true;
+  }, {passive:true});
+
+  /* keyboard shortcuts, ignored while a control has focus is fine (buttons use Enter) */
+  document.addEventListener("keydown", function(e){
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "1") setMode("curl");
+    else if (e.key === "2") setMode("vortex");
+    else if (e.key === "3") setMode("attract");
+    else if (e.key === "s" || e.key === "S") setSettle(!settle);
+    else if (e.key === "r" || e.key === "R"){ setSettle(false); setMode("curl"); return; }
+    else return;
+    e.preventDefault();
+  });
+
+  /* ---------------------------------------------------------------- boot */
+  var rt = null;
+  window.addEventListener("resize", function(){
+    if (rt) clearTimeout(rt);
+    rt = setTimeout(function(){ resize(); if (REDUCED) staticRender(); }, 140);
+  });
+
+  /* warm the field up so the first painted frame already looks like a stream */
+  function warmup(steps){
+    for (var i=0;i<steps;i++) step(1.6);
+  }
+
+  function staticRender(){
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "#05070a";
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.globalCompositeOperation = "lighter";
+    render();
+  }
+
+  resize();
+  warmup(REDUCED ? 90 : 55);
+  staticRender();
+
+  if (REDUCED){
+    readout.innerHTML = "field <b>" + mode + "</b> &middot; <b>" + N +
+      "</b> particles &middot; <b>static</b>";
+  } else {
+    start();
+    /* redraw the wordmark mask once the webfont is actually available */
+    if (document.fonts && document.fonts.ready){
+      document.fonts.ready.then(function(){ buildTargets(); });
+    }
+  }
+})();
+</script>
+</body>
+</html>

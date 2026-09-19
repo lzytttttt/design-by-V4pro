@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Isometric Diorama — Agent Capabilities</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-1:#dff0ff;
+    --sky-2:#eef7ff;
+    --sky-3:#fdf6ec;
+    --ground:#f7efe2;
+    --ink:#2c3140;
+    --ink-soft:#5b6379;
+    --muted:#8d95a8;
+    --card:#ffffff;
+    --line:#e2e7f0;
+    --accent:#6b8cff;
+    --accent-2:#ff9f7a;
+    --shadow:rgba(60,72,110,.20);
+    --wall-a:#ffffff;
+    --wall-b:#e6ecf7;
+    --wall-c:#cfd8ea;
+    --roof-a:#ffb59a;
+    --roof-b:#e2866c;
+    --grass:#c9e7c0;
+    --grass-2:#a9d4a2;
+    --island:#f9f1e4;
+    --island-2:#e3d5c0;
+    --drift:rgba(255,255,255,.86);
+    --label-bg:rgba(255,255,255,.94);
+    --lift:34px;
+    --sans:"Nunito","Poppins",ui-rounded,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --sans-2:"Poppins","Nunito",ui-sans-serif,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+  body.night{
+    --sky-1:#232c52;
+    --sky-2:#2c3560;
+    --sky-3:#3d3d6e;
+    --ground:#3a3f5e;
+    --ink:#f0f3ff;
+    --ink-soft:#c2c9e4;
+    --muted:#98a0c2;
+    --card:#2b3357;
+    --line:#44507e;
+    --wall-a:#c9d2ee;
+    --wall-b:#a3aed3;
+    --wall-c:#7d89b3;
+    --roof-a:#ffbf9d;
+    --roof-b:#d97a5d;
+    --grass:#7fa87e;
+    --grass-2:#63875f;
+    --island:#c2ae92;
+    --island-2:#93795f;
+    --drift:rgba(200,210,245,.34);
+    --label-bg:rgba(43,51,87,.92);
+    --shadow:rgba(8,10,26,.44);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    min-height:100%;
+    background:
+      radial-gradient(120% 80% at 76% 6%, var(--sky-3) 0%, transparent 58%),
+      linear-gradient(178deg, var(--sky-1) 0%, var(--sky-2) 52%, var(--ground) 100%);
+    background-attachment:fixed;
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:clamp(.94rem,.55vw + .78rem,1.06rem);
+    line-height:1.5;
+    transition:background .7s ease,color .5s ease;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit}
+
+  /* ---------------- back link ---------------- */
+  .back{
+    position:fixed;top:clamp(10px,1.4vw,18px);left:clamp(10px,1.4vw,18px);z-index:80;
+    display:inline-flex;align-items:center;gap:.42em;
+    padding:.34em .78em .38em;
+    font-family:var(--sans-2);
+    font-size:.72rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;
+    text-decoration:none;
+    color:var(--ink-soft);
+    opacity:.42;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:999px;
+    box-shadow:0 6px 14px -8px var(--shadow);
+    transition:opacity .2s ease,transform .2s ease,color .2s ease;
+  }
+  .back:hover,.back:focus{opacity:1;transform:translateY(-1px);color:var(--accent)}
+  .back svg{width:.72em;height:.72em;flex:0 0 auto}
+
+  :focus-visible{outline:2.5px solid var(--accent);outline-offset:3px;border-radius:6px}
+
+  /* ---------------- layout ---------------- */
+  .page{max-width:1320px;margin:0 auto;padding:clamp(14px,2vw,26px) clamp(14px,3vw,42px) clamp(30px,5vw,64px)}
+  header.top{display:flex;flex-wrap:wrap;gap:clamp(10px,2vw,26px);align-items:flex-end;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:.6rem;margin:0}
+  .brand .cube{width:26px;height:26px;flex:0 0 auto}
+  h1{
+    font-family:var(--sans-2);
+    font-size:clamp(1.32rem,2.5vw + .5rem,2.35rem);
+    font-weight:600;letter-spacing:-.015em;line-height:1.1;margin:0;
+  }
+  h1 em{font-style:normal;color:var(--accent)}
+  .tag{margin:.25rem 0 0;color:var(--ink-soft);font-size:clamp(.82rem,.5vw + .72rem,.95rem);max-width:44ch}
+  .controls{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+  button.btn{
+    font-family:var(--sans-2);font-size:.78rem;font-weight:500;letter-spacing:.04em;
+    padding:.5em .95em;border-radius:999px;cursor:pointer;
+    background:var(--card);color:var(--ink);
+    border:1px solid var(--line);
+    box-shadow:0 8px 16px -12px var(--shadow);
+    transition:transform .16s ease,background .2s ease,color .2s ease,border-color .2s ease;
+  }
+  button.btn:hover{transform:translateY(-1px);border-color:var(--accent);color:var(--accent)}
+  button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.btn.reset{color:var(--muted)}
+
+  /* ---------------- stage ---------------- */
+  .stage-wrap{position:relative;margin-top:clamp(12px,2vw,26px);display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(12px,2vw,22px)}
+  .stage{
+    position:relative;
+    height:clamp(400px,58vh,610px);
+    border-radius:clamp(18px,2.4vw,30px);
+    background:
+      radial-gradient(90% 70% at 66% 12%, rgba(255,255,255,.55), transparent 60%),
+      linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,0));
+    border:1px solid rgba(255,255,255,.55);
+    overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+    cursor:grab;
+    touch-action:pan-y;
+    contain:paint;
+  }
+  body.night .stage{
+    background:
+      radial-gradient(90% 70% at 68% 10%, rgba(255,246,214,.16), transparent 58%),
+      linear-gradient(180deg, rgba(120,140,220,.16), rgba(10,14,34,.2));
+    border-color:rgba(120,140,220,.26);
+  }
+  .stage.dragging{cursor:grabbing}
+  .stage:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+
+  /* celestial + clouds */
+  .sun{
+    position:absolute;top:clamp(16px,5%,44px);right:clamp(22px,7%,88px);
+    width:clamp(38px,5vw,60px);aspect-ratio:1;border-radius:50%;
+    background:radial-gradient(circle at 40% 38%, #fff3c4, #ffd267 60%, #ffb648);
+    box-shadow:0 0 0 10px rgba(255,214,120,.18), 0 0 42px 10px rgba(255,196,90,.45);
+    transition:background .8s ease,box-shadow .8s ease,transform .8s ease;
+  }
+  body.night .sun{
+    left:clamp(22px,7%,88px);right:auto;top:clamp(26px,11%,70px);
+    background:radial-gradient(circle at 62% 40%, #fdfbe8, #dfe6ff 58%, #b9c6ef);
+    box-shadow:0 0 0 8px rgba(210,224,255,.10), 0 0 34px 8px rgba(190,210,255,.30);
+  }
+  .star{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;opacity:0;transition:opacity .8s ease}
+  body.night .star{opacity:.85}
+
+  .cloud{
+    position:absolute;left:0;pointer-events:none;
+    filter:blur(.2px);
+    will-change:transform;
+  }
+  .cloud i{
+    display:block;position:absolute;background:var(--drift);border-radius:999px;
+    transition:background .7s ease;
+  }
+  .cloud i:nth-child(1){width:100%;height:64%;left:0;top:22%}
+  .cloud i:nth-child(2){width:46%;height:88%;left:22%;top:0}
+  .cloud i:nth-child(3){width:38%;height:62%;left:58%;top:30%}
+  .c1{top:14%;width:clamp(84px,11vw,150px);height:clamp(26px,3vw,42px);animation:drift 46s linear infinite}
+  .c2{top:30%;width:clamp(60px,8vw,112px);height:clamp(20px,2.2vw,32px);animation:drift 68s linear infinite;animation-delay:-22s;opacity:.78}
+  .c3{top:58%;width:clamp(46px,6vw,84px);height:clamp(16px,1.7vw,24px);animation:drift 88s linear infinite;animation-delay:-52s;opacity:.55}
+  @keyframes drift{
+    from{transform:translateX(-22vw)}
+    to{transform:translateX(108vw)}
+  }
+
+  /* ---------------- the diorama ---------------- */
+  .viewport{
+    position:relative;
+    perspective:1350px;
+    perspective-origin:50% 42%;
+    transform:scale(var(--zoom,1));
+    transition:transform .5s ease;
+  }
+  .diorama{
+    position:relative;
+    width:clamp(220px,30vw,330px);
+    height:clamp(220px,30vw,330px);
+    transform-style:preserve-3d;
+    transform:rotateX(58deg) rotateZ(var(--rot,45deg));
+    transition:transform 1.05s cubic-bezier(.33,.02,.15,1);
+  }
+  .stage.dragging .diorama{transition:none}
+  .layer{position:absolute;inset:0;transform-style:preserve-3d}
+
+  /* island base built from stacked slabs */
+  .slab{
+    position:absolute;left:0;top:0;
+    width:100%;height:100%;
+    background:var(--island);
+    transform-style:preserve-3d;
+    transition:background .7s ease;
+  }
+  .slab.d1{transform:translateZ(0);background:var(--island)}
+  .slab.d2{transform:translateZ(-10px);background:var(--island-2)}
+  .slab.d3{transform:translateZ(-20px);background:var(--island-2);opacity:.92}
+  .slab.d4{transform:translateZ(-30px);background:var(--island-2);opacity:.8}
+  .slab.d5{transform:translateZ(-40px);background:var(--island-2);opacity:.62}
+  .slab.d6{transform:translateZ(-50px);background:var(--island-2);opacity:.42}
+  /* soft rock taper: smaller square below */
+  .rock{
+    position:absolute;left:50%;top:50%;width:78%;height:78%;
+    margin:-39% 0 0 -39%;
+    background:var(--island-2);
+    transform:translateZ(-62px) rotateZ(0deg);
+    opacity:.34;
+    transition:background .7s ease;
+  }
+  .rock.r2{width:52%;height:52%;margin:-26% 0 0 -26%;transform:translateZ(-76px);opacity:.2}
+  .rock.r3{width:28%;height:28%;margin:-14% 0 0 -14%;transform:translateZ(-88px);opacity:.12}
+
+  .grass{
+    position:absolute;left:0;top:0;width:100%;height:100%;
+    transform:translateZ(1px);
+    background:
+      radial-gradient(38% 30% at 34% 30%, var(--grass-2) 0%, transparent 62%),
+      radial-gradient(30% 26% at 72% 66%, var(--grass-2) 0%, transparent 60%),
+      var(--grass);
+    transition:background .7s ease;
+  }
+  .grass::after{
+    content:"";position:absolute;inset:6%;
+    border-radius:50%;
+    background:radial-gradient(circle, transparent 58%, rgba(0,0,0,.05) 100%);
+    opacity:.5;
+  }
+
+  /* paths: thin ribbons on the grass plane */
+  .path{position:absolute;background:var(--island);opacity:.8;transform:translateZ(2px);transition:background .7s ease}
+  .path.p1{left:22%;top:30%;width:48%;height:5.5%;transform:translateZ(2px) rotate(38deg)}
+  .path.p2{left:50%;top:44%;width:34%;height:5%;transform:translateZ(2px) rotate(-14deg)}
+  .path.p3{left:56%;top:56%;width:5%;height:30%;transform:translateZ(2px);background:var(--island)}
+
+  /* generic building */
+  .bld{
+    position:absolute;
+    background:none;border:0;padding:0;
+    transform-style:preserve-3d;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .bld .body{position:absolute;inset:0;display:block;transform-style:preserve-3d}
+  .face{
+    position:absolute;left:0;top:0;width:100%;height:100%;
+    background:var(--wall-a);
+    box-shadow:inset 0 0 0 1px rgba(40,52,90,.10);
+    transition:background .6s ease;
+  }
+  /* four walls */
+  .face.n{transform:rotateY(0deg) translateZ(var(--hz))}
+  .face.e{transform:rotateY(90deg) translateZ(var(--hx))}
+  .face.s{transform:rotateY(180deg) translateZ(var(--hz))}
+  .face.w{transform:rotateY(-90deg) translateZ(var(--hx))}
+  .face.n,.face.w{background:var(--wall-b)}
+  .face.e,.face.s{background:var(--wall-c)}
+  /* at night the moon lights the opposite pair of walls */
+  body.night .face.n,body.night .face.w{background:var(--wall-c)}
+  body.night .face.e,body.night .face.s{background:var(--wall-b)}
+  .bld .top{
+    position:absolute;left:0;top:0;width:100%;height:100%;
+    transform:rotateX(-90deg) translateZ(var(--tz));
+    transform-origin:0 0;
+    background:var(--roof-a);
+    box-shadow:inset 0 0 0 1px rgba(40,52,90,.10);
+    transition:background .6s ease;
+  }
+  .bld .top.flat{background:var(--roof-b)}
+  /* windows */
+  .win{
+    position:absolute;width:22%;height:20%;
+    background:rgba(255,255,255,.9);
+    box-shadow:0 0 6px rgba(255,236,180,.9);
+    transition:background .6s ease,box-shadow .6s ease;
+  }
+  body.night .win{background:#ffd98a;box-shadow:0 0 9px rgba(255,206,110,.75)}
+  /* flag pole */
+  .flag{position:absolute;left:50%;top:50%;width:2px;transform-style:preserve-3d}
+  .flag .pole{
+    position:absolute;left:0;bottom:0;width:2.5px;height:calc(var(--pole));
+    background:var(--ink-soft);
+    transform:translateZ(0);
+  }
+  .flag .cloth{
+    position:absolute;left:2px;bottom:calc(var(--pole) - 16px);
+    width:22px;height:13px;
+    background:var(--accent-2);
+    border-radius:0 3px 3px 0;
+    transform-origin:0 50%;
+    animation:wave 3.2s ease-in-out infinite;
+    box-shadow:0 2px 4px -2px var(--shadow);
+  }
+  @keyframes wave{
+    0%,100%{transform:rotateY(0deg) skewY(0deg)}
+    50%{transform:rotateY(-26deg) skewY(-3deg)}
+  }
+  /* shadows on ground, offset by ONE light direction per mode */
+  .bld .drop{
+    position:absolute;left:0;top:0;width:100%;height:100%;
+    background:var(--shadow);
+    filter:blur(6px);
+    transform:translateZ(1.5px) translate(-9px,12px);
+    opacity:.7;
+    transition:background .7s ease,transform .7s ease;
+  }
+  /* night: the moon sits top-left, so the shadows swing the other way */
+  body.night .bld .drop{transform:translateZ(1.5px) translate(12px,16px);opacity:.8}
+
+  /* tree */
+  .tree{position:absolute;width:0;height:0;transform-style:preserve-3d}
+  .tree .trunk{
+    position:absolute;left:-2px;bottom:0;width:4px;height:15px;
+    background:#a9825c;transform:translateZ(2px);
+  }
+  .tree .crown{
+    position:absolute;left:-11px;width:22px;height:22px;border-radius:50%;
+    background:var(--grass-2);
+    transform:translateZ(11px);
+    box-shadow:inset -3px -4px 0 rgba(0,0,0,.10);
+  }
+
+  /* floating labels */
+  .floater{
+    position:absolute;
+    left:50%;top:50%;
+    transform-style:preserve-3d;
+    pointer-events:none;
+    z-index:5;
+  }
+  .floater .tag{
+    position:absolute;
+    transform:translate(-50%,-100%) translateZ(var(--fh,110px)) rotateX(-58deg) rotateZ(calc(var(--rot,45deg) * -1));
+    background:var(--label-bg);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:.22em .62em;
+    font-family:var(--sans-2);
+    font-size:.66rem;font-weight:500;letter-spacing:.03em;white-space:nowrap;
+    color:var(--ink);
+    box-shadow:0 8px 16px -10px var(--shadow);
+    animation:bob 3.6s ease-in-out infinite;
+    transition:background .6s ease,color .6s ease,border-color .6s ease;
+  }
+  .floater .line{
+    position:absolute;left:0;bottom:0;width:1px;height:var(--fh,110px);
+    background:linear-gradient(to top, transparent, var(--muted));
+    opacity:.38;
+  }
+  @keyframes bob{
+    0%,100%{margin-top:0}
+    50%{margin-top:-6px}
+  }
+
+  /* buildings selected state */
+  .bld .ring{
+    position:absolute;left:-9%;top:-9%;width:118%;height:118%;
+    border:2px dashed var(--accent);
+    border-radius:12px;
+    transform:translateZ(3px);
+    opacity:0;
+    transition:opacity .3s ease;
+  }
+  .bld[aria-pressed="true"] .ring{opacity:.95}
+  .bld[aria-pressed="true"] .face{box-shadow:inset 0 0 0 1px rgba(107,140,255,.5)}
+  .bld[aria-pressed="true"] .top{filter:brightness(1.1)}
+
+  /* ---------------- info card (lifts out of scene) ---------------- */
+  .card{
+    position:absolute;
+    left:clamp(12px,2vw,24px);
+    bottom:clamp(12px,2vw,24px);
+    width:min(330px,calc(100% - 24px));
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:clamp(12px,1.4vw,18px);
+    box-shadow:0 26px 44px -26px var(--shadow), 0 2px 0 rgba(255,255,255,.6) inset;
+    transform:translateY(calc(100% + var(--lift) + 24px)) scale(.96);
+    opacity:0;
+    pointer-events:none;
+    transition:transform .62s cubic-bezier(.2,.9,.18,1),opacity .4s ease,background .6s ease,border-color .6s ease;
+  }
+  .card.in{transform:translateY(0) scale(1);opacity:1;pointer-events:auto}
+  .card h2{margin:0;font-family:var(--sans-2);font-size:1.02rem;font-weight:600;display:flex;align-items:center;gap:.5rem}
+  .card h2 .dot{width:9px;height:9px;border-radius:3px;background:var(--accent);flex:0 0 auto}
+  .card .kicker{margin:.28rem 0 .5rem;font-family:var(--sans-2);font-size:.68rem;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+  .card p{margin:0;color:var(--ink-soft);font-size:.88rem}
+  .card ul{margin:.6rem 0 0;padding-left:1.05rem;color:var(--ink-soft);font-size:.84rem}
+  .card li{margin:.14rem 0}
+  .card .close{
+    position:absolute;top:.5rem;right:.5rem;
+    width:26px;height:26px;border-radius:8px;border:1px solid var(--line);
+    background:transparent;color:var(--muted);cursor:pointer;line-height:1;
+    font-size:.9rem;font-family:var(--sans-2);
+  }
+  .card .close:hover,.card .close:focus-visible{color:var(--accent);border-color:var(--accent)}
+
+  .hint{
+    position:absolute;right:clamp(12px,2vw,20px);bottom:clamp(10px,1.4vw,16px);
+    font-family:var(--sans-2);font-size:.66rem;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--muted);opacity:.8;pointer-events:none;
+  }
+
+  /* ---------------- footer ---------------- */
+  footer.bot{
+    margin-top:clamp(18px,3vw,34px);
+    padding-top:clamp(12px,1.6vw,18px);
+    border-top:1px solid var(--line);
+    display:flex;flex-wrap:wrap;gap:.5rem 1.6rem;align-items:baseline;justify-content:space-between;
+    color:var(--muted);font-size:.78rem;
+  }
+  footer.bot nav{display:flex;gap:1.1rem}
+  footer.bot a{text-decoration:none;border-bottom:1px solid transparent}
+  footer.bot a:hover,footer.bot a:focus-visible{color:var(--accent);border-bottom-color:var(--accent)}
+  .legend{display:flex;flex-wrap:wrap;gap:.4rem 1rem;margin:0;padding:0;list-style:none}
+  .legend li{display:flex;align-items:center;gap:.42rem}
+  .legend i{width:10px;height:10px;border-radius:3px;display:block}
+
+  @media (max-width:860px){
+    .page{padding-top:56px}
+    .stage{height:clamp(360px,62vh,500px)}
+    .card{width:calc(100% - 24px);left:12px;bottom:12px}
+    .hint{display:none}
+  }
+  @media (max-width:520px){
+    .page{padding-top:52px}
+    .viewport{transform:scale(calc(var(--zoom,1) * .84))}
+    .controls{width:100%}
+    button.btn{flex:1 1 auto;justify-content:center;text-align:center}
+    .diorama{width:190px;height:190px}
+    /* the scene is small here: only the selected ward keeps its label */
+    .floater{display:none}
+    .bld[aria-pressed="true"] .floater{display:block}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+    .diorama{transition:none}
+    .cloud{animation:none;transform:translateX(30vw)}
+    .c2{transform:translateX(58vw)}
+    .c3{transform:translateX(12vw)}
+    .floater .tag{animation:none}
+    .flag .cloth{animation:none}
+  }
+
+  /* nothing should keep drifting while the tab is in the background */
+  body.is-hidden .cloud,
+  body.is-hidden .floater .tag,
+  body.is-hidden .flag .cloth{animation-play-state:paused}
+</style>
+</head>
+<body>
+
+<a class="back" href="../index.html">
+  <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M7.5 1.6 3.1 6l4.4 4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  Gallery
+</a>
+
+<div class="page">
+  <header class="top">
+    <div>
+      <p class="brand">
+        <svg class="cube" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <path d="M16 3 29 10v13L16 30 3 23V10z" fill="#c9e7c0" stroke="#5b6379" stroke-opacity=".35"/>
+          <path d="M16 3 29 10 16 17 3 10z" fill="#ffb59a"/>
+          <path d="M16 17v13L3 23V10z" fill="#cfd8ea"/>
+          <path d="M16 17v13l13-7V10z" fill="#a9d4a2"/>
+        </svg>
+      </p>
+      <h1>A miniature <em>agent island</em>, in axonometric</h1>
+    </div>
+    <div class="controls" role="group" aria-label="Diorama controls">
+      <button class="btn" id="rotCcw" type="button" title="Rotate counter-clockwise">&#8634; Rotate</button>
+      <button class="btn" id="rotCw" type="button" title="Rotate clockwise">Rotate &#8635;</button>
+      <button class="btn" id="dayNight" type="button" aria-pressed="false">&#9728; Daylight</button>
+      <button class="btn reset" id="resetBtn" type="button">Reset view</button>
+    </div>
+  </header>
+
+  <main class="stage-wrap">
+    <section class="stage" id="stage" tabindex="0" role="application"
+             aria-label="Interactive isometric diorama. Use arrow keys to rotate, or click a building to inspect it.">
+      <div class="sun" aria-hidden="true"></div>
+      <span class="star" style="top:12%;left:18%" aria-hidden="true"></span>
+      <span class="star" style="top:22%;left:44%" aria-hidden="true"></span>
+      <span class="star" style="top:9%;left:66%" aria-hidden="true"></span>
+      <span class="star" style="top:31%;left:82%" aria-hidden="true"></span>
+
+      <div class="cloud c1" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="cloud c2" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="cloud c3" aria-hidden="true"><i></i><i></i><i></i></div>
+
+      <div class="viewport" id="viewport">
+        <div class="diorama" id="diorama" role="group" aria-label="Buildings on the island"></div>
+      </div>
+
+      <article class="card" id="card" aria-live="polite" aria-hidden="true">
+        <button class="close" id="cardClose" type="button" aria-label="Close capability card">&times;</button>
+        <h2><span class="dot" aria-hidden="true"></span><span id="cardTitle">Capability</span></h2>
+        <p class="kicker" id="cardKicker">building</p>
+        <p id="cardBody">Description.</p>
+        <ul id="cardList"></ul>
+      </article>
+
+      <p class="hint">drag to rotate &middot; click a building</p>
+    </section>
+  </main>
+
+  <footer class="bot">
+    <ul class="legend">
+      <li><i style="background:var(--roof-a)"></i> capability ward</li>
+      <li><i style="background:var(--wall-c)"></i> shaded faces stay shaded</li>
+      <li><i style="background:var(--accent)"></i> selected</li>
+    </ul>
+    <nav aria-label="Footer">
+      <a href="#stage" id="backTop">Back to the island</a>
+      <a href="../index.html">All twenty designs</a>
+    </nav>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var stage    = document.getElementById("stage");
+  var diorama  = document.getElementById("diorama");
+  var card     = document.getElementById("card");
+  var cardClose= document.getElementById("cardClose");
+  var cardTitle= document.getElementById("cardTitle");
+  var cardKicker=document.getElementById("cardKicker");
+  var cardBody = document.getElementById("cardBody");
+  var cardList = document.getElementById("cardList");
+  var dayNight = document.getElementById("dayNight");
+  var rotCw    = document.getElementById("rotCw");
+  var rotCcw   = document.getElementById("rotCcw");
+  var resetBtn = document.getElementById("resetBtn");
+  var backTop  = document.getElementById("backTop");
+
+  /* ------------------------------------------------------------------
+     Data: every building is a product capability.
+     x/y are percentages of the island plane, w/h its footprint box.
+  ------------------------------------------------------------------ */
+  var BUILDINGS = [
+    {
+      id:"plan", x:14, y:16, w:24, h:24, height:66, roof:"gable",
+      title:"Planner", kicker:"ward 01 / reasoning",
+      body:"Decomposes a request into an ordered task graph before a single file is touched.",
+      items:["Spec tracing","Step budget","Re-plan on failure"],
+      label:"Planner", labelHeight:158
+    },
+    {
+      id:"search", x:50, y:12, w:20, h:20, height:44, roof:"flat",
+      title:"Code Search", kicker:"ward 02 / retrieval",
+      body:"Hybrid lexical and semantic index across every repository in the workspace.",
+      items:["Symbol graph","Regex + fuzzy","Sub-40ms lookups"],
+      label:"Code Search", labelHeight:150
+    },
+    {
+      id:"edit", x:16, y:52, w:30, h:22, height:34, roof:"flat",
+      title:"Patch Engine", kicker:"ward 03 / mutation",
+      body:"Applies minimal diffs, never rewrites a file it can surgically amend.",
+      items:["Unified diffs","Conflicts surfaced","Undo stack"],
+      label:"Patch Engine", labelHeight:142
+    },
+    {
+      id:"test", x:56, y:48, w:22, h:26, height:88, roof:"gable",
+      title:"Verifier", kicker:"ward 04 / proof",
+      body:"Runs the suite, reads the failures, and refuses to declare success without evidence.",
+      items:["Test authoring","Flake detection","Coverage delta"],
+      label:"Verifier", labelHeight:186
+    },
+    {
+      id:"memory", x:74, y:80, w:20, h:16, height:28, roof:"flat",
+      title:"Memory", kicker:"ward 05 / recall",
+      body:"Keeps durable notes about your codebase so the next session starts informed.",
+      items:["Project facts","Preference log"],
+      label:"Memory", labelHeight:124
+    }
+  ];
+
+  var WINDOWS = [
+    {x:16,y:22},{x:56,y:22},{x:16,y:62},{x:56,y:58}
+  ];
+
+  var TREES = [
+    {x:44,y:38,s:.9},{x:88,y:34,s:1},{x:40,y:78,s:.8},{x:8,y:44,s:.85}
+  ];
+
+  var ROT_STEP = 45;
+
+  /* ------------------------------------------------------------------
+     Build the island: slabs, rock taper, grass, paths, buildings, trees.
+  ------------------------------------------------------------------ */
+  function el(tag, cls, parent){
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  var state = {
+    rot: 45,
+    zoom: 1,
+    night: false,
+    selected: null
+  };
+
+  function normalizeDeg(d){
+    d = d % 360;
+    if (d < 0) d += 360;
+    return d;
+  }
+
+  function setTagTransform(tag, height, rot){
+    /* lift the tag out of the plane, then undo the plane's Z rotation so
+       the text always reads horizontally to the viewer. `dx` nudges labels
+       that sit near an edge back toward the middle of the scene. */
+    var dx = Number(tag.dataset.dx) || 0;
+    tag.style.transform =
+      "translate(-50%,-100%) translate(" + dx + "px,0) translateZ(" + height + "px) " +
+      "rotateX(-58deg) rotateZ(" + (-rot) + "deg)";
+  }
+
+  function applyRotation(animate){
+    diorama.style.transition = (animate && !REDUCED) ? "" : "none";
+    diorama.style.setProperty("--rot", state.rot + "deg");
+    /* labels counter-rotate so they always face the viewer */
+    var tags = diorama.querySelectorAll(".floater .tag");
+    for (var i = 0; i < tags.length; i++){
+      setTagTransform(tags[i], Number(tags[i].dataset.height) || 100, state.rot);
+    }
+    if (!animate || REDUCED){
+      /* force a reflow so the transition reset above does not stick */
+      void diorama.offsetWidth;
+      diorama.style.transition = "";
+    }
+  }
+
+  function buildIsland(){
+    var i;
+    for (i = 1; i <= 6; i++){
+      if (i === 1){ continue; }
+      el("div", "slab d" + i, diorama);
+    }
+    el("div", "slab d1", diorama);
+    el("div", "rock r1", diorama);
+    el("div", "rock r2", diorama);
+    el("div", "rock r3", diorama);
+    el("div", "grass", diorama);
+    el("div", "path p1", diorama);
+    el("div", "path p2", diorama);
+    el("div", "path p3", diorama);
+  }
+
+  function buildTree(t){
+    var wrap = el("div", "tree", diorama);
+    wrap.style.left = t.x + "%";
+    wrap.style.top  = t.y + "%";
+    wrap.style.transform = "scale(" + t.s + ")";
+    el("div", "trunk", wrap);
+    el("div", "crown", wrap);
+  }
+
+  function buildBuilding(b, index){
+    var node = document.createElement("button");
+    node.type = "button";
+    node.className = "bld";
+    node.id = "bld-" + b.id;
+    node.setAttribute("aria-pressed", "false");
+    node.style.left   = b.x + "%";
+    node.style.top    = b.y + "%";
+    node.style.width  = b.w + "%";
+    node.style.height = b.h + "%";
+    node.style.setProperty("--hz", (b.h / 2) + "%");
+    node.style.setProperty("--hx", (b.w / 2) + "%");
+    node.style.setProperty("--tz", "-" + b.height + "px");
+    node.dataset.fw = String(b.w);
+    node.dataset.fh = String(b.h);
+    node.dataset.bh = String(b.height);
+    node.setAttribute("aria-label", b.title + " — " + b.kicker);
+
+    /* ground shadow, drawn on the grass plane */
+    el("span", "drop", node);
+
+    var body = el("span", "body", node);
+    body.style.transform = "translateZ(" + (b.height) + "px)";
+    body.style.height = "100%";
+
+    var faces = {};
+    ["n","e","s","w"].forEach(function (side){
+      faces[side] = el("span", "face " + side, body);
+    });
+    var top = el("span", "top" + (b.roof === "flat" ? " flat" : ""), body);
+    top.style.setProperty("--tz", "-" + b.height + "px");
+
+    /* windows live inside the wall panels, so they inherit the wall plane */
+    WINDOWS.forEach(function (w){
+      ["n","w"].forEach(function (side){
+        var win = el("span", "win", faces[side]);
+        win.style.left = w.x + "%";
+        win.style.top  = w.y + "%";
+      });
+    });
+
+    var ring = el("span", "ring", node);
+    ring.setAttribute("aria-hidden", "true");
+
+    /* flag on the tallest ward only */
+    if (b.height >= 88){
+      var f = el("span", "flag", node);
+      f.style.setProperty("--pole", (b.height + 22) + "px");
+      f.style.transform = "translate(-50%,-50%)";
+      el("span", "pole", f);
+      el("span", "cloth", f);
+    }
+
+    /* floating label tethered above the roof */
+    var floater = el("span", "floater", node);
+    floater.style.setProperty("--fh", b.labelHeight + "px");
+    var tag = el("span", "tag", floater);
+    tag.textContent = b.label;
+    tag.dataset.height = String(b.labelHeight);
+    /* pull edge labels inward so they never run off the stage */
+    var cx = b.x + b.w / 2;
+    var dx = 0;
+    if (cx < 34) dx = Math.round((34 - cx) * 2.4);
+    else if (cx > 62) dx = -Math.round((cx - 62) * 2.4);
+    tag.dataset.dx = String(dx);
+    setTagTransform(tag, b.labelHeight, state.rot);
+    var line = el("span", "line", floater);
+    line.style.setProperty("--fh", b.labelHeight + "px");
+
+    node.addEventListener("click", function (ev){
+      ev.stopPropagation();
+      inspect(b);
+    });
+    node.addEventListener("keydown", function (ev){
+      if (ev.key === "Enter" || ev.key === " "){
+        ev.preventDefault();
+        inspect(b);
+      }
+    });
+
+    diorama.appendChild(node);
+  }
+
+  /* ------------------------------------------------------------------
+     Layout: translateZ() takes a length, never a percentage, so the wall
+     offsets are resolved to px from the live box size and re-resolved on
+     every resize. Without this every building would collapse flat.
+  ------------------------------------------------------------------ */
+  function layout(){
+    var dw = diorama.clientWidth;
+    var dh = diorama.clientHeight;
+    if (!dw || !dh) return;
+    var nodes = diorama.querySelectorAll(".bld");
+    for (var i = 0; i < nodes.length; i++){
+      var n = nodes[i];
+      var fw = Number(n.dataset.fw) / 100 * dw;
+      var fh = Number(n.dataset.fh) / 100 * dh;
+      n.style.setProperty("--hx", (fw / 2) + "px");
+      n.style.setProperty("--hz", (fh / 2) + "px");
+      n.style.setProperty("--tz", "-" + (Number(n.dataset.bh) || 0) + "px");
+    }
+  }
+
+  buildIsland();
+  TREES.forEach(buildTree);
+  BUILDINGS.forEach(buildBuilding);
+  layout();
+  applyRotation(false);
+
+  var resizeTimer = 0;
+  window.addEventListener("resize", function (){
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(function (){
+      layout();
+      applyRotation(false);
+    }, 120);
+  });
+
+  /* ------------------------------------------------------------------
+     Selection: rotate the diorama to face the ward and lift its card.
+  ------------------------------------------------------------------ */
+  function faceRotation(b){
+    /* centre of the footprint, mapped into the rotated plane */
+    var cx = b.x + b.w / 2;
+    var cy = b.y + b.h / 2;
+    var ang = Math.atan2(cy - 50, cx - 50) * 180 / Math.PI;
+    /* bring that bearing to the front-bottom of the viewport */
+    return normalizeDeg(Math.round((ang / ROT_STEP)) * ROT_STEP - 90);
+  }
+
+  function inspect(b){
+    var prev = state.selected;
+    if (prev && prev !== b.id){
+      var pn = document.getElementById("bld-" + prev);
+      if (pn) pn.setAttribute("aria-pressed", "false");
+    }
+    state.selected = b.id;
+
+    var node = document.getElementById("bld-" + b.id);
+    if (node) node.setAttribute("aria-pressed", "true");
+
+    state.rot = faceRotation(b);
+    applyRotation(true);
+
+    cardTitle.textContent = b.title;
+    cardKicker.textContent = b.kicker;
+    cardBody.textContent = b.body;
+    cardList.textContent = "";
+    b.items.forEach(function (t){
+      var li = document.createElement("li");
+      li.textContent = t;
+      cardList.appendChild(li);
+    });
+
+    card.classList.remove("in");
+    card.setAttribute("aria-hidden", "false");
+    /* restart the lift animation even when re-selecting the same ward */
+    void card.offsetWidth;
+    requestAnimationFrame(function (){ card.classList.add("in"); });
+  }
+
+  function clearSelection(){
+    card.classList.remove("in");
+    card.setAttribute("aria-hidden", "true");
+    if (state.selected){
+      var n = document.getElementById("bld-" + state.selected);
+      if (n) n.setAttribute("aria-pressed", "false");
+    }
+    state.selected = null;
+  }
+
+  cardClose.addEventListener("click", clearSelection);
+
+  /* ------------------------------------------------------------------
+     Rotate: buttons, keyboard, and pointer drag.
+  ------------------------------------------------------------------ */
+  function rotateBy(deg){
+    state.rot = normalizeDeg(state.rot + deg);
+    applyRotation(true);
+  }
+
+  rotCw.addEventListener("click", function (){ rotateBy(ROT_STEP); });
+  rotCcw.addEventListener("click", function (){ rotateBy(-ROT_STEP); });
+
+  resetBtn.addEventListener("click", function (){
+    state.rot = 45;
+    state.zoom = 1;
+    document.getElementById("viewport").style.setProperty("--zoom", 1);
+    applyRotation(true);
+    clearSelection();
+  });
+
+  stage.addEventListener("keydown", function (ev){
+    if (ev.key === "ArrowRight" || ev.key === "ArrowDown"){ ev.preventDefault(); rotateBy(ROT_STEP); }
+    else if (ev.key === "ArrowLeft" || ev.key === "ArrowUp"){ ev.preventDefault(); rotateBy(-ROT_STEP); }
+    else if (ev.key === "Escape"){ clearSelection(); }
+    else if (ev.key === "Enter" || ev.key === " "){ /* let building buttons handle their own */ }
+  });
+
+  /* pointer drag rotates the scene */
+  var dragging = false, dragX = 0, dragY = 0, rotAtDrag = 0, pinch = 0, zoomAtPinch = 1;
+
+  stage.addEventListener("pointerdown", function (ev){
+    if (ev.target.closest(".bld") || ev.target.closest(".card")) return;
+    dragging = true;
+    dragX = ev.clientX; dragY = ev.clientY;
+    rotAtDrag = state.rot;
+    stage.classList.add("dragging");
+    if (stage.setPointerCapture){ try { stage.setPointerCapture(ev.pointerId); } catch (e) {} }
+  });
+
+  stage.addEventListener("pointermove", function (ev){
+    if (!dragging) return;
+    var dx = ev.clientX - dragX;
+    state.rot = normalizeDeg(rotAtDrag + dx * 0.42);
+    applyRotation(false);
+  });
+
+  function endDrag(){
+    if (!dragging) return;
+    dragging = false;
+    stage.classList.remove("dragging");
+    /* settle onto the nearest 15-degree step */
+    state.rot = normalizeDeg(Math.round(state.rot / 15) * 15);
+    applyRotation(true);
+  }
+  stage.addEventListener("pointerup", endDrag);
+  stage.addEventListener("pointercancel", endDrag);
+  stage.addEventListener("pointerleave", function (){ if (dragging) endDrag(); });
+
+  /* pinch-to-zoom on touch */
+  stage.addEventListener("touchmove", function (ev){
+    if (ev.touches.length !== 2) return;
+    ev.preventDefault();
+    var dx = ev.touches[0].clientX - ev.touches[1].clientX;
+    var dy = ev.touches[0].clientY - ev.touches[1].clientY;
+    var d = Math.sqrt(dx * dx + dy * dy);
+    if (!pinch){ pinch = d; zoomAtPinch = state.zoom; return; }
+    state.zoom = Math.min(1.35, Math.max(.62, zoomAtPinch * (d / pinch)));
+    document.getElementById("viewport").style.setProperty("--zoom", state.zoom.toFixed(3));
+  }, { passive: false });
+
+  stage.addEventListener("touchend", function (){ pinch = 0; });
+
+  /* click empty ground dismisses the card */
+  stage.addEventListener("click", function (ev){
+    if (ev.target.closest(".bld") || ev.target.closest(".card")) return;
+    if (Math.abs(state.rot - rotAtDrag) > 2) return;
+    clearSelection();
+  });
+
+  /* ------------------------------------------------------------------
+     Day / night relight — sky, ambient tint and shadow direction together.
+  ------------------------------------------------------------------ */
+  var label = "\u2600 Daylight";
+  dayNight.addEventListener("click", function (){
+    state.night = !state.night;
+    document.body.classList.toggle("night", state.night);
+    dayNight.setAttribute("aria-pressed", state.night ? "true" : "false");
+    label = state.night ? "\u263D Nightfall" : "\u2600 Daylight";
+    dayNight.textContent = label;
+    /* shadow direction is encoded in CSS via .drop / body.night .drop,
+       together with the sky gradient and wall tints. */
+  });
+
+  backTop.addEventListener("click", function (ev){
+    ev.preventDefault();
+    stage.focus({ preventScroll: false });
+  });
+
+  /* pause the drifting clouds and hanging labels while the tab is hidden */
+  document.addEventListener("visibilitychange", function (){
+    document.body.classList.toggle("is-hidden", document.hidden);
+  });
+
+  /* expose a tiny hook for the verify harness without polluting globals */
+  window.__diorama = { buildings: BUILDINGS.length, state: state };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aurelia — agent workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d1017;
+    --bg-2:#11151e;
+    --panel:#141924;
+    --panel-2:#171d29;
+    --line:#232b39;
+    --line-soft:#1b2230;
+    --ink:#c8d2e2;
+    --ink-2:#a5b0c2;
+    --dim:#78849a;
+    --dimmer:#5a6577;
+    --accent:#6aa6ff;
+    --accent-dim:#28405f;
+    --green:#7ee787;
+    --orange:#ffab70;
+    --purple:#d2a8ff;
+    --red:#ff7b72;
+    --cyan:#79c0ff;
+    --yellow:#e3b341;
+    --comment:#6d7a91;
+    --sel:#1d2635;
+    --ui:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --fs-ui:clamp(.74rem,.3vw + .68rem,.82rem);
+    --fs-code:clamp(.72rem,.34vw + .64rem,.8rem);
+    --row:26px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--ui);
+    font-size:var(--fs-ui);
+    line-height:1.5;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+  ::selection{background:var(--sel);color:#fff}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+  /* ---------------- back link ---------------- */
+  .back{
+    display:inline-flex;align-items:center;gap:.4em;
+    font-family:var(--mono);font-size:.68rem;letter-spacing:.02em;
+    text-decoration:none;color:var(--dim);
+    padding:.24em .5em;
+    border:1px solid var(--line);
+    border-radius:4px;
+    background:var(--bg-2);
+    opacity:.5;
+    transition:opacity .16s ease,color .16s ease,border-color .16s ease;
+    white-space:nowrap;
+  }
+  .back:hover,.back:focus-visible{opacity:1;color:var(--accent);border-color:var(--accent-dim)}
+  .back svg{width:.7em;height:.7em;flex:0 0 auto}
+
+  /* ---------------- shell ---------------- */
+  .shell{
+    height:100vh;height:100dvh;
+    display:grid;
+    grid-template-rows:auto minmax(0,1fr) auto;
+  }
+  /* title bar */
+  .titlebar{
+    display:flex;align-items:center;gap:.75rem;
+    height:38px;padding:0 .7rem;
+    background:var(--bg-2);
+    border-bottom:1px solid var(--line);
+    -webkit-app-region:drag;
+  }
+  .dots{display:flex;gap:6px;flex:0 0 auto}
+  .dots i{width:10px;height:10px;border-radius:50%;display:block;background:#2b3546}
+  .dots i:nth-child(1){background:#3c2c2c}
+  .dots i:nth-child(2){background:#3c382c}
+  .dots i:nth-child(3){background:#2c3c30}
+  .titlebar h1{
+    margin:0;font-family:var(--mono);font-size:.76rem;font-weight:500;
+    color:var(--ink-2);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .titlebar h1 span{color:var(--dim)}
+  .titlebar .grow{flex:1 1 auto;min-width:0}
+  .tb-actions{display:flex;align-items:center;gap:.4rem;flex:0 0 auto}
+  .tb-btn{
+    font-family:var(--mono);font-size:.68rem;color:var(--dim);
+    border:1px solid var(--line);border-radius:4px;padding:.22em .5em;
+    transition:color .16s ease,border-color .16s ease,background .16s ease;
+  }
+  .tb-btn:hover{color:var(--accent);border-color:var(--accent-dim)}
+  .tb-btn[aria-pressed="true"]{color:var(--accent);border-color:var(--accent-dim);background:#16202e}
+
+  /* workbench grid */
+  .workbench{
+    min-height:0;
+    display:grid;
+    grid-template-columns:48px 250px minmax(0,1fr) 340px;
+  }
+  .workbench.no-chat{grid-template-columns:48px 250px minmax(0,1fr) 0}
+  .workbench.no-tree{grid-template-columns:48px 0 minmax(0,1fr) 340px}
+  /* desktop collapse states (the mobile rules use .chat-open / .tree-open) */
+  .workbench.chat-off{grid-template-columns:48px 250px minmax(0,1fr) 0}
+  .workbench.tree-off{grid-template-columns:48px 0 minmax(0,1fr) 340px}
+  .workbench.tree-off .sidebar{border-right:0}
+  .workbench.chat-off .chat{border-left:0}
+  /* both panels closed: the editor takes the whole bench */
+  .workbench.tree-off.chat-off{grid-template-columns:48px 0 minmax(0,1fr) 0}
+
+  /* ---------------- activity bar ---------------- */
+  .activity{
+    background:var(--bg-2);
+    border-right:1px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;gap:.15rem;
+    padding:.5rem 0;
+  }
+  .act{
+    width:38px;height:38px;border-radius:6px;
+    display:grid;place-items:center;
+    color:var(--dimmer);position:relative;
+    transition:color .15s ease,background .15s ease;
+  }
+  .act svg{width:19px;height:19px}
+  .act:hover{color:var(--ink-2);background:#161c27}
+  .act[aria-pressed="true"]{color:var(--ink);background:#182031}
+  .act[aria-pressed="true"]::before{
+    content:"";position:absolute;left:-.5rem;top:50%;transform:translateY(-50%);
+    width:2px;height:20px;background:var(--accent);border-radius:0 2px 2px 0;
+  }
+  .act .badge{
+    position:absolute;right:3px;bottom:4px;
+    min-width:14px;height:14px;padding:0 3px;border-radius:7px;
+    background:var(--red);color:#1a0f0f;font-family:var(--mono);font-size:.58rem;
+    display:grid;place-items:center;font-weight:700;
+  }
+  .act-spacer{flex:1 1 auto}
+
+  /* ---------------- sidebar / tree ---------------- */
+  .sidebar{
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    min-width:0;overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+  .workbench.no-tree .sidebar{border-right:0}
+  .side-head{
+    display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+    padding:.55rem .7rem .5rem;
+    font-size:.66rem;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);
+    font-weight:600;
+  }
+  .side-head h2{margin:0;font-size:inherit;font-weight:600;letter-spacing:inherit}
+  .tree{overflow:auto;padding:0 .35rem .8rem;min-height:0;flex:1 1 auto}
+  .tree ul{list-style:none;margin:0;padding:0}
+  .tree .children{padding-left:.85rem;overflow:hidden}
+  .tree .children[hidden]{display:none}
+  .row{
+    display:flex;align-items:center;gap:.4rem;
+    width:100%;height:var(--row);
+    padding:0 .4rem;border-radius:4px;
+    color:var(--ink-2);text-align:left;
+    font-size:.78rem;white-space:nowrap;
+  }
+  .row:hover{background:#1a2130}
+  .row[aria-selected="true"],.row[aria-current="true"]{background:var(--sel);color:#fff}
+  .row .chev{
+    width:12px;height:12px;flex:0 0 auto;color:var(--dim);
+    transition:transform .18s ease;
+  }
+  .row[aria-expanded="true"] .chev{transform:rotate(90deg)}
+  .row .ico{width:14px;height:14px;flex:0 0 auto}
+  .row .name{overflow:hidden;text-overflow:ellipsis}
+  .row .tagline{
+    margin-left:auto;font-family:var(--mono);font-size:.62rem;color:var(--dimmer);
+  }
+  .row .dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;margin-left:auto}
+  .ico-fold{color:var(--accent)}
+  .ico-md{color:var(--cyan)}
+  .ico-ts{color:var(--accent)}
+  .ico-json{color:var(--yellow)}
+  .ico-sh{color:var(--green)}
+
+  /* ---------------- main column ---------------- */
+  .main{
+    min-width:0;min-height:0;
+    display:grid;
+    grid-template-rows:auto minmax(0,1fr) auto;
+    background:var(--bg);
+  }
+  /* tabs */
+  .tabs{
+    display:flex;align-items:stretch;gap:0;
+    background:var(--bg-2);
+    border-bottom:1px solid var(--line);
+    overflow-x:auto;scrollbar-width:none;
+  }
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{
+    display:flex;align-items:center;gap:.45rem;
+    padding:.5rem .8rem;
+    font-family:var(--mono);font-size:.72rem;color:var(--dim);
+    border-right:1px solid var(--line);
+    position:relative;white-space:nowrap;
+    transition:color .15s ease,background .15s ease;
+  }
+  .tab:hover{color:var(--ink-2);background:#151a24}
+  .tab[aria-selected="true"]{color:var(--ink);background:var(--bg)}
+  .tab[aria-selected="true"]::after{
+    content:"";position:absolute;left:0;right:0;top:0;height:1px;background:var(--accent);
+  }
+  .tab .x{opacity:.5;font-size:.85rem;line-height:1}
+  .tab .x:hover{opacity:1;color:var(--red)}
+  .tab .dotmark{width:7px;height:7px;border-radius:50%;background:var(--orange);flex:0 0 auto}
+
+  /* editor */
+  .editor{min-height:0;overflow:auto;position:relative;background:var(--bg)}
+  .crumb{
+    position:sticky;top:0;z-index:2;
+    display:flex;align-items:center;gap:.45rem;
+    padding:.4rem .9rem;
+    font-family:var(--mono);font-size:.66rem;color:var(--dim);
+    background:linear-gradient(var(--bg) 70%,rgba(13,16,23,.65));
+    border-bottom:1px solid var(--line-soft);
+  }
+  .crumb b{color:var(--ink-2);font-weight:500}
+  .code-wrap{display:flex;min-height:100%}
+  .gutter{
+    flex:0 0 auto;padding:.7rem .6rem .9rem 1rem;
+    text-align:right;color:var(--dimmer);
+    font-family:var(--mono);font-size:var(--fs-code);line-height:1.65;
+    white-space:pre;
+    user-select:none;background:var(--bg);
+    border-right:1px solid var(--line-soft);
+  }
+  pre.code{
+    margin:0;padding:.7rem 1.2rem .9rem .9rem;
+    font-family:var(--mono);font-size:var(--fs-code);line-height:1.65;
+    white-space:pre;tab-size:2;
+    flex:1 1 auto;min-width:0;overflow:visible;
+  }
+  pre.code code{font:inherit;display:block;min-width:max-content}
+  /* syntax tokens */
+  .t-com{color:var(--comment);font-style:italic}
+  .t-str{color:var(--green)}
+  .t-num{color:var(--orange)}
+  .t-key{color:var(--purple);font-weight:500}
+  .t-fn{color:var(--cyan)}
+  .t-typ{color:var(--yellow)}
+  .t-op{color:var(--ink-2)}
+  .t-pun{color:var(--dim)}
+  .t-prop{color:var(--cyan)}
+  .t-head{color:var(--accent);font-weight:700}
+  .t-bold{color:var(--ink);font-weight:700}
+  .t-em{color:var(--purple);font-style:italic}
+  .t-code{color:var(--orange)}
+  .t-link{color:var(--cyan);text-decoration:underline}
+  .t-lit{color:var(--red)}
+  .t-tag{color:var(--accent)}
+
+  /* agent typing caret */
+  .stream-caret{
+    display:inline-block;width:.5em;height:1.05em;vertical-align:-.18em;
+    background:var(--accent);margin-left:1px;
+    animation:blink 1.05s steps(1) infinite;
+  }
+  @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+
+  /* ---------------- bottom panel ---------------- */
+  .bottom{
+    border-top:1px solid var(--line);
+    background:var(--bg-2);
+    display:grid;grid-template-rows:auto auto;
+    min-height:0;
+  }
+  .bottom.collapsed .panel-body{display:none}
+  .panel-head{
+    display:flex;align-items:center;gap:.1rem;
+    padding:0 .4rem;
+    border-bottom:1px solid var(--line-soft);
+    min-height:30px;
+  }
+  .ptab{
+    font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;font-weight:600;
+    color:var(--dim);padding:.35rem .6rem;position:relative;
+  }
+  .ptab:hover{color:var(--ink-2)}
+  .ptab[aria-selected="true"]{color:var(--ink)}
+  .ptab[aria-selected="true"]::after{
+    content:"";position:absolute;left:.5rem;right:.5rem;bottom:0;height:1px;background:var(--accent);
+  }
+  .ptab .count{
+    font-family:var(--mono);font-size:.6rem;color:var(--red);
+    border:1px solid #4a2a28;border-radius:8px;padding:0 .3em;margin-left:.35em;
+  }
+  .panel-head .grow{flex:1 1 auto}
+  .panel-head .tools{display:flex;gap:.2rem}
+  .icon-btn{
+    width:24px;height:24px;border-radius:4px;display:grid;place-items:center;color:var(--dim);
+  }
+  .icon-btn:hover{color:var(--ink);background:#1a2130}
+  .icon-btn svg{width:14px;height:14px}
+  .icon-btn[aria-pressed="true"]{color:var(--accent);background:#182031}
+  .panel-body{
+    height:clamp(120px,20vh,210px);
+    overflow:auto;
+    font-family:var(--mono);font-size:.72rem;line-height:1.6;
+  }
+  .pane[hidden]{display:none}
+  .pane{padding:.5rem .8rem .7rem}
+  .plog{white-space:pre-wrap;word-break:break-word;margin:0}
+  .plog .ln{display:block}
+  .plog .ln .ts{color:var(--dimmer);margin-right:.5rem}
+  .plog .ln .ok{color:var(--green)}
+  .plog .ln .warn{color:var(--yellow)}
+  .plog .ln .err{color:var(--red)}
+  .plog .ln .info{color:var(--cyan)}
+  .plog .ln .muted{color:var(--dim)}
+  .prob{display:flex;gap:.55rem;align-items:flex-start;padding:.24rem 0;border-bottom:1px solid var(--line-soft)}
+  .prob:last-child{border-bottom:0}
+  .prob .sev{flex:0 0 auto;font-size:.62rem;color:var(--yellow);border:1px solid #4a3f28;border-radius:3px;padding:0 .3em}
+  .prob .sev.e{color:var(--red);border-color:#4a2a28}
+  .prob .txt{color:var(--ink-2)}
+  .prob .loc{margin-left:auto;color:var(--dim);font-size:.66rem;white-space:nowrap;padding-left:.9rem}
+  .term-line{display:flex;gap:.5rem}
+  .term-line .prompt{color:var(--green);flex:0 0 auto}
+
+  /* ---------------- chat panel ---------------- */
+  .chat{
+    background:var(--panel);
+    border-left:1px solid var(--line);
+    min-width:0;overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+  .workbench.no-chat .chat{border-left:0}
+  .chat-head{
+    display:flex;align-items:center;gap:.5rem;
+    padding:.55rem .7rem;
+    border-bottom:1px solid var(--line);
+    font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);font-weight:600;
+  }
+  .chat-head h2{margin:0;font-size:inherit;font-weight:600;letter-spacing:inherit}
+  .chat-head .agent-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:0 0 auto;box-shadow:0 0 0 3px rgba(126,231,135,.12)}
+  .chat-head .grow{flex:1 1 auto}
+  .chat-log{
+    flex:1 1 auto;min-height:0;overflow:auto;
+    padding:.8rem .75rem 1rem;
+    display:flex;flex-direction:column;gap:.75rem;
+  }
+  .msg{display:flex;gap:.5rem;align-items:flex-start}
+  .msg .who{
+    width:22px;height:22px;border-radius:5px;flex:0 0 auto;
+    display:grid;place-items:center;font-family:var(--mono);font-size:.6rem;font-weight:700;
+  }
+  .msg.user .who{background:#22304a;color:var(--cyan)}
+  .msg.agent .who{background:#1e2f26;color:var(--green)}
+  .bubble{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:.5rem .6rem;
+    color:var(--ink-2);
+    min-width:0;
+  }
+  .msg.agent .bubble{background:#161d29}
+  .bubble p{margin:0 0 .45rem}
+  .bubble p:last-child{margin-bottom:0}
+  .bubble strong{color:var(--ink);font-weight:600}
+  .bubble code{
+    font-family:var(--mono);font-size:.92em;
+    background:#0d1219;border:1px solid var(--line);
+    border-radius:3px;padding:0 .3em;color:var(--cyan);
+  }
+  .bubble ul{margin:.35rem 0 .45rem;padding-left:1rem}
+  .bubble li{margin:.12rem 0}
+  .chat-foot{
+    border-top:1px solid var(--line);
+    padding:.55rem .6rem .6rem;
+    display:grid;gap:.4rem;
+  }
+  .chat-input{
+    display:flex;align-items:flex-end;gap:.4rem;
+    background:var(--bg);border:1px solid var(--line);border-radius:6px;
+    padding:.4rem .45rem;
+  }
+  .chat-input:focus-within{border-color:var(--accent-dim)}
+  .chat-input textarea{
+    flex:1 1 auto;min-width:0;resize:none;border:0;background:none;color:var(--ink);
+    font-family:var(--mono);font-size:.72rem;line-height:1.5;height:34px;
+    outline:none;padding:.15rem 0;
+  }
+  .chat-input textarea::placeholder{color:var(--dimmer)}
+  .send{
+    width:26px;height:26px;border-radius:5px;flex:0 0 auto;
+    display:grid;place-items:center;background:#1d2839;color:var(--accent);
+  }
+  .send:hover{background:#243350}
+  .send svg{width:14px;height:14px}
+  .chat-note{font-size:.64rem;color:var(--dimmer);text-align:center}
+
+  /* ---------------- status bar ---------------- */
+  .status{
+    display:flex;align-items:center;gap:.7rem;
+    height:26px;padding:0 .6rem;
+    background:#0b1a2b;
+    border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:.66rem;color:#8fa8c8;
+    overflow:hidden;
+  }
+  .status .grow{flex:1 1 auto}
+  .status .st{display:flex;align-items:center;gap:.32rem;white-space:nowrap}
+  .status .st svg{width:12px;height:12px}
+  .status .st.ok{color:#7fe0a8}
+  .status a{color:inherit;text-decoration:none;opacity:.75}
+  .status a:hover,.status a:focus-visible{opacity:1;color:#fff}
+
+  /* scrollbars */
+  *::-webkit-scrollbar{width:11px;height:11px}
+  *::-webkit-scrollbar-track{background:transparent}
+  *::-webkit-scrollbar-thumb{background:#242c3b;border:3px solid var(--bg);border-radius:6px}
+  *::-webkit-scrollbar-thumb:hover{background:#2f3949}
+
+  /* ---------------- responsive ---------------- */
+  @media (max-width:1200px){
+    .workbench{grid-template-columns:48px 220px minmax(0,1fr) 300px}
+  }
+  @media (max-width:1000px){
+    /* below this width the side panels become drawers over the editor */
+    .workbench{grid-template-columns:48px minmax(0,1fr) 0}
+    .workbench .sidebar{display:none}
+    .workbench .chat{display:none}
+    .workbench.tree-open .sidebar{
+      display:flex;position:fixed;left:48px;top:38px;bottom:26px;
+      width:min(262px,80vw);z-index:40;
+      box-shadow:18px 0 30px -18px rgba(0,0,0,.7);
+    }
+    .workbench.chat-open .chat{
+      display:flex;position:fixed;right:0;top:38px;bottom:26px;
+      width:min(340px,86vw);z-index:41;
+      box-shadow:-18px 0 30px -18px rgba(0,0,0,.7);
+    }
+    .workbench.tree-off.chat-off{grid-template-columns:48px minmax(0,1fr) 0}
+  }
+  @media (max-width:640px){
+    .titlebar{height:34px}
+    .titlebar h1 span{display:none}
+    .tb-actions .tb-btn{display:none}
+    .workbench.tree-open .sidebar{top:34px}
+    .workbench.chat-open .chat{top:34px}
+    .panel-body{height:clamp(104px,26vh,170px)}
+    .gutter{padding-left:.6rem}
+    pre.code{padding-right:.8rem}
+    .status{font-size:.62rem}
+    .st-hide{display:none}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="titlebar">
+    <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <h1>Aurelia<span> / agent workspace</span></h1>
+    <span class="grow"></span>
+    <span class="tb-actions">
+      <a class="back" href="../index.html">
+        <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M7.4 1.7 3.2 6l4.2 4.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        gallery
+      </a>
+      <button class="tb-btn" id="toggleTree" type="button" aria-pressed="true" title="Toggle file explorer">explorer</button>
+      <button class="tb-btn" id="toggleChat" type="button" aria-pressed="true" title="Toggle agent chat">agent</button>
+    </span>
+  </header>
+
+  <div class="workbench" id="workbench">
+
+    <!-- activity bar -->
+    <nav class="activity" aria-label="Activity bar">
+      <button class="act" id="actExplorer" type="button" aria-pressed="true" title="Explorer" aria-label="Explorer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h4l1.6 2h7.4A1.5 1.5 0 0 1 20 7.5v10A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z"/></svg>
+      </button>
+      <button class="act" id="actSearch" type="button" aria-pressed="false" title="Search" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4.5 4.5"/></svg>
+      </button>
+      <button class="act" id="actAgent" type="button" aria-pressed="true" title="Agent" aria-label="Agent chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="7" width="16" height="11" rx="2.5"/><path d="M12 4v3M9 12.5h.01M15 12.5h.01"/></svg>
+      </button>
+      <button class="act" id="actProblems" type="button" aria-pressed="false" title="Problems" aria-label="Problems, 2 warnings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 4.5 21 19H3z"/><path d="M12 10v4M12 16.5h.01"/></svg>
+        <span class="badge" aria-hidden="true">2</span>
+      </button>
+      <span class="act-spacer"></span>
+      <button class="act" id="actSettings" type="button" aria-pressed="false" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2M12 18.5v2M4.9 7.8l1.7 1M17.4 15.2l1.7 1M4.9 16.2l1.7-1M17.4 8.8l1.7-1"/></svg>
+      </button>
+    </nav>
+
+    <!-- file tree -->
+    <aside class="sidebar" aria-label="File explorer">
+      <div class="side-head"><h2>Capabilities</h2><span id="treeMeta">6 files</span></div>
+      <div class="tree" id="tree"></div>
+    </aside>
+
+    <!-- editor column -->
+    <main class="main" aria-label="Editor">
+      <div class="tabs" id="tabs" role="tablist" aria-label="Open editors"></div>
+      <div class="editor" id="editor" role="tabpanel" aria-label="File contents">
+        <div class="crumb" id="crumb"><b>README.md</b><span id="crumbHint">— overview of the workspace</span></div>
+        <div class="code-wrap">
+          <div class="gutter" id="gutter" aria-hidden="true">1</div>
+          <pre class="code" id="code" tabindex="0"><code id="codeInner"></code></pre>
+        </div>
+      </div>
+
+      <!-- bottom panel -->
+      <div class="bottom" id="bottom">
+        <div class="panel-head">
+          <button class="ptab" id="ptabProblems" type="button" role="tab" aria-selected="false" aria-controls="paneProblems">Problems<span class="count">2</span></button>
+          <button class="ptab" id="ptabOutput" type="button" role="tab" aria-selected="false" aria-controls="paneOutput">Output</button>
+          <button class="ptab" id="ptabTerminal" type="button" role="tab" aria-selected="true" aria-controls="paneTerminal">Terminal</button>
+          <span class="grow"></span>
+          <span class="tools">
+            <button class="icon-btn" id="termRestart" type="button" title="Restart task" aria-label="Restart task">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13 2.5V5h-2.5"/></svg>
+            </button>
+            <button class="icon-btn" id="panelToggle" type="button" aria-pressed="true" title="Collapse panel" aria-label="Collapse panel">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6.5 8 10.5l4-4"/></svg>
+            </button>
+          </span>
+        </div>
+        <div class="panel-body" id="panelBody">
+          <div class="pane" id="paneProblems" role="tabpanel" aria-labelledby="ptabProblems" hidden>
+            <div id="problemList"></div>
+          </div>
+          <div class="pane" id="paneOutput" role="tabpanel" aria-labelledby="ptabOutput" hidden>
+            <p class="plog" id="outputLog"></p>
+          </div>
+          <div class="pane" id="paneTerminal" role="tabpanel" aria-labelledby="ptabTerminal">
+            <p class="plog" id="terminalLog"></p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- agent chat -->
+    <aside class="chat" aria-label="Agent chat">
+      <div class="chat-head">
+        <span class="agent-dot" aria-hidden="true"></span>
+        <h2>Agent</h2>
+        <span class="grow"></span>
+        <span id="chatModel" style="font-family:var(--mono);font-size:.62rem;text-transform:none;letter-spacing:0">aurelia-1</span>
+      </div>
+      <div class="chat-log" id="chatLog" aria-live="polite" aria-label="Conversation"></div>
+      <div class="chat-foot">
+        <div class="chat-input">
+          <textarea id="chatInput" rows="1" placeholder="Ask about this workspace…" aria-label="Message the agent"></textarea>
+          <button class="send" id="chatSend" type="button" aria-label="Send message">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2.5 8h9M8 4.5 11.5 8 8 11.5"/></svg>
+          </button>
+        </div>
+        <p class="chat-note" id="chatNote">Streaming a reply…</p>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="status" aria-label="Status bar">
+    <span class="st ok">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 8.5 6 12.5 14 4"/></svg>
+      tests 148 passed
+    </span>
+    <span class="st st-hide" id="statusFile">README.md</span>
+    <span class="st st-hide" id="statusLang">Markdown</span>
+    <span class="st st-hide" id="statusLine">Ln 1, Col 1</span>
+    <span class="grow"></span>
+    <span class="st" id="statusAgent">agent ready</span>
+    <span class="st st-hide">UTF-8</span>
+    <span class="st">spaces: 2</span>
+  </footer>
+</div>
+<script>
+(function () {
+  "use strict";
+
+  var REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ==================================================================
+     FILE CONTENTS — the "capabilities" of the product, as source files.
+  ================================================================== */
+  var FILES = {
+    "README.md": {
+      lang:"markdown", langLabel:"Markdown", icon:"ico-md", summary:"overview of the workspace",
+      body:
+"# Aurelia\n" +
+"\n" +
+"The agent runs *inside* the repository. It plans, edits and verifies\n" +
+"against your real test suite — not a description of one.\n" +
+"\n" +
+"## Capabilities\n" +
+"\n" +
+"- **Planner** — ordered task graph before the first file is touched.\n" +
+"- **Code Search** — hybrid lexical + semantic index, sub-40ms.\n" +
+"- **Patch Engine** — minimal diffs, never a full rewrite.\n" +
+"- **Verifier** — runs the suite and reads the failures.\n" +
+"- **Memory** — durable notes that survive the session.\n" +
+"\n" +
+"## Quick start\n" +
+"\n" +
+"```bash\n" +
+"npm i -g aurelia-agent\n" +
+"aurelia run \"add retry to the webhook sender\"\n" +
+"```\n" +
+"\n" +
+"> Every claim above maps to a file in `capabilities/`.\n" +
+"> If a capability has no file, it does not exist yet.\n"
+    },
+    "agent.config.ts": {
+      lang:"typescript", langLabel:"TypeScript", icon:"ico-ts", summary:"agent configuration",
+      body:
+"import type { AureliaConfig } from \"./capabilities/planner\";\n" +
+"\n" +
+"// Configuration is code: it is type-checked before it is applied.\n" +
+"export const config: AureliaConfig = {\n" +
+"  model: \"aurelia-1\",\n" +
+"  maxSteps: 40,\n" +
+"  sandbox: \"worktree\",\n" +
+"  retries: 2,\n" +
+"  tools: [\"read\", \"search\", \"patch\", \"test\", \"shell\"],\n" +
+"  planner: {\n" +
+"    strategy: \"graph\",\n" +
+"    rePlanOnFailure: true,\n" +
+"    budgetTokens: 120_000\n" +
+"  },\n" +
+"  verifier: {\n" +
+"    requireGreenSuite: true,\n" +
+"    flakeWindow: 3,\n" +
+"    coverageFloor: 0.82\n" +
+"  },\n" +
+"  memory: {\n" +
+"    scope: \"repository\",\n" +
+"    persist: true\n" +
+"  }\n" +
+"};\n" +
+"\n" +
+"export function describe(c: AureliaConfig): string {\n" +
+"  return `${c.model} · ${c.maxSteps} steps · ${c.tools.length} tools`;\n" +
+"}\n"
+    },
+    "capabilities/planner.ts": {
+      lang:"typescript", langLabel:"TypeScript", icon:"ico-ts", summary:"task graph planning",
+      body:
+"import { Graph } from \"../lib/graph\";\n" +
+"import type { Task, Plan } from \"../lib/types\";\n" +
+"\n" +
+"const MAX_DEPTH = 6;\n" +
+"\n" +
+"/** Decompose a request into an ordered, checkable task graph. */\n" +
+"export async function plan(request: string): Promise<Plan> {\n" +
+"  const graph = new Graph<Task>();\n" +
+"  const seed = await explore(request, { depth: MAX_DEPTH });\n" +
+"\n" +
+"  for (const file of seed.files) {\n" +
+"    graph.add({\n" +
+"      id: hash(file.path),\n" +
+"      intent: \"inspect\",\n" +
+"      target: file.path,\n" +
+"      weight: file.touchedByRecentCommits ? 2 : 1\n" +
+"    });\n" +
+"  }\n" +
+"\n" +
+"  // Steps are ordered so that nothing is verified before it is edited.\n" +
+"  graph.order((a, b) => a.intent.localeCompare(b.intent));\n" +
+"  return graph.freeze();\n" +
+"}\n" +
+"\n" +
+"function hash(s: string): string {\n" +
+"  let h = 2166136261;\n" +
+"  for (let i = 0; i < s.length; i++) {\n" +
+"    h = (h ^ s.charCodeAt(i)) * 16777619;\n" +
+"  }\n" +
+"  return (h >>> 0).toString(36);\n" +
+"}\n"
+    },
+    "capabilities/code-search.ts": {
+      lang:"typescript", langLabel:"TypeScript", icon:"ico-ts", summary:"hybrid retrieval index",
+      body:
+"import { SymbolGraph } from \"../lib/symbols\";\n" +
+"import { VectorIndex } from \"../lib/vectors\";\n" +
+"\n" +
+"export interface Hit {\n" +
+"  path: string;\n" +
+"  line: number;\n" +
+"  score: number;\n" +
+"  snippet: string;\n" +
+"}\n" +
+"\n" +
+"/** Lexical match wins on identifiers, semantic match wins on intent. */\n" +
+"export class CodeSearch {\n" +
+"  private lexical = new SymbolGraph();\n" +
+"  private semantic = new VectorIndex({ dims: 768 });\n" +
+"\n" +
+"  async index(root: string): Promise<number> {\n" +
+"    const files = await this.walk(root, [\"node_modules\", \".git\", \"dist\"]);\n" +
+"    for (const f of files) {\n" +
+"      this.lexical.add(f.path, f.symbols);\n" +
+"      await this.semantic.add(f.path, f.chunks);\n" +
+"    }\n" +
+"    return files.length;\n" +
+"  }\n" +
+"\n" +
+"  async query(text: string, limit = 12): Promise<Hit[]> {\n" +
+"    const [lex, sem] = await Promise.all([\n" +
+"      this.lexical.search(text),\n" +
+"      this.semantic.search(text, limit * 2)\n" +
+"    ]);\n" +
+"    return merge(lex, sem, { lexicalBias: 0.62 }).slice(0, limit);\n" +
+"  }\n" +
+"}\n"
+    },
+    "capabilities/verifier.ts": {
+      lang:"typescript", langLabel:"TypeScript", icon:"ico-ts", summary:"evidence before claims",
+      body:
+"export interface Verdict {\n" +
+"  green: boolean;\n" +
+"  ran: number;\n" +
+"  failed: number;\n" +
+"  evidence: string[];\n" +
+"}\n" +
+"\n" +
+"const FLAKE_WINDOW = 3;\n" +
+"\n" +
+"/** Never report success without a green suite behind it. */\n" +
+"export async function verify(suite: string): Promise<Verdict> {\n" +
+"  const runs: Run[] = [];\n" +
+"\n" +
+"  for (let attempt = 0; attempt < FLAKE_WINDOW; attempt++) {\n" +
+"    const run = await execute(suite, { coverage: true });\n" +
+"    runs.push(run);\n" +
+"    if (run.failed === 0) break;\n" +
+"    if (!run.looksLikeFlake()) break;\n" +
+"  }\n" +
+"\n" +
+"  const last = runs[runs.length - 1];\n" +
+"  if (last.failed > 0) {\n" +
+"    throw new UnverifiedError(`${last.failed} failing in ${suite}`, runs);\n" +
+"  }\n" +
+"\n" +
+"  return {\n" +
+"    green: true,\n" +
+"    ran: last.ran,\n" +
+"    failed: 0,\n" +
+"    evidence: [`${last.ran} passed`, `coverage ${last.coverage}`, `${runs.length} run(s)`]\n" +
+"  };\n" +
+"}\n"
+    },
+    "tests/verifier.spec.ts": {
+      lang:"typescript", langLabel:"TypeScript", icon:"ico-ts", summary:"verifier test suite",
+      body:
+"import { verify } from \"../capabilities/verifier\";\n" +
+"\n" +
+"describe(\"verifier\", () => {\n" +
+"  it(\"returns a green verdict for a passing suite\", async () => {\n" +
+"    const v = await verify(\"unit\");\n" +
+"    expect(v.green).toBe(true);\n" +
+"    expect(v.failed).toBe(0);\n" +
+"  });\n" +
+"\n" +
+"  it(\"retries a flaky suite before failing\", async () => {\n" +
+"    const v = await verify(\"integration\");\n" +
+"    expect(v.evidence.length).toBeGreaterThan(0);\n" +
+"  });\n" +
+"});\n"
+    },
+    "package.json": {
+      lang:"json", langLabel:"JSON", icon:"ico-json", summary:"workspace manifest",
+      body:
+"{\n" +
+"  \"name\": \"aurelia-agent\",\n" +
+"  \"version\": \"2.4.1\",\n" +
+"  \"type\": \"module\",\n" +
+"  \"bin\": { \"aurelia\": \"./bin/aurelia.js\" },\n" +
+"  \"scripts\": {\n" +
+"    \"build\": \"tsc -p tsconfig.json\",\n" +
+"    \"test\": \"node --test tests/\",\n" +
+"    \"verify\": \"aurelia verify --coverage\"\n" +
+"  },\n" +
+"  \"dependencies\": {\n" +
+"    \"@aurelia/graph\": \"^1.9.0\",\n" +
+"    \"@aurelia/vectors\": \"^0.14.2\"\n" +
+"  },\n" +
+"  \"engines\": { \"node\": \">=20.6.0\" },\n" +
+"  \"private\": true\n" +
+"}\n"
+    }
+  };
+
+  /* The tree mirrors the files above; folders are capabilities as groups. */
+  var TREE = [
+    {type:"file", id:"README.md"},
+    {type:"file", id:"agent.config.ts"},
+    {type:"folder", id:"capabilities", label:"capabilities", open:true, children:[
+      {type:"file", id:"capabilities/planner.ts"},
+      {type:"file", id:"capabilities/code-search.ts"},
+      {type:"file", id:"capabilities/verifier.ts"}
+    ]},
+    {type:"folder", id:"tests", label:"tests", open:false, children:[
+      {type:"file", id:"tests/verifier.spec.ts"}
+    ]},
+    {type:"file", id:"package.json"}
+  ];
+
+  var PROBLEMS = [
+    {sev:"warn", text:"'seed' is declared but its value is never read inside the retry branch.", loc:"planner.ts:14:9"},
+    {sev:"warn", text:"Awaiting a non-promise value of type 'Run'.", loc:"verifier.ts:19:11"}
+  ];
+
+  var OUTPUT_SEED = [
+    {ts:true, c:"muted", t:"[info] aurelia 2.4.1 · node 20.11.0 · darwin arm64"},
+    {ts:true, c:"muted", t:"[info] workspace root resolved: /Users/dev/src/checkout-service"},
+    {ts:true, c:"info",  t:"[index] 1,284 files · 92,417 symbols · 3.1s"},
+    {ts:true, c:"muted", t:"[info] watch mode enabled"}
+  ];
+  var TERMINAL_SEED = [
+    {p:true,  c:"muted", t:"npm run verify"},
+    {c:"muted", t:""},
+    {c:"muted", t:"> aurelia-agent@2.4.1 verify"},
+    {c:"muted", t:"> aurelia verify --coverage"},
+    {c:"muted", t:""}
+  ];
+  var TERMINAL_STREAM = [
+    {c:"info", t:"\u25b8 plan     resolved 6 steps from request \"harden webhook retries\""},
+    {c:"muted",t:"\u25b8 patch    2 files changed, 41 insertions(+), 12 deletions(-)"},
+    {c:"ok",   t:"\u2713 typecheck  tsc -p tsconfig.json  (no errors)  4.2s"},
+    {c:"info", t:"\u25b8 test     node --test tests/  running 148 suites\u2026"},
+    {c:"ok",   t:"\u2713 test     148 passed, 0 failed  (1.9s)"},
+    {c:"ok",   t:"\u2713 coverage 82.6% \u2014 above floor 82.0%"},
+    {c:"muted",t:"\u25b8 verify   flake window 3 \u2192 1 run needed"},
+    {c:"ok",   t:"\u2713 verify   green: 148 passed · coverage 0.83 · 1 run"},
+    {c:"muted",t:""},
+    {c:"muted",t:"aurelia \u2014 done in 12.4s. 2 files ready to commit."}
+  ];
+  var CHAT_SEED = [
+    {who:"user", text:"Harden the webhook sender and prove it works."},
+    {who:"agent", blocks:[
+      "<p>I read <code>capabilities/verifier.ts</code> first so I know what counts as proof here.</p>",
+      "<p><strong>Plan</strong></p>",
+      "<ul><li>Add bounded retries with jitter in the sender.</li>",
+      "<li>Assert the retry budget in <code>tests/</code>.</li>",
+      "<li>Run the suite and report the raw numbers.</li></ul>",
+      "<p>Suite is green: <strong>148 passed</strong>, coverage 82.6%. Two files are staged \u2014 I did not commit.</p>"
+    ]}
+  ];
+  var CHAT_REPLIES = [
+    ["Rebuilt the index for the current worktree \u2014 1,284 files, 92,417 symbols. Search is warm; ask for a symbol.",
+     "Nothing was written to disk for that. Want me to open <code>capabilities/code-search.ts</code>?"],
+    ["That maps to <code>capabilities/planner.ts</code>. The task graph is re-ordered whenever the verifier fails, so the next step is always the cheapest unresolved one."],
+    ["I can run that. Estimated 2 steps: patch, then verify. Verification requires a green suite \u2014 I will not report success from a partial run."]
+  ];
+
+  /* ==================================================================
+     DOM handles
+  ================================================================== */
+  function $(id){ return document.getElementById(id); }
+
+  var treeEl      = $("tree");
+  var treeMeta    = $("treeMeta");
+  var tabsEl      = $("tabs");
+  var crumb       = $("crumb");
+  var gutterEl    = $("gutter");
+  var codeEl      = $("code");
+  var codeInner   = $("codeInner");
+  var editorEl    = $("editor");
+  var workbench   = $("workbench");
+  var bottomEl    = $("bottom");
+  var panelBody   = $("panelBody");
+  var panelToggle = $("panelToggle");
+  var termLog     = $("terminalLog");
+  var outputLog   = $("outputLog");
+  var problemList = $("problemList");
+  var chatLog     = $("chatLog");
+  var chatInput   = $("chatInput");
+  var chatSend    = $("chatSend");
+  var chatNote    = $("chatNote");
+  var statusFile  = $("statusFile");
+  var statusLang  = $("statusLang");
+  var statusLine  = $("statusLine");
+  var statusAgent = $("statusAgent");
+
+  var svgChev = '<svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>';
+  var svgFold = '<svg class="ico ico-fold" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.2 1.6h5.2A1.5 1.5 0 0 1 14 6.1v5.4A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5z"/></svg>';
+  var svgDoc  = '<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 1.8h5L12.8 5v9.2H4z"/><path d="M9 1.8V5h3.8"/></svg>';
+
+  /* ==================================================================
+     State
+  ================================================================== */
+  var state = {
+    open: ["README.md"],
+    active: "README.md",
+    dirty: {},
+    folders: {},
+    streams: []
+  };
+
+  function fileOf(id){ return FILES[id]; }
+  function baseName(id){ return id.split("/").pop(); }
+
+  /* ==================================================================
+     File tree — folders expand and collapse.
+  ================================================================== */
+  function buildNode(node, depth){
+    var li = document.createElement("li");
+
+    if (node.type === "folder"){
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "row";
+      btn.setAttribute("aria-expanded", node.open ? "true" : "false");
+      btn.innerHTML = svgChev + svgFold + '<span class="name">' + node.label + "</span>" +
+        '<span class="tagline">' + node.children.length + "</span>";
+      var ul = document.createElement("ul");
+      ul.className = "children";
+      ul.hidden = !node.open;
+      for (var i = 0; i < node.children.length; i++){
+        buildNodeInto(ul, node.children[i], depth + 1);
+      }
+      btn.addEventListener("click", function (){
+        var open = btn.getAttribute("aria-expanded") === "true";
+        btn.setAttribute("aria-expanded", open ? "false" : "true");
+        ul.hidden = open;
+      });
+      li.appendChild(btn);
+      li.appendChild(ul);
+      return li;
+    }
+
+    var fbtn = document.createElement("button");
+    fbtn.type = "button";
+    fbtn.className = "row";
+    fbtn.id = "tree-" + node.id.replace(/[\/.]/g, "-");
+    fbtn.dataset.file = node.id;
+    fbtn.setAttribute("aria-selected", state.active === node.id ? "true" : "false");
+    var meta = fileOf(node.id);
+    fbtn.innerHTML = '<span style="width:12px;flex:0 0 auto"></span>' + svgDoc +
+      '<span class="name">' + baseName(node.id) + "</span>";
+    if (meta){
+      fbtn.innerHTML = fbtn.innerHTML.replace('class="ico"', 'class="ico ' + meta.icon + '"');
+    }
+    if (state.dirty[node.id]){
+      fbtn.innerHTML += '<span class="dot" style="background:var(--orange)" aria-hidden="true"></span>';
+    }
+    fbtn.setAttribute("aria-label", node.id + (state.dirty[node.id] ? " (modified)" : ""));
+    fbtn.addEventListener("click", function (){ openFile(node.id, true); });
+    li.appendChild(fbtn);
+    return li;
+  }
+
+  function buildNodeInto(parent, node, depth){
+    parent.appendChild(buildNode(node, depth));
+  }
+
+  function renderTree(){
+    treeEl.textContent = "";
+    var ul = document.createElement("ul");
+    for (var i = 0; i < TREE.length; i++) buildNodeInto(ul, TREE[i], 0);
+    treeEl.appendChild(ul);
+    var files = Object.keys(FILES).length;
+    treeMeta.textContent = files + " files";
+  }
+
+  function syncTreeSelection(){
+    var rows = treeEl.querySelectorAll(".row[data-file]");
+    for (var i = 0; i < rows.length; i++){
+      rows[i].setAttribute("aria-selected", rows[i].dataset.file === state.active ? "true" : "false");
+    }
+  }
+
+  /* ==================================================================
+     Editor — highlighting differs per language.
+  ================================================================== */
+  function renderFile(id){
+    var f = fileOf(id);
+    if (!f){ return; }
+
+    codeInner.innerHTML = highlight(f.body, f.lang);
+
+    var lines = f.body.split("\n").length;
+    var nums = [];
+    for (var i = 1; i <= lines; i++) nums.push(i);
+    gutterEl.textContent = nums.join("\n");
+
+    crumb.innerHTML = "<b>" + id + "</b>";
+    var hint = document.createElement("span");
+    hint.id = "crumbHint";
+    hint.textContent = "\u2014 " + f.summary;
+    crumb.appendChild(hint);
+
+    editorEl.setAttribute("aria-label", id + " contents");
+    statusFile.textContent = baseName(id);
+    statusLang.textContent = f.langLabel;
+    statusLine.textContent = "Ln 1, Col 1";
+    editorEl.scrollTop = 0;
+  }
+
+  function renderTabs(){
+    tabsEl.textContent = "";
+    state.open.forEach(function (id){
+      var wrap = document.createElement("div");
+      wrap.style.display = "flex";
+      wrap.style.alignItems = "stretch";
+
+      var tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "tab";
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-selected", id === state.active ? "true" : "false");
+      tab.setAttribute("aria-controls", "editor");
+      tab.id = "tab-" + id.replace(/[\/.]/g, "-");
+      tab.innerHTML = (state.dirty[id] ? '<span class="dotmark" aria-hidden="true"></span>' : "") +
+        baseName(id) + '<span class="x" role="presentation" aria-hidden="true">\u00d7</span>';
+      tab.addEventListener("click", function (ev){
+        if (ev.target && ev.target.classList.contains("x")){
+          closeTab(id);
+          return;
+        }
+        activate(id);
+      });
+      wrap.appendChild(tab);
+      tabsEl.appendChild(wrap);
+    });
+    tabsEl.setAttribute("aria-label", state.open.length + " open editor" + (state.open.length === 1 ? "" : "s"));
+  }
+
+  function activate(id){
+    if (state.open.indexOf(id) === -1) state.open.push(id);
+    state.active = id;
+    renderTabs();
+    renderFile(id);
+    syncTreeSelection();
+  }
+
+  function openFile(id, focusIt){
+    activate(id);
+    if (focusIt){
+      setTimeout(function (){ codeEl.focus({ preventScroll: true }); }, 30);
+    }
+  }
+
+  function closeTab(id){
+    var i = state.open.indexOf(id);
+    if (i === -1) return;
+    state.open.splice(i, 1);
+    if (state.active === id){
+      state.active = state.open.length ? state.open[Math.max(0, i - 1)] : null;
+    }
+    if (!state.open.length){
+      /* the editor keeps the last file so the pane is never blank */
+      state.open = ["README.md"];
+      state.active = "README.md";
+    }
+    renderTabs();
+    renderFile(state.active);
+    syncTreeSelection();
+  }
+
+  /* ==================================================================
+     Bottom panel — Problems / Output / Terminal.
+  ================================================================== */
+  var paneTabs = [
+    {btn:$("ptabProblems"), pane:$("paneProblems")},
+    {btn:$("ptabOutput"),   pane:$("paneOutput")},
+    {btn:$("ptabTerminal"), pane:$("paneTerminal")}
+  ];
+
+  function selectPane(index, focus){
+    paneTabs.forEach(function (t, i){
+      var on = i === index;
+      t.btn.setAttribute("aria-selected", on ? "true" : "false");
+      t.pane.hidden = !on;
+      if (on && focus) t.btn.focus();
+    });
+    if (bottomEl.classList.contains("collapsed")) setPanelOpen(true);
+  }
+
+  paneTabs.forEach(function (t, i){
+    t.btn.addEventListener("click", function (){ selectPane(i, false); });
+    t.btn.addEventListener("keydown", function (ev){
+      var next = -1;
+      if (ev.key === "ArrowRight") next = (i + 1) % paneTabs.length;
+      if (ev.key === "ArrowLeft") next = (i - 1 + paneTabs.length) % paneTabs.length;
+      if (next >= 0){ ev.preventDefault(); selectPane(next, true); }
+    });
+  });
+
+  function setPanelOpen(open){
+    bottomEl.classList.toggle("collapsed", !open);
+    panelToggle.setAttribute("aria-pressed", open ? "true" : "false");
+    panelToggle.setAttribute("title", open ? "Collapse panel" : "Expand panel");
+    panelToggle.setAttribute("aria-label", open ? "Collapse panel" : "Expand panel");
+  }
+
+  panelToggle.addEventListener("click", function (){
+    setPanelOpen(bottomEl.classList.contains("collapsed"));
+  });
+
+  function renderProblems(){
+    problemList.textContent = "";
+    PROBLEMS.forEach(function (p){
+      var row = document.createElement("div");
+      row.className = "prob";
+      row.innerHTML = '<span class="sev' + (p.sev === "error" ? " e" : "") + '">' + p.sev + "</span>" +
+        '<span class="txt">' + escapeHtml(p.text) + "</span>" +
+        '<span class="loc">' + p.loc + "</span>";
+      problemList.appendChild(row);
+    });
+  }
+
+  function appendLog(el, entry){
+    var line = document.createElement("span");
+    line.className = "ln";
+    var stamp = "";
+    if (entry.p){
+      stamp = '<span class="prompt">\u276f</span> ';
+    } else if (entry.ts){
+      stamp = '<span class="ts">' + clock() + "</span>";
+    }
+    line.innerHTML = stamp + (entry.c ? '<span class="' + entry.c + '">' + escapeHtml(entry.t) + "</span>" : escapeHtml(entry.t));
+    el.appendChild(line);
+    panelBody.scrollTop = panelBody.scrollHeight;
+  }
+
+  function clock(){
+    var d = new Date();
+    function p(n){ return (n < 10 ? "0" : "") + n; }
+    return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+  }
+
+  /* ==================================================================
+     TOKENIZER — hand-rolled, one ordered rule table per language.
+     No highlighter library: each rule is [tokenClass, regexSource].
+  ================================================================== */
+  var RULES = {
+    typescript: [
+      ["t-com", "\\/\\/[^\\n]*"],
+      ["t-com", "\\/\\*[\\s\\S]*?\\*\\/"],
+      ["t-str", "`(?:\\\\[\\s\\S]|[^`\\\\])*`"],
+      ["t-str", "\"(?:\\\\.|[^\"\\\\\\n])*\""],
+      ["t-str", "'(?:\\\\.|[^'\\\\\\n])*'"],
+      ["t-num", "\\b\\d[\\d_]*(?:\\.\\d+)?\\b"],
+      ["t-key", "\\b(?:import|from|export|default|const|let|var|function|return|if|else|for|of|in|new|class|extends|implements|interface|enum|type|async|await|try|catch|finally|throw|typeof|as|public|private|protected|readonly|static|get|set|void|yield|switch|case|break|continue|do|while|instanceof|this|super|satisfies|declare)\\b"],
+      ["t-lit", "\\b(?:true|false|null|undefined|NaN)\\b"],
+      ["t-typ", "\\b[A-Z][A-Za-z0-9_]*\\b"],
+      ["t-fn", "\\b[A-Za-z_$][\\w$]*(?=\\s*\\()"],
+      ["t-prop", "\\.[A-Za-z_$][\\w$]*"],
+      ["t-op", "[=+\\-*/%<>!&|?:~^]+"],
+      ["t-pun", "[{}()\\[\\];,.]"]
+    ],
+    json: [
+      ["t-com", "\\/\\/[^\\n]*"],
+      ["t-prop", "\"(?:\\\\.|[^\"\\\\\\n])*\"(?=\\s*:)"],
+      ["t-str", "\"(?:\\\\.|[^\"\\\\\\n])*\""],
+      ["t-num", "-?\\b\\d+(?:\\.\\d+)?\\b"],
+      ["t-lit", "\\b(?:true|false|null)\\b"],
+      ["t-pun", "[{}\\[\\],:]"]
+    ],
+    markdown: [
+      ["t-code", "```[\\s\\S]*?```"],
+      ["t-com", "<!--[\\s\\S]*?-->"],
+      ["t-head", "^#{1,6}[^\\n]*"],
+      ["t-bold", "\\*\\*[^*\\n]+\\*\\*"],
+      ["t-em", "\\*[^*\\n]+\\*"],
+      ["t-code", "`[^`\\n]+`"],
+      ["t-link", "\\[[^\\]\\n]*\\]\\([^)\\n]*\\)"],
+      ["t-quote", "^>[^\\n]*"],
+      ["t-tag", "^\\s{0,3}[-*+](?=\\s)"]
+    ]
+  };
+
+  function escapeHtml(s){
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function compile(rules){
+    return new RegExp(rules.map(function (r){ return "(" + r[1] + ")"; }).join("|"), "gm");
+  }
+
+  function tokenize(code, lang){
+    var rules = RULES[lang] || RULES.typescript;
+    var re = compile(rules);
+    var out = [];
+    var last = 0;
+    var m;
+    while ((m = re.exec(code)) !== null){
+      if (m[0] === ""){ re.lastIndex++; continue; }
+      if (m.index > last){
+        out.push({c:null, t: code.slice(last, m.index)});
+      }
+      var cls = null;
+      for (var i = 0; i < rules.length; i++){
+        if (m[i + 1] !== undefined){ cls = rules[i][0]; break; }
+      }
+      out.push({c:cls, t:m[0]});
+      last = re.lastIndex;
+    }
+    if (last < code.length){
+      out.push({c:null, t: code.slice(last)});
+    }
+    return out;
+  }
+
+  function highlight(code, lang){
+    var toks = tokenize(code, lang);
+    var html = "";
+    for (var i = 0; i < toks.length; i++){
+      var t = toks[i];
+      if (!t.c) html += escapeHtml(t.t);
+      else html += '<span class="' + t.c + '">' + escapeHtml(t.t) + "</span>";
+    }
+    return html;
+  }
+
+  /* ==================================================================
+     STREAMING ENGINE
+     One interval drives every live surface (terminal, output, chat).
+     It is stopped whenever the tab is hidden so nothing ticks in the
+     background, and restarted on return.
+  ================================================================== */
+  var streamTimer = 0;
+  var STREAM_TICK = 34;
+
+  function addStream(cfg){
+    /* cfg: {text|lines, el, speed, onDone, asLine, cls} */
+    var s = {
+      el: cfg.el,
+      text: cfg.text || "",
+      i: 0,
+      step: cfg.step || 2,
+      onDone: cfg.onDone || null,
+      done: false,
+      asLine: !!cfg.asLine,
+      cls: cfg.cls || "",
+      caret: null
+    };
+    if (cfg.el){
+      s.caret = document.createElement("span");
+      s.caret.className = "stream-caret";
+      s.caret.setAttribute("aria-hidden", "true");
+      if (cfg.asLine){
+        s.line = document.createElement("span");
+        s.line.className = "ln";
+        s.line.appendChild(s.caret);
+        cfg.el.appendChild(s.line);
+      } else {
+        cfg.el.appendChild(s.caret);
+      }
+    }
+    state.streams.push(s);
+    startStreamTimer();
+    return s;
+  }
+
+  function stopStreamTimer(){
+    if (streamTimer){
+      window.clearInterval(streamTimer);
+      streamTimer = 0;
+    }
+  }
+
+  function startStreamTimer(){
+    if (streamTimer || document.hidden) return;
+    streamTimer = window.setInterval(tickStreams, STREAM_TICK);
+  }
+
+  function tickStreams(){
+    var allDone = true;
+    for (var i = 0; i < state.streams.length; i++){
+      var s = state.streams[i];
+      if (s.done) continue;
+      if (!s.caret){ s.done = true; continue; }
+      allDone = false;
+      if (s.i < s.text.length){
+        s.i = Math.min(s.text.length, s.i + s.step);
+        var head = document.createTextNode(s.text.slice(0, s.i));
+        var parent = s.line || s.el;
+        /* replace everything except the caret */
+        while (parent.firstChild && parent.firstChild !== s.caret){
+          parent.removeChild(parent.firstChild);
+        }
+        parent.insertBefore(head, s.caret);
+      } else {
+        finishStream(s);
+      }
+    }
+    if (allDone) stopStreamTimer();
+  }
+
+  function finishStream(s){
+    s.done = true;
+    if (s.caret && s.caret.parentNode) s.caret.parentNode.removeChild(s.caret);
+    s.caret = null;
+    if (s.html != null && s.el){
+      if (s.asLine) s.line.innerHTML = s.html;
+      else s.el.innerHTML = s.html;
+    }
+    if (s.onDone) s.onDone();
+    var pending = state.streams.filter(function (x){ return !x.done; });
+    if (!pending.length) stopStreamTimer();
+  }
+
+  function flushStreams(){
+    /* reduced motion: paint every stream immediately */
+    for (var i = 0; i < state.streams.length; i++){
+      var s = state.streams[i];
+      if (s.done) continue;
+      s.i = s.text.length;
+      finishStream(s);
+    }
+    stopStreamTimer();
+  }
+
+  document.addEventListener("visibilitychange", function (){
+    if (document.hidden){
+      stopStreamTimer();
+      return;
+    }
+    var pending = state.streams.filter(function (x){ return !x.done; });
+    if (pending.length){
+      if (REDUCED) flushStreams();
+      else startStreamTimer();
+    }
+    startQueue();
+  });
+
+  /* queued terminal output, one line at a time, also visibility-aware */
+  var queue = [];
+  var queueTimer = 0;
+
+  function startQueue(){
+    if (queueTimer || document.hidden || !queue.length) return;
+    queueTimer = window.setTimeout(function (){
+      queueTimer = 0;
+      var item = queue.shift();
+      if (item){
+        appendLog(item.el, item.entry);
+        if (item.after) item.after();
+      }
+      startQueue();
+    }, REDUCED ? 16 : 320);
+  }
+
+  function pushLines(el, entries, done){
+    entries.forEach(function (e, i){
+      queue.push({el:el, entry:e, after:(i === entries.length - 1 ? done : null)});
+    });
+    startQueue();
+  }
+
+  /* ==================================================================
+     Chat — streams a reply on load and on send.
+  ================================================================== */
+  function stripTags(html){
+    return html
+      .replace(/<li>/g, "\n\u2022 ")
+      .replace(/<\/p>/g, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .trim();
+  }
+
+  function addMessage(who, opts){
+    var msg = document.createElement("div");
+    msg.className = "msg " + who;
+    var whoEl = document.createElement("span");
+    whoEl.className = "who";
+    whoEl.setAttribute("aria-hidden", "true");
+    whoEl.textContent = who === "user" ? "You" : "Au";
+    var bubble = document.createElement("div");
+    bubble.className = "bubble";
+    msg.appendChild(whoEl);
+    msg.appendChild(bubble);
+    chatLog.appendChild(msg);
+    chatLog.scrollTop = chatLog.scrollHeight;
+
+    var plainText = opts.text != null ? opts.text : stripTags(opts.html || "");
+    var s = addStream({el:bubble, text:plainText, step:3});
+    s.html = opts.html || null;
+    s.onDone = function (){
+      chatLog.scrollTop = chatLog.scrollHeight;
+    };
+    return msg;
+  }
+
+  var replyIndex = 0;
+
+  function seedChat(){
+    CHAT_SEED.forEach(function (m){
+      if (m.who === "user"){
+        var msg = document.createElement("div");
+        msg.className = "msg user";
+        msg.innerHTML = '<span class="who" aria-hidden="true">You</span><div class="bubble"><p>' +
+          escapeHtml(m.text) + "</p></div>";
+        chatLog.appendChild(msg);
+      } else {
+        addMessage("agent", {html: m.blocks.join("")});
+      }
+    });
+    chatLog.scrollTop = 0;
+  }
+
+  function sendMessage(){
+    var text = chatInput.value.trim();
+    if (!text) return;
+    var msg = document.createElement("div");
+    msg.className = "msg user";
+    msg.innerHTML = '<span class="who" aria-hidden="true">You</span><div class="bubble"><p>' +
+      escapeHtml(text) + "</p></div>";
+    chatLog.appendChild(msg);
+    chatInput.value = "";
+    chatLog.scrollTop = chatLog.scrollHeight;
+    statusAgent.textContent = "agent thinking\u2026";
+
+    var reply = CHAT_REPLIES[replyIndex % CHAT_REPLIES.length];
+    replyIndex++;
+    var html = reply.map(function (p){ return "<p>" + p + "</p>"; }).join("");
+
+    window.setTimeout(function (){
+      addMessage("agent", {html:html});
+      statusAgent.textContent = "agent ready";
+    }, REDUCED ? 10 : 420);
+  }
+
+  chatSend.addEventListener("click", sendMessage);
+  chatInput.addEventListener("keydown", function (ev){
+    if (ev.key === "Enter" && !ev.shiftKey){
+      ev.preventDefault();
+      sendMessage();
+    }
+  });
+
+  /* ==================================================================
+     Layout toggles / activity bar / keyboard
+  ================================================================== */
+  var toggleTree = $("toggleTree");
+  var toggleChat = $("toggleChat");
+  var actExplorer = $("actExplorer");
+  var actSearch = $("actSearch");
+  var actAgent = $("actAgent");
+  var actProblems = $("actProblems");
+  var actSettings = $("actSettings");
+
+  function setTreeOpen(open){
+    toggleTree.setAttribute("aria-pressed", open ? "true" : "false");
+    workbench.classList.toggle("tree-open", open);
+    workbench.classList.toggle("tree-off", !open);
+    actExplorer.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  function setChatOpen(open){
+    toggleChat.setAttribute("aria-pressed", open ? "true" : "false");
+    workbench.classList.toggle("chat-open", open);
+    workbench.classList.toggle("chat-off", !open);
+    actAgent.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+
+  toggleTree.addEventListener("click", function (){
+    setTreeOpen(toggleTree.getAttribute("aria-pressed") !== "true");
+  });
+  toggleChat.addEventListener("click", function (){
+    setChatOpen(toggleChat.getAttribute("aria-pressed") !== "true");
+  });
+  actExplorer.addEventListener("click", function (){
+    setTreeOpen(toggleTree.getAttribute("aria-pressed") !== "true");
+  });
+  actAgent.addEventListener("click", function (){
+    setChatOpen(toggleChat.getAttribute("aria-pressed") !== "true");
+  });
+  actSearch.addEventListener("click", function (){
+    var on = actSearch.getAttribute("aria-pressed") !== "true";
+    actSearch.setAttribute("aria-pressed", on ? "true" : "false");
+    if (on) chatInput.focus();
+    else chatInput.blur();
+  });
+  actProblems.addEventListener("click", function (){
+    actProblems.setAttribute("aria-pressed", "true");
+    selectPane(0, true);
+  });
+  actSettings.addEventListener("click", function (){
+    actSettings.setAttribute("aria-pressed", "true");
+    activate("agent.config.ts");
+  });
+
+  /* arrow-key roving across editor tabs */
+  tabsEl.addEventListener("keydown", function (ev){
+    if (ev.key !== "ArrowRight" && ev.key !== "ArrowLeft") return;
+    var idx = state.open.indexOf(state.active);
+    if (idx === -1) return;
+    ev.preventDefault();
+    var next = ev.key === "ArrowRight"
+      ? (idx + 1) % state.open.length
+      : (idx - 1 + state.open.length) % state.open.length;
+    activate(state.open[next]);
+    var t = tabsEl.querySelector('[id="tab-' + state.open[next].replace(/[\/.]/g, "-") + '"]');
+    if (t) t.focus();
+  });
+
+  /* status bar follows the caret when the reader clicks in the code */
+  function updateCaretStatus(){
+    try {
+      var sel = window.getSelection();
+      if (!sel || !sel.focusNode || !codeInner.contains(sel.focusNode)) return;
+      var range = document.createRange();
+      range.selectNodeContents(codeInner);
+      range.setEnd(sel.focusNode, sel.focusOffset);
+      var upto = range.toString();
+      var line = upto.split("\n").length;
+      var col = upto.length - upto.lastIndexOf("\n");
+      statusLine.textContent = "Ln " + line + ", Col " + col;
+    } catch (e) { /* selection APIs vary; the status bar is decorative */ }
+  }
+  editorEl.addEventListener("mouseup", updateCaretStatus);
+  editorEl.addEventListener("keyup", updateCaretStatus);
+
+  /* restart task: re-seed the terminal and play the build again */
+  $("termRestart").addEventListener("click", function (){
+    stopStreamTimer();
+    queueTimer = window.clearTimeout(queueTimer) || 0;
+    queue = [];
+    state.streams = [];
+    termLog.textContent = "";
+    outputLog.textContent = "";
+    TERMINAL_SEED.forEach(function (e){ appendLog(termLog, e); });
+    OUTPUT_SEED.forEach(function (e){ appendLog(outputLog, e); });
+    pushLines(termLog, TERMINAL_STREAM, function (){
+      statusAgent.textContent = "build green";
+    });
+    statusAgent.textContent = "running verify\u2026";
+    selectPane(2, false);
+  });
+
+  /* ==================================================================
+     BOOT
+  ================================================================== */
+  renderTree();
+  renderProblems();
+  TERMINAL_SEED.forEach(function (e){ appendLog(termLog, e); });
+  OUTPUT_SEED.forEach(function (e){ appendLog(outputLog, e); });
+  RenderBoot();
+
+  function RenderBoot(){
+    renderTabs();
+    renderFile(state.active);
+    syncTreeSelection();
+    seedChat();
+
+    if (REDUCED){
+      flushStreams();
+      TERMINAL_STREAM.forEach(function (e){ appendLog(termLog, e); });
+      chatNote.textContent = "Reply complete.";
+      return;
+    }
+
+    /* three live surfaces at once: terminal, output, chat */
+    statusAgent.textContent = "running verify\u2026";
+    pushLines(termLog, TERMINAL_STREAM, function (){
+      statusAgent.textContent = "build green";
+      chatNote.textContent = "Reply complete.";
+    });
+    window.setTimeout(function (){
+      appendLog(outputLog, {ts:true, c:"info", t:"[verify] suite green \u00b7 148 passed \u00b7 12.4s"});
+      appendLog(outputLog, {ts:true, c:"muted", t:"[verify] 2 files staged for review"});
+    }, 2600);
+  }
+
+  /* On a wide screen both side panels are docked; on a narrow one they are
+     drawers, so they start closed and the editor keeps the room. */
+  var narrowMQ = window.matchMedia("(max-width: 1000px)");
+  var narrow = narrowMQ.matches;
+  setChatOpen(!narrow);
+  setTreeOpen(!narrow);
+  selectPane(2, false);
+
+  function onBreakpoint(){
+    var now = narrowMQ.matches;
+    if (now === narrow) return;
+    narrow = now;
+    setChatOpen(!narrow);
+    setTreeOpen(!narrow);
+  }
+  if (narrowMQ.addEventListener) narrowMQ.addEventListener("change", onBreakpoint);
+  else if (narrowMQ.addListener) narrowMQ.addListener(onBreakpoint);
+
+  /* a small hook so the page can be driven from a test harness */
+  window.__ide = {
+    files: Object.keys(FILES),
+    state: state,
+    open: function (id){ activate(id); },
+    highlight: function (id){ return highlight(fileOf(id).body, fileOf(id).lang); }
+  };
+})();
+
+</script>
+</body>
+</html>

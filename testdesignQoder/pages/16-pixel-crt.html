@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AGENT/01 — CRT terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     PIXEL CRT — a machine, not a page. Bezel, glass, boot ROM,
+     arrow-key menu. Nothing eases: every animation is steps().
+     ============================================================ */
+  :root{
+    --bg:#05070a;
+    --case-1:#2c2f34;
+    --case-2:#171a1d;
+    --case-3:#0e1013;
+    --glass:#0a1410;
+    --phos:#79ff8f;
+    --phos-dim:#3f9a55;
+    --phos-dark:#16301c;
+    --amber:#ffc24d;
+    --cyan:#63e8f5;
+    --red:#ff5f5f;
+    --white:#dff7e2;
+    --grey:#7e8c82;
+    --scan:.30;
+    --bright:1;
+    --pixel:"Press Start 2P","Courier New",Courier,monospace;
+    --term:"VT323",ui-monospace,"SFMono-Regular",Consolas,monospace;
+  }
+  *,*::before,*::after{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0;
+    min-height:100%;
+    background:
+      radial-gradient(120% 90% at 50% 8%, #14171c 0%, #0a0c0f 45%, #040506 100%);
+    color:var(--phos);
+    font-family:var(--term);
+    font-size:21px;
+    line-height:1.32;
+    display:flex; align-items:center; justify-content:center;
+    padding:clamp(10px,2.4vw,44px);
+  }
+  :focus-visible{ outline:3px solid var(--amber); outline-offset:3px; }
+  [hidden]{ display:none !important; }
+
+  /* ---------- escape hatch ---------- */
+  .backlink{
+    position:fixed; left:10px; top:10px; z-index:40;
+    font-family:var(--pixel); font-size:9px; line-height:1;
+    letter-spacing:.06em; text-decoration:none;
+    color:var(--phos-dim); background:rgba(6,10,8,.72);
+    border:2px solid var(--phos-dark); padding:7px 9px;
+    opacity:.5;
+    transition:opacity 200ms steps(4,end), color 200ms steps(4,end);
+  }
+  .backlink:hover,.backlink:focus-visible{ opacity:1; color:var(--phos); background:#0b1a11; }
+
+  /* ---------- the case ---------- */
+  .room{ width:100%; display:flex; flex-direction:column; align-items:center; gap:clamp(8px,1.4vw,18px); }
+  .bezel{
+    position:relative;
+    width:min(1060px,100%);
+    border-radius:30px;
+    background:linear-gradient(180deg,var(--case-1) 0%,var(--case-2) 38%,var(--case-3) 100%);
+    border:1px solid #3b3f46;
+    box-shadow:
+      0 46px 90px -34px rgba(0,0,0,.95),
+      0 2px 0 rgba(255,255,255,.07) inset,
+      0 -4px 0 rgba(0,0,0,.65) inset;
+    padding:clamp(12px,1.8vw,24px) clamp(12px,1.8vw,24px) clamp(10px,1.4vw,18px);
+  }
+  .plate{
+    display:flex; align-items:center; gap:clamp(8px,1.4vw,18px);
+    padding:0 clamp(4px,1vw,14px) clamp(8px,1.2vw,14px);
+    flex-wrap:wrap;
+  }
+  .brand{
+    font-family:var(--pixel); font-size:clamp(8px,1.05vw,11px);
+    color:#c8cec9; letter-spacing:.06em;
+  }
+  .brand b{ color:var(--amber); }
+  .plate .spec{
+    font-family:var(--pixel); font-size:clamp(6px,.72vw,8px);
+    color:#6f767c; letter-spacing:.1em; margin-left:auto;
+  }
+  .vents{ display:flex; gap:4px; align-items:center; }
+  .vents i{ width:3px; height:14px; background:#0b0d10; box-shadow:0 0 0 1px #34383e; display:block; }
+  /* ---------- glass ---------- */
+  .screen-shell{
+    position:relative; border-radius:22px;
+    padding:clamp(9px,1.4vw,18px);
+    background:#040608;
+    box-shadow:inset 0 0 0 3px #0a0e12, inset 0 0 70px 10px rgba(0,0,0,.9), 0 0 0 1px #000;
+  }
+  .screen{
+    position:relative; overflow:hidden; border-radius:16px;
+    height:clamp(390px, 58vh, 610px);
+    background:radial-gradient(130% 110% at 50% 42%, #12231c 0%, #091510 55%, #050b08 100%);
+    display:flex; flex-direction:column;
+    filter:brightness(var(--bright));
+  }
+  .screen-inner{ position:relative; z-index:2; flex:1 1 auto; min-height:0; overflow-y:auto;
+    padding:clamp(14px,2vw,26px); scrollbar-width:thin; }
+  .screen-inner::-webkit-scrollbar{ width:9px; }
+  .screen-inner::-webkit-scrollbar-track{ background:#08110c; }
+  .screen-inner::-webkit-scrollbar-thumb{ background:var(--phos-dark); }
+  .glow{ position:absolute; inset:0; z-index:1; pointer-events:none;
+    background:radial-gradient(62% 52% at 50% 45%, rgba(60,255,130,.13), rgba(0,0,0,0) 72%);
+    animation:flick 7s steps(1,end) infinite; }
+  @keyframes flick{ 0%,96%{ opacity:.86 } 97%{ opacity:1 } 98%{ opacity:.86 } 100%{ opacity:.94 } }
+  .glass{ position:absolute; inset:0; z-index:3; pointer-events:none; border-radius:16px; overflow:hidden; }
+  .glass::before{
+    content:""; position:absolute; inset:-6%;
+    background:repeating-linear-gradient(180deg, rgba(0,0,0,var(--scan)) 0 2px, rgba(0,0,0,0) 2px 4px);
+    animation:crawl 1.6s steps(6,end) infinite;
+  }
+  @keyframes crawl{ from{ transform:translateY(0) } to{ transform:translateY(-4px) } }
+  .glass::after{
+    content:""; position:absolute; inset:0;
+    border-radius:34% 34% 32% 32% / 14% 14% 12% 12%;
+    box-shadow:inset 0 0 92px 26px rgba(0,0,0,.74), inset 0 0 26px 4px rgba(0,60,30,.35);
+    background:linear-gradient(112deg, rgba(255,255,255,.055) 0 18%, rgba(255,255,255,0) 46%);
+  }
+
+  /* ---------- phosphor type ---------- */
+  .screen-inner, .screen-inner *{ text-shadow:
+    1px 0 rgba(255,60,90,.30), -1px 0 rgba(70,220,255,.26), 0 0 9px rgba(121,255,143,.34); }
+  .status{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    border-bottom:2px solid var(--phos-dark); padding-bottom:9px; margin-bottom:16px;
+    font-family:var(--pixel); font-size:clamp(7px,.82vw,9px); letter-spacing:.06em; color:var(--phos-dim);
+  }
+  .status h1{
+    margin:0; font-family:var(--pixel); font-weight:400;
+    font-size:clamp(10px,1.4vw,15px); letter-spacing:.04em; color:var(--phos);
+    text-shadow:0 0 12px rgba(121,255,143,.6), 2px 0 rgba(255,60,90,.3), -2px 0 rgba(70,220,255,.3);
+  }
+  .status .st{ margin-left:auto; }
+  .status .st.ok{ color:var(--phos); }
+  .status .st.warn{ color:var(--amber); }
+  .boot{ font-family:var(--term); font-size:clamp(17px,2.05vw,24px); line-height:1.32; color:var(--phos); }
+  .boot p{ margin:0 0 2px; white-space:pre-wrap; overflow-wrap:break-word;
+    animation:type .3s steps(22,end) both; }
+  @keyframes type{ from{ clip-path:inset(0 100% 0 0) } to{ clip-path:inset(0 0 0 0) } }
+  .boot .dim{ color:var(--phos-dim); }
+  .boot .amber{ color:var(--amber); }
+  .boot .red{ color:var(--red); }
+  .cursor{ display:inline-block; width:.5em; height:1em; background:var(--phos);
+    vertical-align:-.12em; animation:blink 1s steps(1,end) infinite;
+    box-shadow:0 0 9px rgba(121,255,143,.6); }
+  @keyframes blink{ 0%,48%{ opacity:1 } 49%,100%{ opacity:0 } }
+  .bar{ color:var(--amber); letter-spacing:0; }
+  .hint{ margin-top:16px; font-family:var(--pixel); font-size:clamp(6.5px,.78vw,8.5px);
+    color:var(--phos-dim); letter-spacing:.08em; line-height:2; }
+  .hint b{ color:var(--amber); }
+
+  /* ---------- menu ---------- */
+  .menu{ list-style:none; margin:0; padding:0; }
+  .menu li{ margin:0 0 3px; }
+  .menu button{
+    display:flex; align-items:baseline; gap:12px; width:100%; text-align:left; cursor:pointer;
+    font-family:var(--term); font-size:clamp(18px,2.2vw,26px); line-height:1.2;
+    color:var(--phos); background:transparent; border:0; padding:5px 10px;
+    transition:background-color 90ms steps(2,end), color 90ms steps(2,end), box-shadow 90ms steps(2,end);
+  }
+  .menu .cur{ color:var(--amber); opacity:0; }
+  .menu .num{ font-family:var(--pixel); font-size:.44em; color:var(--phos-dim); }
+  .menu .sub{ margin-left:auto; font-size:.6em; color:var(--phos-dim); letter-spacing:.05em; text-transform:uppercase; }
+  .menu button:hover, .menu button:focus-visible, .menu button.sel{
+    background:var(--phos); color:#04140a;
+    box-shadow:0 0 18px rgba(121,255,143,.45);
+  }
+  .menu button:hover .cur, .menu button:focus-visible .cur,
+  .menu button:hover .num, .menu button:focus-visible .num,
+  .menu button:hover .sub, .menu button:focus-visible .sub,
+  .menu button.sel .cur, .menu button.sel .num, .menu button.sel .sub{ color:#04140a; }
+  .menu button:hover .cur, .menu button:focus-visible .cur, .menu button.sel .cur{ opacity:1; }
+
+  /* ---------- panels ---------- */
+  .panel h2{
+    font-family:var(--pixel); font-size:clamp(10px,1.4vw,15px); font-weight:400;
+    color:var(--amber); letter-spacing:.05em; margin:0 0 14px;
+  }
+  .panel .term{ font-family:var(--term); font-size:clamp(17px,2vw,24px); line-height:1.36; margin:0 0 12px; }
+  .panel .kv{ display:grid; grid-template-columns:minmax(120px,auto) minmax(0,1fr); gap:2px 18px; margin:0 0 16px; }
+  .panel .kv dt{ color:var(--phos-dim); font-size:clamp(16px,1.9vw,22px); }
+  .panel .kv dd{ margin:0; font-size:clamp(16px,1.9vw,22px); }
+  .panel pre{
+    font-family:var(--term); font-size:clamp(13px,1.55vw,20px); line-height:1.16;
+    color:var(--phos); margin:0 0 16px; overflow-x:auto;
+  }
+  .panel ul{ list-style:none; margin:0 0 14px; padding:0; font-size:clamp(16px,1.95vw,23px); }
+  .panel li{ padding:3px 0; }
+  .panel li b{ color:var(--amber); font-weight:400; }
+  .task{
+    display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px; list-style:none; padding:0;
+  }
+  .task button{
+    font-family:var(--pixel); font-size:clamp(6.5px,.8vw,9px); line-height:1.6;
+    color:var(--phos); background:#0b1a11; border:2px solid var(--phos-dark);
+    padding:8px 10px; cursor:pointer;
+    transition:background-color 90ms steps(2,end), color 90ms steps(2,end), border-color 90ms steps(2,end);
+  }
+  .task button:hover,.task button:focus-visible{ background:var(--phos); color:#04140a; border-color:var(--phos); }
+  .task button[aria-pressed="true"]{ background:var(--amber); color:#1a0f00; border-color:var(--amber); }
+  .backbtn{
+    font-family:var(--pixel); font-size:clamp(6.5px,.8vw,9px); line-height:1.6;
+    color:var(--phos-dim); background:transparent; border:2px solid var(--phos-dark);
+    padding:8px 10px; cursor:pointer; margin-top:6px;
+    transition:color 90ms steps(2,end), border-color 90ms steps(2,end);
+  }
+  .backbtn:hover,.backbtn:focus-visible{ color:var(--phos); border-color:var(--phos); }
+  .meter{ color:var(--amber); }
+
+  /* ---------- controls ---------- */
+  .controls{
+    display:flex; align-items:center; gap:clamp(12px,2.4vw,30px); flex-wrap:wrap;
+    padding:clamp(10px,1.6vw,18px) clamp(6px,1.4vw,18px) 2px;
+  }
+  .knob-wrap{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .knob{
+    position:relative; width:clamp(46px,4.6vw,62px); height:clamp(46px,4.6vw,62px);
+    border-radius:50%; cursor:pointer; border:0; padding:0;
+    background:radial-gradient(circle at 36% 30%, #40444a 0%, #22252a 55%, #131519 100%);
+    box-shadow:inset 0 -5px 10px rgba(0,0,0,.75), 0 3px 8px rgba(0,0,0,.7), 0 0 0 2px #0c0e11;
+    transform:rotate(var(--knob,-40deg));
+  }
+  .knob::after{
+    content:""; position:absolute; left:50%; top:5px; width:3px; height:32%;
+    margin-left:-1.5px; background:var(--amber); box-shadow:0 0 6px rgba(255,194,77,.6);
+  }
+  .knob:focus-visible{ outline:3px solid var(--amber); outline-offset:3px; }
+  .knob-lab{ font-family:var(--pixel); font-size:clamp(5.5px,.66vw,7.5px); color:#767d83; letter-spacing:.08em; }
+  .led-wrap{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .led{
+    width:14px; height:14px; border-radius:50%;
+    background:#25332a; box-shadow:inset 0 0 4px rgba(0,0,0,.8), 0 0 0 2px #0b0d10;
+  }
+  .led.booting{ background:var(--amber); animation:led-flick .22s steps(2,end) infinite; }
+  .led.ready{ background:#4dff88; box-shadow:0 0 12px 3px rgba(77,255,136,.55), inset 0 0 4px rgba(255,255,255,.5), 0 0 0 2px #0b0d10; }
+  .led.off{ background:#1b2026; }
+  @keyframes led-flick{ 0%{ opacity:1 } 100%{ opacity:.25 } }
+  .vents.big i{ height:26px; width:4px; }
+  .caption{
+    font-family:var(--pixel); font-size:clamp(6px,.72vw,8px);
+    color:#5f676d; letter-spacing:.1em; text-align:center; margin:0; line-height:2;
+  }
+
+  .knob{ touch-action:none; user-select:none; -webkit-user-select:none; }
+  .boot.done{ opacity:.5; }
+  .caption a{ color:var(--phos-dim); text-decoration:underline; text-underline-offset:3px; }
+  .caption a:hover,.caption a:focus-visible{ color:var(--phos); }
+
+  @media (max-width:760px){
+    body{ align-items:flex-start; padding-top:48px; }
+    .bezel{ border-radius:20px; }
+    .plate .spec{ display:none; }
+    .screen{ height:clamp(420px,74vh,620px); }
+    .knob{ --knob:-40deg; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .glow{ animation:none; opacity:1; }
+    .glass::before{ animation:none; }
+    .boot p{ animation:none; }
+    .led.booting{ animation:none; }
+    .cursor{ animation:none; }
+  }
+</style>
+</head>
+<body>
+<a class="backlink" href="../index.html" title="Back to gallery">[ESC] GALLERY</a>
+
+<div class="room">
+  <div class="bezel">
+    <div class="plate">
+      <span class="brand">AGENT <b>01</b></span>
+      <span class="vents" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </span>
+      <span class="spec">MODEL CRT-04 &nbsp;/&nbsp; 640K &nbsp;/&nbsp; 2 COLOUR MATRIX</span>
+    </div>
+
+    <div class="screen-shell">
+      <div class="screen">
+        <div class="glow" aria-hidden="true"></div>
+
+        <div class="screen-inner" id="screenInner">
+          <div class="status">
+            <h1>AGENT/01</h1>
+            <span>REV 0.4.2</span>
+            <span>MEM 640K</span>
+            <span class="st warn" id="statusText">BOOTING</span>
+          </div>
+
+          <div class="boot" id="boot"></div>
+
+          <div id="ui" hidden>
+            <div id="menuBlock">
+              <ul class="menu" id="menu" aria-label="Agent terminal menu">
+                <li><button type="button" data-panel="p-status"><span class="cur" aria-hidden="true">&gt;</span><span class="num">1</span>STATUS<span class="sub">in flight</span></button></li>
+                <li><button type="button" data-panel="p-caps"><span class="cur" aria-hidden="true">&gt;</span><span class="num">2</span>CAPABILITIES<span class="sub">six</span></button></li>
+                <li><button type="button" data-panel="p-arch"><span class="cur" aria-hidden="true">&gt;</span><span class="num">3</span>ARCHITECTURE<span class="sub">diagram</span></button></li>
+                <li><button type="button" data-panel="p-run"><span class="cur" aria-hidden="true">&gt;</span><span class="num">4</span>RUN A TASK<span class="sub">demo</span></button></li>
+                <li><button type="button" data-panel="p-about"><span class="cur" aria-hidden="true">&gt;</span><span class="num">5</span>ABOUT<span class="sub">credits</span></button></li>
+              </ul>
+              <p class="hint">
+                <b>UP/DOWN</b> SELECT &nbsp; <b>ENTER</b> OPEN &nbsp; <b>1-5</b> JUMP &nbsp; <b>MOUSE</b> WORKS TOO<br>
+                TURN THE KNOBS BELOW THE SCREEN. THEY DO SOMETHING.
+              </p>
+            </div>
+              <section class="panel" id="p-status" hidden tabindex="-1" aria-labelledby="h-status">
+                <h2 id="h-status">SYSTEM STATUS</h2>
+                <dl class="kv">
+                  <dt>TASK</dt><dd>refactor auth/session.ts</dd>
+                  <dt>PHASE</dt><dd>PLAN &mdash; 2 OF 4</dd>
+                  <dt>CONTEXT</dt><dd>183K / 400K TOKENS</dd>
+                  <dt>RUNS</dt><dd>9 STORED IN ./agent01/runs/</dd>
+                  <dt>REVERT</dt><dd>agent01 revert --last</dd>
+                </dl>
+                <p class="term">BUDGET <span class="meter">[##########----------]</span> 46%</p>
+                <p class="term">LAST RUN 14 MAR 09:41 &nbsp; OK &nbsp; 6 FILES &nbsp; 1 TEST FIXED &nbsp; 0 REFUSALS</p>
+                <button class="backbtn" type="button" data-back>[ESC] BACK TO MENU</button>
+              </section>
+
+              <section class="panel" id="p-caps" hidden tabindex="-1" aria-labelledby="h-caps">
+                <h2 id="h-caps">CAPABILITIES &mdash; SIX</h2>
+                <ul>
+                  <li><b>READ</b> &mdash; whole tree, imports resolved, files opened end to end</li>
+                  <li><b>PLAN</b> &mdash; numbered edits in plain language, one reason each</li>
+                  <li><b>EDIT</b> &mdash; unified diffs, held until you approve</li>
+                  <li><b>VERIFY</b> &mdash; runs your own tests and type checks</li>
+                  <li><b>MIGRATE</b> &mdash; rewrites call sites, reports what it cannot resolve</li>
+                  <li><b>REMEMBER</b> &mdash; local run history, delete it whenever you like</li>
+                </ul>
+                <p class="term">NO WRITE IS EVER MADE TO A FILE THE AGENT HAS NOT READ IN FULL.</p>
+                <button class="backbtn" type="button" data-back>[ESC] BACK TO MENU</button>
+              </section>
+
+              <section class="panel" id="p-arch" hidden tabindex="-1" aria-labelledby="h-arch">
+                <h2 id="h-arch">HOW IT READS AND WRITES</h2>
+                <pre>  .--------.     .---------.     .--------.
+  |  READ  | --> |  PLAN   | --> |  EDIT  |
+  '--------'     '---------'     '--------'
+       |              |              |
+       v              v              v
+   [ HASH ]       [  LOG  ]      [ DIFF  ]
+       |              |              |
+       '------> [ YOUR APPROVAL ] <--'
+                      |
+                      v
+                [ TESTS RUN ]
+                      |
+                      v
+              [ PASS / FAIL / ? ]</pre>
+                <p class="term">THE HASH TRAVELS WITH EVERY DIFF. IF THE FILE CHANGED WHILE THE AGENT THOUGHT, THE WRITE IS REFUSED.</p>
+                <button class="backbtn" type="button" data-back>[ESC] BACK TO MENU</button>
+              </section>
+
+              <section class="panel" id="p-run" hidden tabindex="-1" aria-labelledby="h-run">
+                <h2 id="h-run">QUEUE A TASK</h2>
+                <ul class="task">
+                  <li><button type="button" data-task="fix">FIX FAILING TEST</button></li>
+                  <li><button type="button" data-task="rename">RENAME SYMBOL</button></li>
+                  <li><button type="button" data-task="migrate">DRAFT MIGRATION</button></li>
+                  <li><button type="button" data-task="explain">EXPLAIN DIFF</button></li>
+                </ul>
+                <div class="term" id="runOut" role="status" aria-live="polite"><p>&gt; AWAITING TASK.</p></div>
+                <button class="backbtn" type="button" data-back>[ESC] BACK TO MENU</button>
+              </section>
+
+              <section class="panel" id="p-about" hidden tabindex="-1" aria-labelledby="h-about">
+                <h2 id="h-about">ABOUT</h2>
+                <p class="term">AGENT/01 IS A LOCAL CODE AGENT FOR PEOPLE WHO READ THEIR DIFFS. IT RUNS ON YOUR MACHINE, IN ONE DIRECTORY, FOR ONE RUN.</p>
+                <dl class="kv">
+                  <dt>LICENCE</dt><dd>MIT &mdash; no account, no telemetry</dd>
+                  <dt>PLATFORMS</dt><dd>macOS / Linux / Windows</dd>
+                  <dt>CONTACT</dt><dd>mail@agent01.dev</dd>
+                  <dt>SET IN</dt><dd>PRESS START 2P &amp; VT323</dd>
+                </dl>
+                <p class="term">DRAW THIS MACHINE AS A GIFT FOR THE PERSON WHO STILL READS ASSEMBLY.</p>
+                <button class="backbtn" type="button" data-back>[ESC] BACK TO MENU</button>
+              </section>
+
+          </div>
+        </div>
+
+        <div class="glass" aria-hidden="true"></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <span class="led-wrap">
+        <span class="led booting" id="led" role="img" aria-label="Power lamp: booting"></span>
+        <span class="knob-lab">POWER</span>
+      </span>
+
+      <div class="knob-wrap">
+        <div class="knob" id="knobBright" role="slider" tabindex="0" aria-label="Screen brightness"
+             aria-valuemin="45" aria-valuemax="145" aria-valuenow="100" aria-valuetext="Brightness 100 percent"
+             style="--knob:-40deg"></div>
+        <span class="knob-lab">BRIGHT</span>
+      </div>
+
+      <div class="knob-wrap">
+        <div class="knob" id="knobScan" role="slider" tabindex="0" aria-label="Scanline strength"
+             aria-valuemin="0" aria-valuemax="70" aria-valuenow="30" aria-valuetext="Scanlines 30 percent"
+             style="--knob:-104deg"></div>
+        <span class="knob-lab">SCAN</span>
+      </div>
+
+      <span class="vents big" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </span>
+      <span class="knob-lab" style="margin-left:auto">FCC ID 640K-01 &nbsp;/&nbsp; MADE 2026</span>
+    </div>
+  </div>
+
+  <p class="caption">
+    MODEL CRT-04 &middot; SET IN PRESS START 2P AND VT323 &middot; EVERY ANIMATION IS STEPS()
+    <br>NOTHING ON THIS MACHINE EASES SMOOTHLY &middot; <a href="../index.html">TWENTY DESIGNS</a>
+  </p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var bootEl = document.getElementById("boot");
+  var ui = document.getElementById("ui");
+  var led = document.getElementById("led");
+  var statusText = document.getElementById("statusText");
+  var screenInner = document.getElementById("screenInner");
+  if (!bootEl || !ui || !led) { return; }
+
+  var reduceMQ = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+  var reduce = !!(reduceMQ && reduceMQ.matches);
+
+  var bootTimers = [], bootIntervals = [];
+  var taskTimers = [], taskIntervals = [];
+
+  function clearAll(t, iv) {
+    var i;
+    for (i = 0; i < t.length; i++) { window.clearTimeout(t[i]); }
+    for (i = 0; i < iv.length; i++) { window.clearInterval(iv[i]); }
+    t.length = 0;
+    iv.length = 0;
+  }
+  function drop(list, id) {
+    var at = list.indexOf(id);
+    if (at > -1) { list.splice(at, 1); }
+  }
+  function bar(fill, width) {
+    var s = "", i;
+    for (i = 0; i < width; i++) { s += (i < fill ? "#" : "-"); }
+    return s;
+  }
+  function toBottom() {
+    if (screenInner) { screenInner.scrollTop = screenInner.scrollHeight; }
+  }
+  function line(html, cls) {
+    var p = document.createElement("p");
+    if (cls) { p.className = cls; }
+    p.innerHTML = html;
+    bootEl.appendChild(p);
+    toBottom();
+    return p;
+  }
+
+  var booted = false;
+
+  function finishBoot() {
+    if (booted) { return; }
+    booted = true;
+    clearAll(bootTimers, bootIntervals);
+    bootEl.classList.add("done");
+    led.className = "led ready";
+    led.setAttribute("aria-label", "Power lamp: ready");
+    if (statusText) {
+      statusText.textContent = "READY";
+      statusText.className = "st ok";
+    }
+    ui.hidden = false;
+    toBottom();
+  }
+
+  function runBoot() {
+    led.className = "led booting";
+    bootEl.innerHTML = "";
+
+    line("AGENT/01 BIOS &nbsp;REV 0.4.2", "dim");
+
+    bootTimers.push(window.setTimeout(function () {
+      line("CPU 6510 @ 1.02 MHZ .......... <span class='dim'>OK</span>");
+    }, 260));
+
+    bootTimers.push(window.setTimeout(function () {
+      line("MEMORY TEST");
+      var counter = document.createElement("p");
+      counter.className = "amber";
+      bootEl.appendChild(counter);
+      var kb = 0;
+      var iv = window.setInterval(function () {
+        kb += 32;
+        counter.textContent = "  " + kb + "K  [" + bar(Math.round((kb / 640) * 18), 18) + "]" + (kb >= 640 ? "  OK" : "");
+        toBottom();
+        if (kb >= 640) { window.clearInterval(iv); drop(bootIntervals, iv); }
+      }, 88);
+      bootIntervals.push(iv);
+    }, 520));
+
+    bootTimers.push(window.setTimeout(function () {
+      line("ROM CHECKSUM 0x4A1F .......... <span class='dim'>OK</span>");
+    }, 2450));
+
+    bootTimers.push(window.setTimeout(function () {
+      line("MOUNT .\\WORKSPACE ............ <span class='dim'>OK</span>");
+    }, 2650));
+
+    bootTimers.push(window.setTimeout(function () {
+      var p = line("LOAD AGENT CORE");
+      var n = 0;
+      var iv = window.setInterval(function () {
+        n++;
+        p.textContent = "LOAD AGENT CORE [" + bar(n, 18) + "]" + (n >= 18 ? "  OK" : "");
+        toBottom();
+        if (n >= 18) { window.clearInterval(iv); drop(bootIntervals, iv); }
+      }, 34);
+      bootIntervals.push(iv);
+    }, 2860));
+
+    bootTimers.push(window.setTimeout(function () {
+      var p = line("<span class='amber'>READY.</span>");
+      var cur = document.createElement("span");
+      cur.className = "cursor";
+      cur.setAttribute("aria-hidden", "true");
+      p.appendChild(document.createTextNode(" "));
+      p.appendChild(cur);
+      finishBoot();
+    }, 3700));
+
+    bootTimers.push(window.setTimeout(toBottom, 3800));
+  }
+  var menuButtons = Array.prototype.slice.call(document.querySelectorAll("#menu button[data-panel]"));
+  var menuBlock = document.getElementById("menuBlock");
+  var runOut = document.getElementById("runOut");
+  var selected = 0, openPanelEl = null, k;
+
+  function select(i, focusIt) {
+    if (!menuButtons.length) { return; }
+    selected = ((i % menuButtons.length) + menuButtons.length) % menuButtons.length;
+    for (k = 0; k < menuButtons.length; k++) {
+      if (k === selected) { menuButtons[k].classList.add("sel"); }
+      else { menuButtons[k].classList.remove("sel"); }
+    }
+    if (focusIt) { menuButtons[selected].focus(); }
+  }
+
+  function openPanel(id) {
+    var panel = document.getElementById(id);
+    if (!panel) { return; }
+    if (openPanelEl) { openPanelEl.hidden = true; }
+    if (menuBlock) { menuBlock.hidden = true; }
+    panel.hidden = false;
+    openPanelEl = panel;
+    if (screenInner) { screenInner.scrollTop = 0; }
+    panel.focus();
+  }
+
+  function goMenu() {
+    if (openPanelEl) { openPanelEl.hidden = true; openPanelEl = null; }
+    if (menuBlock) { menuBlock.hidden = false; }
+    if (screenInner) { screenInner.scrollTop = 0; }
+    menuButtons[selected].focus();
+  }
+
+  for (k = 0; k < menuButtons.length; k++) {
+    (function (btn, index) {
+      btn.addEventListener("click", function () { openPanel(btn.getAttribute("data-panel")); });
+      btn.addEventListener("mouseenter", function () { select(index, false); });
+      btn.addEventListener("focus", function () { select(index, false); });
+    })(menuButtons[k], k);
+  }
+
+  var backBtns = Array.prototype.slice.call(document.querySelectorAll("[data-back]"));
+  for (k = 0; k < backBtns.length; k++) { backBtns[k].addEventListener("click", goMenu); }
+
+  /* ---------- scripted task runs ---------- */
+  var TASKS = {
+    fix: [
+      { t: "> agent01 fix --test", cls: "amber", wait: 240 },
+      { bar: "READ  23 FILES", end: "OK", ms: 400, wait: 560 },
+      { t: "PLAN  ITEM 1  session.ts:88  expired token never refreshed", wait: 300 },
+      { t: "PLAN  ITEM 2  session.test.ts:41  assert the refresh window", wait: 300 },
+      { t: "DIFF  +4 -3  HELD FOR APPROVAL", cls: "amber", wait: 360 },
+      { bar: "TEST  npm test", end: "1 FAIL", ms: 470, wait: 640 },
+      { t: "RESULT  PARTIAL  5 PASS  1 FAIL  REPORTED, NOT HIDDEN", cls: "amber", wait: 0 }
+    ],
+    rename: [
+      { t: "> agent01 plan --rename readFile readSource", cls: "amber", wait: 240 },
+      { bar: "SCAN  410 FILES", end: "OK", ms: 460, wait: 620 },
+      { t: "CALL SITES  17  RESOLVED  15  NEEDS YOU  2", wait: 320 },
+      { t: "  src/io.ts:41  dynamic import, cannot verify statically", wait: 320 },
+      { t: "DIFF  15 FILES  HELD FOR APPROVAL", cls: "amber", wait: 0 }
+    ],
+    migrate: [
+      { t: "> agent01 migrate --to v3-interface", cls: "amber", wait: 240 },
+      { bar: "READ  INTERFACE v3", end: "OK", ms: 380, wait: 520 },
+      { t: "CALL SITES  44  REWRITTEN  41", wait: 320 },
+      { t: "  UNRESOLVED  3   REPORTED, NO ARGUMENTS INVENTED", wait: 320 },
+      { bar: "VERIFY  tsc --noEmit", end: "OK", ms: 520, wait: 680 },
+      { t: "RESULT  READY FOR REVIEW", cls: "amber", wait: 0 }
+    ],
+    explain: [
+      { t: "> agent01 diff --explain HEAD~1", cls: "amber", wait: 240 },
+      { t: "HUNK 1/2  session.ts  refresh before write", wait: 300 },
+      { t: "HUNK 2/2  session.test.ts  assert the new window", wait: 300 },
+      { t: "NO FILE WAS MODIFIED BY THIS COMMAND", cls: "amber", wait: 0 }
+    ]
+  };
+
+  function taskLine(text, cls) {
+    var p = document.createElement("p");
+    if (cls) { p.className = cls; }
+    p.textContent = text;
+    runOut.appendChild(p);
+    toBottom();
+    return p;
+  }
+
+  function taskBar(base, endWord, ms) {
+    var p = taskLine(base + " [" + bar(0, 20) + "]");
+    var n = 0;
+    var iv = window.setInterval(function () {
+      n++;
+      var done = n >= 20;
+      p.textContent = base + " [" + bar(done ? 20 : n, 20) + "]" + (done ? "  " + endWord : "");
+      toBottom();
+      if (done) { window.clearInterval(iv); drop(taskIntervals, iv); }
+    }, Math.max(16, ms / 20));
+    taskIntervals.push(iv);
+  }
+
+  function runTask(key) {
+    if (!runOut) { return; }
+    clearAll(taskTimers, taskIntervals);
+    runOut.innerHTML = "";
+    var steps = TASKS[key];
+    if (!steps) { return; }
+    var cur = 0;
+    function next() {
+      if (cur >= steps.length) { return; }
+      var s = steps[cur];
+      cur++;
+      if (s.bar) { taskBar(s.bar, s.end, s.ms); }
+      else { taskLine(s.t, s.cls); }
+      if (s.wait > 0) { taskTimers.push(window.setTimeout(next, s.wait)); }
+    }
+    next();
+  }
+
+  var taskBtns = Array.prototype.slice.call(document.querySelectorAll(".task button[data-task]"));
+  for (k = 0; k < taskBtns.length; k++) {
+    (function (btn) {
+      btn.addEventListener("click", function () {
+        for (var n = 0; n < taskBtns.length; n++) {
+          taskBtns[n].setAttribute("aria-pressed", taskBtns[n] === btn ? "true" : "false");
+        }
+        runTask(btn.getAttribute("data-task"));
+      });
+    })(taskBtns[k]);
+  }
+  /* ---------- the two knobs do real work ---------- */
+  function setupKnob(el, opts) {
+    var val = opts.value;
+    function render() {
+      var pct = (val - opts.min) / (opts.max - opts.min);
+      el.style.setProperty("--knob", (opts.start + pct * opts.span).toFixed(1) + "deg");
+      el.setAttribute("aria-valuenow", String(val));
+      el.setAttribute("aria-valuetext", opts.label + " " + val + " percent");
+      opts.apply(val);
+    }
+    function set(v) {
+      var next = Math.round(v);
+      if (next < opts.min) { next = opts.min; }
+      if (next > opts.max) { next = opts.max; }
+      if (next === val) { return; }
+      val = next;
+      render();
+    }
+    el.addEventListener("keydown", function (e) {
+      var key = e.key, used = true;
+      if (key === "ArrowUp" || key === "ArrowRight") { set(val + opts.step); }
+      else if (key === "ArrowDown" || key === "ArrowLeft") { set(val - opts.step); }
+      else if (key === "PageUp") { set(val + opts.step * 4); }
+      else if (key === "PageDown") { set(val - opts.step * 4); }
+      else if (key === "Home") { set(opts.min); }
+      else if (key === "End") { set(opts.max); }
+      else { used = false; }
+      if (used) { e.preventDefault(); }
+    });
+    var drag = false, y0 = 0, v0 = 0;
+    el.addEventListener("pointerdown", function (e) {
+      drag = true;
+      y0 = e.clientY;
+      v0 = val;
+      if (el.setPointerCapture && e.pointerId !== undefined) { el.setPointerCapture(e.pointerId); }
+      e.preventDefault();
+    });
+    el.addEventListener("pointermove", function (e) {
+      if (!drag) { return; }
+      set(v0 + ((y0 - e.clientY) * (opts.max - opts.min)) / 150);
+    });
+    el.addEventListener("pointerup", function () { drag = false; });
+    el.addEventListener("pointercancel", function () { drag = false; });
+    render();
+  }
+
+  var knobB = document.getElementById("knobBright");
+  if (knobB) {
+    setupKnob(knobB, {
+      min: 45, max: 145, value: 100, step: 5, start: -140, span: 280, label: "Brightness",
+      apply: function (v) { document.documentElement.style.setProperty("--bright", (v / 100).toFixed(3)); }
+    });
+  }
+  var knobS = document.getElementById("knobScan");
+  if (knobS) {
+    setupKnob(knobS, {
+      min: 0, max: 70, value: 30, step: 2, start: -140, span: 280, label: "Scanlines",
+      apply: function (v) { document.documentElement.style.setProperty("--scan", (v / 100).toFixed(2)); }
+    });
+  }
+
+  /* ---------- keyboard: arrows drive the menu, ESC comes back ---------- */
+  document.addEventListener("keydown", function (e) {
+    var t = e.target;
+    if (t && t.classList && t.classList.contains("knob")) { return; }
+    if (!booted) { finishBoot(); return; }
+    var key = e.key;
+    if (openPanelEl) {
+      if (key === "Escape") { e.preventDefault(); goMenu(); }
+      return;
+    }
+    if (key === "ArrowDown" || key === "ArrowRight") { e.preventDefault(); select(selected + 1, true); }
+    else if (key === "ArrowUp" || key === "ArrowLeft") { e.preventDefault(); select(selected - 1, true); }
+    else if (key === "Home") { e.preventDefault(); select(0, true); }
+    else if (key === "End") { e.preventDefault(); select(menuButtons.length - 1, true); }
+    else if (key.length === 1 && key >= "1" && key <= "9") {
+      var idx = parseInt(key, 10) - 1;
+      if (menuButtons[idx]) {
+        e.preventDefault();
+        select(idx, false);
+        openPanel(menuButtons[idx].getAttribute("data-panel"));
+      }
+    }
+  });
+
+  var bezel = document.querySelector(".bezel");
+  if (bezel) {
+    bezel.addEventListener("pointerdown", function () { if (!booted) { finishBoot(); } });
+  }
+
+  select(0, false);
+
+  if (reduce) {
+    led.className = "led ready";
+    led.setAttribute("aria-label", "Power lamp: ready");
+    line("AGENT/01 BIOS &nbsp;REV 0.4.2", "dim");
+    line("MEMORY 640K <span class='dim'>OK</span> &nbsp; WORKSPACE MOUNTED <span class='dim'>OK</span>", "dim");
+    line("<span class='amber'>READY.</span>");
+    finishBoot();
+  } else {
+    runBoot();
+  }
+
+
+})();
+</script>
+</body>
+</html>

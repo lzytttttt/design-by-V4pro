@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notebook 04 — The retry budget, explained as a program</title>
+<meta name="description" content="A literate-programming notebook where every claim about the agent is an executable cell.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  --paper: #fcfbf7;
+  --paper-2: #f5f3ec;
+  --paper-3: #eeece3;
+  --ink: #23211c;
+  --ink-2: #56534a;
+  --ink-3: #8b877b;
+  --rule: #ddd8ca;
+  --rule-soft: #e8e4d9;
+  --accent: #2f5d8c;          /* muted ink blue */
+  --accent-soft: #dbe5ef;
+  --mark: #b4553a;            /* annotation red, used sparingly */
+  --add: #2f6a45;
+  --add-bg: #e8f2ea;
+  --del: #a23b2c;
+  --del-bg: #f7e9e6;
+  --kw: #7a3f8f;
+  --str: #2f6a45;
+  --num: #9a5b1f;
+  --com: #9a958a;
+  --fn: #2f5d8c;
+  --serif: 'Newsreader', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --ease: cubic-bezier(.22,.68,.18,1);
+  --ease-out: cubic-bezier(.16,1,.3,1);
+}
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: clamp(16.5px, 1.05vw + 12.6px, 19px);
+  line-height: 1.72;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,.7), rgba(255,255,255,0) 260px),
+    repeating-linear-gradient(180deg, rgba(35,33,28,.018) 0 1px, rgba(0,0,0,0) 1px 27px);
+}
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+
+/* reading progress rule */
+#progress {
+  position: fixed;
+  top: 0; left: 0;
+  height: 2px;
+  width: 0%;
+  background: var(--accent);
+  z-index: 60;
+  transition: width .12s linear;
+}
+
+/* ---------- back to gallery ---------- */
+.back {
+  position: fixed;
+  top: 16px; left: 20px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: .5em;
+  padding: .42em .7em .42em .55em;
+  font: 500 10.5px/1 var(--mono);
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  text-decoration: none;
+  opacity: .5;
+  transition: opacity .3s var(--ease), color .3s var(--ease), border-color .3s var(--ease), transform .3s var(--ease);
+}
+.back:hover, .back:focus-visible { opacity: 1; color: var(--accent); border-color: var(--accent); transform: translateY(-1px); }
+
+/* ---------- page frame ---------- */
+.wrap {
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 0 clamp(18px, 4vw, 56px) 90px;
+}
+
+.topline {
+  padding: 30px 0 20px;
+  padding-left: clamp(0px, 15vw, 172px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 26px;
+  border-bottom: 1px solid var(--ink);
+}
+.brand {
+  font: 500 12px/1 var(--mono);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+}
+.brand span { color: var(--ink-3); }
+.topline .meta {
+  font: 400 11px/1.6 var(--mono);
+  color: var(--ink-3);
+  letter-spacing: .04em;
+}
+.topline .tools { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+
+.runall {
+  appearance: none;
+  cursor: pointer;
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  padding: .62em .95em;
+  transition: background .3s var(--ease), color .3s var(--ease), transform .3s var(--ease), box-shadow .3s var(--ease);
+}
+.runall:hover { background: var(--accent); border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 3px 0 -1px rgba(35,33,28,.18); }
+.runall:disabled { opacity: .45; cursor: default; transform: none; box-shadow: none; }
+
+/* ---------- masthead ---------- */
+.masthead { padding: clamp(30px, 5vw, 64px) 0 clamp(22px, 3vw, 38px); max-width: 22ch; }
+.kicker {
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: var(--mark);
+  margin: 0 0 20px;
+}
+h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(34px, 4.6vw, 62px);
+  line-height: 1.04;
+  letter-spacing: -.022em;
+  margin: 0 0 22px;
+  max-width: 20ch;
+}
+h1 em { font-style: italic; }
+.masthead .standfirst {
+  font-size: 1.02em;
+  line-height: 1.68;
+  color: var(--ink-2);
+  max-width: 42ch;
+  margin: 0;
+}
+
+/* ---------- sections: number | prose | margin ---------- */
+.sec {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 232px;
+  column-gap: clamp(20px, 3vw, 44px);
+  padding: clamp(34px, 4vw, 52px) 0;
+  border-top: 1px solid var(--rule);
+}
+.sec:first-of-type { border-top-color: var(--ink); }
+.num {
+  font: 500 11px/1.9 var(--mono);
+  letter-spacing: .1em;
+  color: var(--accent);
+  padding-top: .45em;
+}
+.num b { display: block; font-weight: 500; font-size: 19px; color: var(--ink-3); letter-spacing: .02em; }
+.prose { grid-column: 2; max-width: 64ch; }
+.prose > * + * { margin-top: 1.05em; }
+h2 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: clamp(23px, 2.1vw, 30px);
+  line-height: 1.22;
+  letter-spacing: -.012em;
+  margin: 0 0 .5em;
+}
+h2 .h2note { font: 400 12px/1 var(--mono); color: var(--ink-3); letter-spacing: .06em; margin-left: .8em; vertical-align: .18em; }
+.prose p { margin: 0; }
+.prose em { font-style: italic; }
+.prose code {
+  font: 400 .84em/1 var(--mono);
+  background: var(--paper-3);
+  border-radius: 2px;
+  padding: .12em .34em;
+  color: var(--ink);
+}
+.prose .aside-lede { font-size: .95em; color: var(--ink-2); }
+
+.notes {
+  grid-column: 3;
+  border-left: 1px solid var(--rule);
+  padding-left: clamp(14px, 1.6vw, 24px);
+}
+.notes > div { position: sticky; top: 26px; }
+.notes p {
+  font-size: .82em;
+  line-height: 1.58;
+  color: var(--ink-2);
+  margin: 0 0 1em;
+  font-style: italic;
+}
+.notes p b {
+  display: block;
+  font: 500 10px/1.6 var(--mono);
+  font-style: normal;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--mark);
+  margin-bottom: .35em;
+}
+.notes .tick { font: 400 10.5px/1.7 var(--mono); font-style: normal; color: var(--ink-3); letter-spacing: .04em; }
+
+/* ---------- cells ---------- */
+.cell {
+  grid-column: 2;
+  margin-top: 1.7em;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: #fff;
+  overflow: hidden;
+  transition: border-color .35s var(--ease), box-shadow .35s var(--ease);
+}
+.cell:hover { border-color: #cdc7b6; }
+.cell.running { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.cell.done { border-color: var(--rule); }
+
+.cell-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px 9px 12px;
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--rule-soft);
+  font: 400 11.5px/1 var(--mono);
+  color: var(--ink-2);
+}
+.prompt {
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: .02em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  min-width: 62px;
+}
+.prompt .n { display: inline-block; min-width: 1.4em; }
+.cell-head .fname { color: var(--ink); letter-spacing: .01em; }
+.cell-head .lang {
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: .28em .5em;
+}
+.cell-head .spacer { margin-left: auto; }
+.status {
+  font: 400 10.5px/1 var(--mono);
+  color: var(--ink-3);
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.status.running { color: var(--accent); }
+.status.done { color: var(--add); }
+
+.run {
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: .5em;
+  font: 500 10.5px/1 var(--mono);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: .52em .7em;
+  transition: background .28s var(--ease), color .28s var(--ease), border-color .28s var(--ease), transform .28s var(--ease);
+}
+.run:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+.run:disabled { cursor: progress; }
+.run .ico { display: block; width: 13px; height: 13px; }
+.run .ico svg { display: block; width: 13px; height: 13px; overflow: visible; }
+.run .ring, .run .tick { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.run .ring { stroke: currentColor; stroke-width: 1.5; stroke-dasharray: 4.2 4.2; opacity: 0; transform-origin: 8px 8px; }
+.run .tick { stroke: currentColor; stroke-width: 1.7; stroke-dasharray: 14; stroke-dashoffset: 14; }
+.cell.running .run .ring { opacity: 1; animation: ringspin .85s linear infinite; }
+.cell.done .run .tick { animation: tickdraw .4s var(--ease-out) forwards; }
+.cell.running .run { border-color: var(--accent); color: var(--accent); }
+.cell.done .run { border-color: var(--add); color: var(--add); }
+@keyframes ringspin { to { transform: rotate(360deg); } }
+@keyframes tickdraw { to { stroke-dashoffset: 0; } }
+
+/* code body */
+.code {
+  margin: 0;
+  padding: 14px 14px 16px 0;
+  background: #fff;
+  font: 400 12.8px/1.68 var(--mono);
+  color: #33302a;
+  overflow-x: auto;
+  counter-reset: ln;
+}
+.code .ln {
+  display: block;
+  white-space: pre;
+  counter-increment: ln;
+  padding-left: 58px;
+  position: relative;
+}
+.code .ln::before {
+  content: counter(ln);
+  position: absolute;
+  left: 0;
+  width: 44px;
+  text-align: right;
+  color: #bab5a8;
+  font-size: 11px;
+  border-right: 1px solid var(--rule-soft);
+  padding-right: 8px;
+}
+.code .ln:nth-child(even)::before { color: #cdc8bb; }
+.tok-kw { color: var(--kw); }
+.tok-str { color: var(--str); }
+.tok-num { color: var(--num); }
+.tok-com { color: var(--com); font-style: italic; }
+.tok-fn { color: var(--fn); }
+.tok-type { color: #1f6b6b; }
+
+/* output */
+.out {
+  border-top: 1px dashed var(--rule);
+  background: var(--paper);
+  font: 400 12.4px/1.72 var(--mono);
+  color: var(--ink);
+  padding: 0 16px 0 16px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .45s var(--ease-out), padding .3s var(--ease);
+}
+.cell.has-output .out { max-height: 1400px; padding: 13px 16px 15px; }
+.out .oline {
+  white-space: pre-wrap;
+  word-break: break-word;
+  opacity: 0;
+  transform: translateY(3px);
+  animation: linein .34s var(--ease-out) forwards;
+}
+@keyframes linein { to { opacity: 1; transform: none; } }
+.out .oline.dim { color: var(--ink-3); }
+.out .oline.ok { color: var(--add); }
+.out .oline.warn { color: var(--mark); }
+.out .oline.head { color: var(--accent); }
+.out .oline .bullet { color: var(--accent); }
+.out .gap { height: .55em; }
+
+/* diff */
+.diff { border: 1px solid var(--rule-soft); border-radius: 2px; margin: .5em 0 .2em; overflow-x: auto; }
+.diff .dline {
+  white-space: pre;
+  padding: 0 10px;
+  font: 400 12.2px/1.62 var(--mono);
+  opacity: 0;
+  animation: linein .3s var(--ease-out) forwards;
+}
+.diff .dline.file { background: var(--paper-3); color: var(--ink-2); }
+.diff .dline.hunk { background: var(--accent-soft); color: #23496d; }
+.diff .dline.add { background: var(--add-bg); color: var(--add); }
+.diff .dline.del { background: var(--del-bg); color: var(--del); }
+.diff .dline.ctx { color: var(--ink-2); }
+
+/* chart */
+.chartwrap { padding: 6px 0 2px; }
+.chartwrap canvas { display: block; width: 100%; height: 210px; }
+.chartcap {
+  font: 400 10.5px/1.7 var(--mono);
+  color: var(--ink-3);
+  letter-spacing: .04em;
+  margin-top: .4em;
+}
+
+/* footnote links section */
+.closing { border-top: 1px solid var(--ink); padding: 34px 0 0; }
+.closing .grid2 {
+  display: grid;
+  grid-template-columns: 72px minmax(0,1fr) 232px;
+  column-gap: clamp(20px, 3vw, 44px);
+}
+.closing ol { list-style: none; margin: 0; padding: 0; grid-column: 2; max-width: 64ch; }
+.closing li {
+  display: flex;
+  gap: 14px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--rule-soft);
+  font-size: .95em;
+}
+.closing li span:first-child { font: 400 11px/2 var(--mono); color: var(--ink-3); }
+.closing li span:last-child { color: var(--ink-2); }
+
+.foot {
+  padding: 26px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  font: 400 10.5px/1.7 var(--mono);
+  color: var(--ink-3);
+  letter-spacing: .05em;
+}
+.foot nav { margin-left: auto; display: flex; gap: 18px; }
+.foot a { color: var(--ink-3); text-decoration: none; border-bottom: 1px solid var(--rule); transition: color .3s var(--ease), border-color .3s var(--ease); }
+.foot a:hover, .foot a:focus-visible { color: var(--accent); border-color: var(--accent); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1080px) {
+  .sec, .closing .grid2 { grid-template-columns: 46px minmax(0,1fr) 180px; }
+  .notes p { font-size: .78em; }
+}
+@media (max-width: 820px) {
+  .topline { padding-left: 0; padding-top: 52px; }
+  .sec, .closing .grid2 { grid-template-columns: 44px minmax(0, 1fr); }
+  .notes { grid-column: 2; border-left: 0; border-top: 1px solid var(--rule-soft); padding: 12px 0 0; margin-top: 18px; }
+  .notes > div { position: static; }
+  .notes p { font-size: .84em; }
+  .cell-head { flex-wrap: wrap; row-gap: 8px; }
+  .cell-head .spacer { margin-left: 0; }
+  .status { order: 5; }
+  .run { margin-left: auto; }
+  .code { font-size: 11.6px; padding-right: 8px; }
+  .code .ln { padding-left: 40px; }
+  .code .ln::before { width: 30px; font-size: 10px; padding-right: 6px; }
+  .masthead, .prose, .closing ol { max-width: none; }
+}
+@media (max-width: 520px) {
+  .sec { grid-template-columns: 1fr; }
+  .num { padding: 0 0 6px; }
+  .num b { display: inline; font-size: 13px; }
+  .prose, .cell { grid-column: 1; }
+  .notes { grid-column: 1; }
+  .closing .grid2 { grid-template-columns: 1fr; }
+  .closing ol { grid-column: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  .out .oline, .diff .dline { opacity: 1; transform: none; }
+  .run .tick { stroke-dashoffset: 0; }
+}
+</style>
+</head>
+<body>
+
+<div id="progress" aria-hidden="true"></div>
+<a class="back" href="../index.html">&#8249; Index</a>
+
+<div class="wrap">
+
+  <header class="topline">
+    <p class="brand">Aurelia <span>/ notebook 04</span></p>
+    <p class="meta">kernel&#160;runtime-3.14 &middot; 4 cells &middot; 3 executable</p>
+    <div class="tools">
+      <button class="runall" id="runAll" type="button">Run all</button>
+    </div>
+  </header>
+
+  <section class="masthead" aria-labelledby="docTitle">
+    <p class="kicker">A notebook you can execute</p>
+    <h1 id="docTitle">The retry budget is the <em>product</em>.</h1>
+    <p class="standfirst">Most agent demos are screenshots of a good afternoon. This notebook is the opposite: every claim below is a cell, every cell runs, and the numbers are the numbers we ship against.</p>
+  </section>
+
+  <main id="notebook">
+
+    <section class="sec" aria-labelledby="h1s">
+      <p class="num"><b>01</b>&#8212;</p>
+      <div class="prose">
+        <h2 id="h1s">What the runtime promises</h2>
+        <p>An agent is a program that runs against a world that keeps failing. Vendors time out, tools return half-filled objects, and a queue that behaved for six weeks starts behaving badly at 02:14 on a Tuesday. Our runtime does exactly one unusual thing: it treats failure as the <em>normal</em> case and budgets for it explicitly.</p>
+        <p>Every turn gets a retry budget, measured in tokens rather than attempts, so a slow vendor cannot quietly spend the whole request. Once the budget is gone the turn degrades on purpose — it returns the partial answer plus a note explaining what it could not reach. <code>Budget.exhausted</code> is a return value, not an exception.</p>
+        <p class="aside-lede">The rest of this notebook is the evidence. Cell 1 surveys the corpus, cell 2 draws the latency distribution, cell 3 shows the diff we shipped on Friday.</p>
+      </div>
+      <div class="notes">
+        <div>
+          <p><b>Note &#8212; on form</b>Prose first, then the executable part. The numbered sections are not decoration: they are the contract between an explanation and the thing it explains.</p>
+          <p class="tick">read time&#160;&#160;6 min<br>cells&#160;&#160;&#160;&#160;&#160;&#160;3 runnable</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" aria-labelledby="h2s">
+      <p class="num"><b>02</b>&#8212;</p>
+      <div class="prose">
+        <h2 id="h2s">Ingest, dedupe, resolve <span class="h2note">~2.4s</span></h2>
+        <p>Everything starts with the feed. It is not clean: roughly one event in sixty arrives malformed, and about seven per cent are duplicates that a naive reader will happily count twice. The dedupe window is deliberately short — ninety seconds — because longer windows erase genuine retries from the record.</p>
+        <p>Tool resolution is the expensive part, so it is cached per trace. The cell below runs against a frozen slice of Q1 traffic; on your machine it will run against a CSV in the same shape.</p>
+
+        <div class="cell" id="cell-survey" data-runner="survey">
+          <div class="cell-head">
+            <p class="prompt">In [<span class="n">&#160;</span>]:</p>
+            <p class="fname">survey.py</p>
+            <span class="lang">python</span>
+            <p class="status spacer" id="st-survey" aria-live="polite">not run</p>
+            <button class="run" type="button" data-run="survey" aria-label="Run cell survey.py">
+              <span class="ico" aria-hidden="true"><svg viewBox="0 0 16 16"><circle class="ring" cx="8" cy="8" r="6.2"></circle><path class="tick" d="M4.6 8.4 6.9 10.7 11.4 5.6"></path></svg></span>
+              <span class="lbl">Run</span>
+            </button>
+          </div>
+          <pre class="code"><code><span class="ln"><span class="tok-com"># cell 1 — the corpus, as it actually arrives</span></span><span class="ln"><span class="tok-kw">from</span> aurelia <span class="tok-kw">import</span> Corpus, Budget</span><span class="ln">&#160;</span><span class="ln">feed  = <span class="tok-fn">Corpus</span>(<span class="tok-str">"corpus/2026-q1/*.jsonl"</span>)</span><span class="ln">rows  = feed.<span class="tok-fn">records</span>()                 <span class="tok-com"># raw events</span></span><span class="ln">clean = rows.<span class="tok-fn">dedupe</span>(key=<span class="tok-str">"trace_id"</span>, window=<span class="tok-str">"90s"</span>)</span><span class="ln">shots = clean.<span class="tok-fn">resolve_tools</span>(budget=Budget.<span class="tok-fn">tokens</span>(<span class="tok-num">40</span>))</span><span class="ln">&#160;</span><span class="ln"><span class="tok-kw">for</span> r <span class="tok-kw">in</span> shots.<span class="tok-fn">report</span>(limit=<span class="tok-num">3</span>):</span><span class="ln">    <span class="tok-fn">print</span>(r.span, r.p95_ms, r.retries)</span></code></pre>
+          <div class="out" id="out-survey" role="region" aria-label="Output of survey.py"></div>
+        </div>
+      </div>
+      <div class="notes">
+        <div>
+          <p><b>Note &#8212; dedupe</b>Ninety seconds is not a guess. At four minutes we lose 1,900 real retries; at thirty seconds we double-count 400 duplicate writes.</p>
+          <p class="tick">p95 of this cell&#160;&#160;2.41s<br>cache hits&#160;&#160;98.4%</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" aria-labelledby="h3s">
+      <p class="num"><b>03</b>&#8212;</p>
+      <div class="prose">
+        <h2 id="h3s">Where the latency actually goes <span class="h2note">one afternoon</span></h2>
+        <p>Mean latency is a lie told by a comfortable average. The distribution is what you feel, so the cell plots the whole shape: eleven buckets, six hours of production traffic, no smoothing.</p>
+        <p>The interesting part is the right shoulder. Everything past 900 milliseconds is a cold start on the pricing service, and it accounts for a third of all user-visible slowness while being almost invisible in the mean.</p>
+
+        <div class="cell" id="cell-latency" data-runner="latency">
+          <div class="cell-head">
+            <p class="prompt">In [<span class="n">&#160;</span>]:</p>
+            <p class="fname">latency.py</p>
+            <span class="lang">python</span>
+            <p class="status spacer" id="st-latency" aria-live="polite">not run</p>
+            <button class="run" type="button" data-run="latency" aria-label="Run cell latency.py">
+              <span class="ico" aria-hidden="true"><svg viewBox="0 0 16 16"><circle class="ring" cx="8" cy="8" r="6.2"></circle><path class="tick" d="M4.6 8.4 6.9 10.7 11.4 5.6"></path></svg></span>
+              <span class="lbl">Run</span>
+            </button>
+          </div>
+          <pre class="code"><code><span class="ln"><span class="tok-com"># cell 2 — six hours of checkout turns</span></span><span class="ln"><span class="tok-kw">from</span> aurelia.metrics <span class="tok-kw">import</span> histogram</span><span class="ln">&#160;</span><span class="ln">h = <span class="tok-fn">histogram</span>(<span class="tok-str">"checkout.agent.turn"</span>, window=<span class="tok-str">"6h"</span>)</span><span class="ln">h.<span class="tok-fn">buckets</span>([<span class="tok-num">20</span>, <span class="tok-num">40</span>, <span class="tok-num">60</span>, <span class="tok-num">80</span>, <span class="tok-num">110</span>, <span class="tok-num">150</span>, <span class="tok-num">220</span>, <span class="tok-num">320</span>, <span class="tok-num">520</span>, <span class="tok-num">900</span>])</span><span class="ln">h.<span class="tok-fn">draw</span>()                       <span class="tok-com"># renders below</span></span><span class="ln">&#160;</span><span class="ln"><span class="tok-fn">print</span>(<span class="tok-str">"p50"</span>, h.p50, <span class="tok-str">"p95"</span>, h.p95, <span class="tok-str">"p99"</span>, h.p99)</span></code></pre>
+          <div class="out" id="out-latency" role="region" aria-label="Output of latency.py"></div>
+        </div>
+      </div>
+      <div class="notes">
+        <div>
+          <p><b>Note &#8212; reading the chart</b>Bars are counts, not percentages. The cluster near 40&#8211;80&#160;ms is the cached path; the shoulder is cold start.</p>
+          <p class="tick">n = 214,880 turns<br>p50 61ms &#183; p95 312ms</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" aria-labelledby="h4s">
+      <p class="num"><b>04</b>&#8212;</p>
+      <div class="prose">
+        <h2 id="h4s">What changed on Friday <span class="h2note">v0.9.4</span></h2>
+        <p>One change mattered: attempts became tokens. A vendor that answers slowly now <em>spends</em> more of its budget than one that fails fast, which is precisely the behaviour we want and precisely what the old counter could not express.</p>
+        <p>The diff is small. Most of the work was in making the failure path observable, which is the sort of thing that never looks impressive in a changelog.</p>
+
+        <div class="cell" id="cell-diff" data-runner="diff">
+          <div class="cell-head">
+            <p class="prompt">In [<span class="n">&#160;</span>]:</p>
+            <p class="fname">retry.ts</p>
+            <span class="lang">diff &#8594; main</span>
+            <p class="status spacer" id="st-diff" aria-live="polite">not run</p>
+            <button class="run" type="button" data-run="diff" aria-label="Run cell retry.ts diff">
+              <span class="ico" aria-hidden="true"><svg viewBox="0 0 16 16"><circle class="ring" cx="8" cy="8" r="6.2"></circle><path class="tick" d="M4.6 8.4 6.9 10.7 11.4 5.6"></path></svg></span>
+              <span class="lbl">Run</span>
+            </button>
+          </div>
+          <pre class="code"><code><span class="ln"><span class="tok-com">// cell 3 — the retry budget, after the change</span></span><span class="ln"><span class="tok-kw">import</span> { Budget } <span class="tok-kw">from</span> <span class="tok-str">"./budget"</span>;</span><span class="ln">&#160;</span><span class="ln"><span class="tok-kw">export const</span> retry = <span class="tok-kw">new</span> <span class="tok-type">Budget</span>({</span><span class="ln">  tokens: <span class="tok-num">40</span>,          <span class="tok-com">// was: attempts: 3</span></span><span class="ln">  refill: <span class="tok-str">"1/s"</span>,</span><span class="ln">  onExhausted: <span class="tok-str">"degrade"</span>,</span><span class="ln">});</span></code></pre>
+          <div class="out" id="out-diff" role="region" aria-label="Output of retry.ts diff"></div>
+        </div>
+      </div>
+      <div class="notes">
+        <div>
+          <p><b>Note &#8212; why tokens</b>Attempts count the wrong thing. Three attempts against a hanging vendor is 28 seconds; three attempts against a fast 500 is 90 milliseconds.</p>
+          <p class="tick">&#43;18 &#8722;11 lines<br>1 test rewritten</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <section class="closing" aria-labelledby="closeh">
+    <div class="grid2">
+      <p class="num"><b>05</b>&#8212;</p>
+      <div class="prose">
+        <h2 id="closeh">Appendix &amp; sources</h2>
+        <p class="aside-lede">Everything above is reproducible from the trace in the third item. The notebook is versioned with the runtime, so a claim that stops being true fails a build instead of quietly ageing into marketing.</p>
+        <ol>
+          <li><span>a.</span><span>Tool routing, annotated &#8212; the notebook that became cell&nbsp;1.</span></li>
+          <li><span>b.</span><span><code>Budget.exhausted</code> and the degrade contract, four pages.</span></li>
+          <li><span>c.</span><span>The six-hour trace used in cell&nbsp;2 &#8212; JSONL, 42&nbsp;MB, scrubbed.</span></li>
+          <li><span>d.</span><span>Postmortem 2026-02-14, the incident that produced the change.</span></li>
+        </ol>
+      </div>
+      <div class="notes">
+        <div>
+          <p><b>Note &#8212; licence</b>Notebook text is CC&nbsp;BY&nbsp;4.0. Code cells are Apache&nbsp;2.0. Attribution is welcome and never required.</p>
+          <p class="tick">commit 4f2a91c<br>rendered 14 Sep 2026</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <p>Notebook 04 of 12 &middot; built from source, not screenshots.</p>
+    <nav aria-label="Footer">
+      <a href="#notebook">Top</a>
+      <a href="../index.html">Index</a>
+      <a href="#h4s">Changelog</a>
+    </nav>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var REDUCED = false;
+  try {
+    REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  } catch (e) { REDUCED = false; }
+
+  function sleep(ms) {
+    return new Promise(function (res) { window.setTimeout(res, ms || 0); });
+  }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) { n.className = cls; }
+    if (text !== undefined && text !== null) { n.textContent = text; }
+    return n;
+  }
+
+  /* --------------------------- reading progress ------------------------ */
+  var progress = document.getElementById('progress');
+  var queued = false;
+
+  function updateProgress() {
+    queued = false;
+    if (!progress) { return; }
+    var doc = document.documentElement;
+    var max = doc.scrollHeight - window.innerHeight;
+    var y = window.pageYOffset || doc.scrollTop || 0;
+    var p = max > 40 ? y / max : 0;
+    progress.style.width = (Math.max(0, Math.min(1, p)) * 100).toFixed(2) + '%';
+  }
+  window.addEventListener('scroll', function () {
+    if (!queued) { queued = true; window.requestAnimationFrame(updateProgress); }
+  }, { passive: true });
+  window.addEventListener('resize', updateProgress);
+  updateProgress();
+
+  /* -------------------------------- chart ------------------------------ */
+  var BUCKETS = [20, 40, 60, 80, 110, 150, 220, 320, 520, 900, 1400];
+  var COUNTS = [15200, 38400, 41200, 33600, 24800, 18200, 12400, 9100, 6800, 14200, 5800];
+  var MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+
+  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function renderChart(canvas, p) {
+    var g = canvas.getContext ? canvas.getContext('2d') : null;
+    if (!g) { return; }
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    var w = Math.max(240, canvas.clientWidth || 560);
+    var h = Math.max(120, canvas.clientHeight || 210);
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+    }
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+
+    var padL = 40, padR = 10, padT = 16, padB = 28;
+    var plotW = w - padL - padR;
+    var plotH = h - padT - padB;
+    var maxV = 44000;
+    var n = BUCKETS.length;
+    var slot = plotW / n;
+    var barW = Math.min(30, slot * 0.62);
+    var i, gi, local, f, v, bh, x, y, grad, lab;
+
+    /* y grid */
+    g.strokeStyle = '#e8e4d9';
+    g.lineWidth = 1;
+    g.font = '400 10px ' + MONO;
+    g.textBaseline = 'middle';
+    for (gi = 0; gi <= 3; gi++) {
+      var yv = maxV * (gi / 3);
+      var yy = padT + plotH - (yv / maxV) * plotH;
+      g.beginPath();
+      g.moveTo(padL, Math.round(yy) + 0.5);
+      g.lineTo(w - padR, Math.round(yy) + 0.5);
+      g.stroke();
+      g.fillStyle = '#8b877b';
+      g.textAlign = 'right';
+      g.fillText(gi === 0 ? '0' : (yv / 1000).toFixed(0) + 'k', padL - 8, yy);
+    }
+
+    /* baseline */
+    g.strokeStyle = '#c8c2b1';
+    g.beginPath();
+    g.moveTo(padL, padT + plotH + 0.5);
+    g.lineTo(w - padR, padT + plotH + 0.5);
+    g.stroke();
+
+    /* bars, revealed left to right */
+    for (i = 0; i < n; i++) {
+      local = Math.max(0, Math.min(1, (p - i * 0.028) / 0.72));
+      f = easeOut(local);
+      v = COUNTS[i] * f;
+      bh = (v / maxV) * plotH;
+      x = padL + i * slot + (slot - barW) / 2;
+      y = padT + plotH - bh;
+      grad = g.createLinearGradient(0, y, 0, padT + plotH);
+      if (i === 9) {
+        grad.addColorStop(0, '#b4553a');
+        grad.addColorStop(1, 'rgba(180,85,58,.24)');
+      } else {
+        grad.addColorStop(0, '#2f5d8c');
+        grad.addColorStop(1, 'rgba(47,93,140,.20)');
+      }
+      g.fillStyle = grad;
+      g.fillRect(x, y, barW, Math.max(0, bh));
+      g.fillStyle = (i === 9) ? '#b4553a' : '#2f5d8c';
+      g.fillRect(x, y, barW, Math.min(2.5, Math.max(0, bh)));
+
+      if (i % 2 === 0 || i === n - 1) {
+        lab = (i === n - 1) ? '1.4s+' : String(BUCKETS[i]);
+        g.fillStyle = '#8b877b';
+        g.textAlign = 'center';
+        g.fillText(f > 0.35 ? lab : '', x + barW / 2, padT + plotH + 15);
+      }
+    }
+
+    /* p95 marker */
+    if (p > 0.7) {
+      var a = easeOut(Math.max(0, Math.min(1, (p - 0.7) / 0.3)));
+      var mx = padL + slot * 8.2;
+      g.save();
+      g.globalAlpha = a;
+      g.strokeStyle = '#b4553a';
+      g.lineWidth = 1;
+      g.setLineDash([3, 3]);
+      g.beginPath();
+      g.moveTo(mx, padT + 2);
+      g.lineTo(mx, padT + plotH);
+      g.stroke();
+      g.setLineDash([]);
+      g.fillStyle = '#b4553a';
+      g.textAlign = 'left';
+      g.font = '500 10px ' + MONO;
+      g.fillText('p95', mx + 5, padT + 8);
+      g.restore();
+    }
+
+    /* axis note */
+    g.fillStyle = '#8b877b';
+    g.textAlign = 'left';
+    g.font = '400 10px ' + MONO;
+    g.fillText('turns per bucket \u00b7 bucket upper bound (ms)', padL, 8);
+  }
+
+  window.addEventListener('resize', function () {
+    var list = document.querySelectorAll('.chartwrap canvas');
+    for (var k = 0; k < list.length; k++) {
+      renderChart(list[k], list[k].__p || 1);
+    }
+  });
+
+  function chartInto(out) {
+    var wrap = el('div', 'chartwrap');
+    var canvas = document.createElement('canvas');
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', 'Histogram of checkout agent turn latency across 10 buckets, peaking near 60 milliseconds');
+    wrap.appendChild(canvas);
+    wrap.appendChild(el('div', 'chartcap', 'checkout.agent.turn \u00b7 214,880 samples \u00b7 6h window \u00b7 bucket upper bound in ms'));
+    out.appendChild(wrap);
+
+    return new Promise(function (resolve) {
+      if (REDUCED || document.hidden) {
+        canvas.__p = 1;
+        renderChart(canvas, 1);
+        resolve();
+        return;
+      }
+      var t0 = 0;
+      var DUR = 900;
+      function step(now) {
+        if (!t0) { t0 = now; }
+        var p = Math.min(1, (now - t0) / DUR);
+        canvas.__p = p;
+        if (!document.hidden) { renderChart(canvas, p); }
+        if (p < 1) { window.requestAnimationFrame(step); } else { resolve(); }
+      }
+      window.requestAnimationFrame(step);
+    });
+  }
+
+  /* --------------------------------- diff ------------------------------ */
+  var DIFF = [
+    ['file', '--- a/agent/retry.ts'],
+    ['file', '+++ b/agent/retry.ts'],
+    ['hunk', '@@ -14,9 +14,11 @@ export class Retry'],
+    ['ctx',  '   constructor(opts: RetryOpts) {'],
+    ['del',  '-    this.attempts = opts.attempts ?? 3;'],
+    ['del',  '-    this.delayMs  = opts.delayMs  ?? 250;'],
+    ['add',  '+    this.budget = new Budget({'],
+    ['add',  '+      tokens: opts.tokens ?? 40,'],
+    ['add',  '+      refill: opts.refill ?? "1/s",'],
+    ['add',  '+    });'],
+    ['ctx',  '   }'],
+    ['hunk', '@@ -28,6 +31,14 @@ export class Retry'],
+    ['ctx',  '   async run<T>(fn: () => Promise<T>) {'],
+    ['del',  '-    for (let i = 0; i < this.attempts; i++) {'],
+    ['add',  '+    let spent = 0;'],
+    ['add',  '+    while (this.budget.available(spent)) {'],
+    ['add',  '+      const t0 = performance.now();'],
+    ['ctx',  '       try { return await fn(); }'],
+    ['add',  '+      finally { spent += performance.now() - t0; }'],
+    ['ctx',  '     }'],
+    ['add',  '+    return Result.degraded("retry budget exhausted");'],
+    ['ctx',  '   }']
+  ];
+
+  function streamDiff(out) {
+    var box = el('div', 'diff');
+    out.appendChild(box);
+    var i = 0;
+    return new Promise(function (resolve) {
+      function next() {
+        if (i >= DIFF.length) { resolve(); return; }
+        var row = DIFF[i];
+        box.appendChild(el('div', 'dline ' + row[0], row[1]));
+        i++;
+        var delay = REDUCED ? 0 : (row[0] === 'hunk' ? 190 : (row[0] === 'add' ? 105 : 85));
+        window.setTimeout(next, delay);
+      }
+      next();
+    });
+  }
+
+  /* ------------------------------ runners ------------------------------ */
+  function lineInto(out, text, cls, delay) {
+    return sleep(delay === undefined ? 260 : delay).then(function () {
+      if (text === null) { out.appendChild(el('div', 'gap')); return; }
+      out.appendChild(el('div', 'oline' + (cls ? ' ' + cls : ''), text));
+    });
+  }
+
+  var RUNNERS = {
+    survey: async function (c) {
+      await c.line('$ aurelia run survey.py --corpus corpus/2026-q1/', 'dim', 240);
+      await c.line('loading    184,209 records', '', 420);
+      await c.line('dedupe     window=90s', 'dim', 300);
+      await c.line('  kept     171,882', '', 230);
+      await c.line('  dropped   12,327   (6.7% duplicates)', 'dim', 240);
+      await c.line('malformed    3,140   (1.7%)  \u2192 quarantine/', 'warn', 430);
+      await c.line(null, null, 180);
+      await c.line('resolve_tools  cache hit 98.4%', 'head', 380);
+      await c.line('  \u25b8 search.fetch     4,210 calls   p95   88ms', '', 220);
+      await c.line('  \u25b8 pricing.quote    2,908 calls   p95  214ms', '', 220);
+      await c.line('  \u25b8 crm.note         1,244 calls   p95  470ms', '', 290);
+      await c.line(null, null, 160);
+      await c.line('retries absorbed   4,881   budget spent 62%', '', 340);
+      await c.line('degraded turns        17   each logged with reason', 'dim', 300);
+      await c.line('done in 2.41s', 'ok', 260);
+    },
+
+    latency: async function (c) {
+      await c.line('$ aurelia metrics draw checkout.agent.turn', 'dim', 240);
+      await c.line('histogram   10 buckets   samples 214,880', '', 400);
+      await c.line('rendering\u2026', 'dim', 320);
+      await c.chart();
+      await c.line(null, null, 140);
+      await c.line('p50     61ms', '', 320);
+      await c.line('p95    312ms', '', 320);
+      await c.line('p99   1180ms   \u2190 cold start on pricing', 'warn', 340);
+      await c.line('done in 1.84s', 'ok', 240);
+    },
+
+    diff: async function (c) {
+      await c.line('$ git diff main -- agent/retry.ts', 'dim', 260);
+      await c.line(null, null, 140);
+      await c.diff();
+      await c.line(null, null, 120);
+      await c.line('+18 \u221211   \u00b7   1 file changed', 'ok', 300);
+      await c.line('done in 0.41s', 'dim', 220);
+    }
+  };
+
+  /* ----------------------------- cell engine --------------------------- */
+  var counters = {};
+  var running = {};
+
+  function cellByName(name) {
+    return document.querySelector('.cell[data-runner="' + name + '"]');
+  }
+
+  function runCell(name) {
+    var cell = cellByName(name);
+    if (!cell || running[name]) { return Promise.resolve(null); }
+    var out = document.getElementById('out-' + name);
+    var st = document.getElementById('st-' + name);
+    var promptN = cell.querySelector('.prompt .n');
+    var btn = cell.querySelector('.run');
+
+    running[name] = true;
+    cell.classList.remove('done');
+    cell.classList.add('running');
+    if (out) {
+      out.innerHTML = '';
+      cell.classList.add('has-output');
+    }
+    if (btn) { btn.disabled = true; }
+    if (st) {
+      st.className = 'status spacer running';
+      st.textContent = 'running\u2026';
+    }
+
+    var ctx = {
+      out: out,
+      cell: cell,
+      line: function (text, cls, delay) { return lineInto(out, text, cls, delay); },
+      chart: function () { return chartInto(out); },
+      diff: function () { return streamDiff(out); }
+    };
+
+    var t0 = performance.now();
+    var runner = RUNNERS[name];
+
+    return Promise.resolve()
+      .then(function () { return runner ? runner(ctx) : null; })
+      .catch(function () {
+        if (out) { out.appendChild(el('div', 'oline warn', 'cell interrupted')); }
+      })
+      .then(function () {
+        var dur = ((performance.now() - t0) / 1000).toFixed(2);
+        counters[name] = (counters[name] || 0) + 1;
+        if (promptN) { promptN.textContent = String(counters[name]); }
+        cell.classList.remove('running');
+        cell.classList.add('done', 'has-output');
+        if (btn) { btn.disabled = false; }
+        if (st) {
+          st.className = 'status spacer done';
+          st.textContent = 'done in ' + dur + 's';
+        }
+        running[name] = false;
+        return dur;
+      });
+  }
+
+  /* ------------------------------- wiring ------------------------------ */
+  var buttons = document.querySelectorAll('.run[data-run]');
+  for (var i = 0; i < buttons.length; i++) {
+    (function (btn) {
+      btn.addEventListener('click', function () {
+        runCell(btn.getAttribute('data-run'));
+      });
+    })(buttons[i]);
+  }
+
+  var ORDER = ['survey', 'latency', 'diff'];
+  var runAllBtn = document.getElementById('runAll');
+  var allRunning = false;
+
+  function runAll() {
+    if (allRunning) { return; }
+    allRunning = true;
+    if (runAllBtn) {
+      runAllBtn.disabled = true;
+      runAllBtn.textContent = 'Running\u2026';
+    }
+    var chain = Promise.resolve();
+    ORDER.forEach(function (name) {
+      chain = chain.then(function () {
+        var cell = cellByName(name);
+        if (cell && typeof cell.scrollIntoView === 'function') {
+          try {
+            cell.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'center' });
+          } catch (e) { /* engines without options support */ }
+        }
+        return sleep(REDUCED ? 40 : 640).then(function () { return runCell(name); });
+      }).then(function () { return sleep(REDUCED ? 20 : 220); });
+    });
+    chain.then(function () {
+      allRunning = false;
+      if (runAllBtn) {
+        runAllBtn.disabled = false;
+        runAllBtn.textContent = 'Run all';
+      }
+    });
+  }
+
+  if (runAllBtn) {
+    runAllBtn.addEventListener('click', function () { runAll(); });
+  }
+})();
+</script>
+</body>
+</html>

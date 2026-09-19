@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent 01 — a small organism that lives in your repository</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..600&family=Karla:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     BIOMORPHIC — nothing on this page has a hard edge.
+     Cream base, coral→teal mesh, one organism that breathes,
+     fuses with your cursor, splits into limbs, and re-merges.
+     ============================================================ */
+  :root{
+    --cream:#fdf6ef;
+    --cream-2:#f8ece1;
+    --ink:#2f2723;
+    --ink-soft:#6b5c53;
+    --coral:#ff7a6b;
+    --teal:#35b3a4;
+    --line:rgba(120,92,74,.18);
+    --panel:rgba(255,255,255,.58);
+    --shadow:0 34px 70px -34px rgba(122,88,68,.30), 0 2px 6px -2px rgba(122,88,68,.10);
+    --sans:"Karla", ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --serif:"Fraunces", Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --ease:cubic-bezier(.22,.61,.24,1);
+  }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+
+  html{ -webkit-text-size-adjust:100%; }
+
+  body{
+    margin:0;
+    min-height:100%;
+    background:
+      radial-gradient(58% 42% at 82% 12%, rgba(255,122,107,.20), rgba(255,122,107,0) 70%),
+      radial-gradient(52% 46% at 12% 78%, rgba(53,179,164,.18), rgba(53,179,164,0) 72%),
+      radial-gradient(70% 60% at 50% 120%, rgba(255,214,180,.5), rgba(255,214,180,0) 70%),
+      linear-gradient(180deg, #fdf6ef 0%, #fdf3ea 55%, #fbf0e6 100%);
+    background-attachment:fixed;
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:clamp(1rem, .34vw + .9rem, 1.16rem);
+    line-height:1.62;
+    letter-spacing:.002em;
+    overflow-x:hidden;
+  }
+
+  a{ color:inherit; }
+
+  :focus-visible{
+    outline:3px solid rgba(53,179,164,.85);
+    outline-offset:3px;
+    border-radius:999px;
+  }
+
+  /* ---------- organism field ---------- */
+  #field{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:0;
+    pointer-events:none;
+    opacity:1;
+    transition:opacity 900ms var(--ease);
+  }
+  #labels text{
+    font-family:var(--sans);
+    font-size:12.5px;
+    font-weight:600;
+    letter-spacing:.10em;
+    text-transform:uppercase;
+    fill:var(--ink);
+    paint-order:stroke;
+    stroke:rgba(253,246,239,.9);
+    stroke-width:3.5px;
+  }
+
+  /* ---------- escape hatch ---------- */
+  .backlink{
+    position:fixed;
+    z-index:30;
+    top:16px; right:16px;
+    font-size:11.5px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    text-decoration:none;
+    padding:8px 15px;
+    border-radius:999px;
+    background:rgba(253,246,239,.72);
+    box-shadow:0 10px 24px -14px rgba(122,88,68,.5);
+    color:var(--ink-soft);
+    opacity:.42;
+    transition:opacity 420ms var(--ease), color 420ms var(--ease), transform 420ms var(--ease);
+  }
+  .backlink:hover,.backlink:focus-visible{ opacity:1; color:var(--ink); transform:translateY(-1px); }
+
+  /* ---------- shell ---------- */
+  .page{ position:relative; z-index:1; }
+  .wrap{ width:100%; max-width:1220px; margin:0 auto; padding:0 clamp(20px,4vw,64px); }
+
+  header.top{ padding:clamp(22px,4vw,42px) 0 clamp(10px,2vw,18px); display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .wordmark{
+    font-family:var(--serif);
+    font-weight:600;
+    font-size:19px;
+    letter-spacing:-.015em;
+    display:inline-flex; align-items:center; gap:9px;
+    text-decoration:none;
+  }
+  .wordmark .cell{
+    width:17px; height:17px; border-radius:60% 40% 55% 45% / 50% 55% 45% 50%;
+    background:linear-gradient(135deg,var(--coral),var(--teal));
+    animation:breathe-mini 5.6s var(--ease) infinite;
+  }
+  @keyframes breathe-mini{ 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.18) rotate(14deg) } }
+  header.top nav{ margin-left:auto; display:flex; gap:clamp(12px,2vw,30px); flex-wrap:wrap; }
+  header.top nav a{
+    text-decoration:none; font-size:.9rem; color:var(--ink-soft);
+    padding:4px 2px; border-radius:999px;
+    transition:color 380ms var(--ease);
+  }
+  header.top nav a:hover{ color:var(--ink); text-decoration:underline; text-underline-offset:5px; text-decoration-thickness:1px; }
+
+  /* ---------- hero ---------- */
+  .hero{
+    min-height:clamp(500px, 72vh, 720px);
+    display:flex; flex-direction:column; justify-content:center;
+    padding:clamp(20px,5vw,60px) 0 clamp(50px,8vw,110px);
+    position:relative;
+  }
+  .hero .eyebrow{
+    font-size:12px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--ink-soft); margin:0 0 clamp(14px,2vw,22px);
+  }
+  h1{
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:clamp(2.4rem, 3.4vw + 1rem, 4.9rem);
+    line-height:.99;
+    letter-spacing:-.032em;
+    margin:0 0 clamp(18px,2.4vw,28px);
+    max-width:min(100%, 15ch);
+    text-wrap:balance;
+  }
+  h1 em{ font-style:italic; font-weight:300; }
+  .lede{
+    font-size:clamp(1.05rem, .5vw + .93rem, 1.28rem);
+    line-height:1.58;
+    color:#4b3f38;
+    max-width:46rem;
+    margin:0 0 clamp(20px,3vw,32px);
+  }
+  .hero-actions{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; max-width:46rem; }
+  .pill{
+    display:inline-flex; align-items:center; gap:9px;
+    font-family:var(--sans); font-size:.94rem; font-weight:600;
+    padding:13px 24px; border-radius:999px; border:0; cursor:pointer;
+    text-decoration:none;
+    transition:transform 420ms var(--ease), box-shadow 420ms var(--ease), background-color 420ms var(--ease), color 420ms var(--ease);
+  }
+  .pill.primary{
+    background:linear-gradient(135deg, var(--coral), #ff9d7e 52%, var(--teal));
+    color:#2b1c17;
+    box-shadow:0 20px 40px -18px rgba(255,122,107,.65);
+  }
+  .pill.primary:hover{ transform:translateY(-2px) scale(1.014); box-shadow:0 26px 54px -18px rgba(255,122,107,.7); }
+  .pill.ghost{
+    background:rgba(255,255,255,.6); color:var(--ink);
+    box-shadow:inset 0 0 0 1px var(--line);
+  }
+  .pill.ghost:hover{ background:#fff; transform:translateY(-2px); }
+  .hint{
+    font-size:.82rem; color:var(--ink-soft); letter-spacing:.01em;
+    margin:0; transition:opacity 500ms var(--ease);
+  }
+  .hint[hidden]{ display:none; }
+
+  /* ---------- sections ---------- */
+  main{ padding-bottom:clamp(40px,7vw,110px); }
+  main section.bio{
+    padding:clamp(40px,6vw,96px) clamp(20px,4vw,64px);
+  }
+  main section.bio > *{ max-width:min(100%, 42rem); }
+  main section.bio > h2,
+  main section.bio > p.lede{ max-width:min(100%, 32rem); }
+  main section.bio:nth-of-type(even) > *{ margin-left:clamp(0px, 4vw, 64px); }
+  .sec-top{ display:flex; align-items:center; gap:14px; margin:0 0 clamp(14px,2vw,22px); }
+  .sec-dot{
+    width:34px; height:34px; flex:0 0 auto;
+    border-radius:58% 42% 50% 50% / 48% 52% 48% 52%;
+    background:linear-gradient(140deg, rgba(255,122,107,.9), rgba(53,179,164,.85));
+    box-shadow:inset 0 -6px 12px rgba(120,60,40,.22), inset 0 6px 10px rgba(255,255,255,.65);
+    font-size:11px; font-weight:600; color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    animation:drift-dot 9s var(--ease) infinite;
+  }
+  @keyframes drift-dot{
+    0%,100%{ border-radius:58% 42% 50% 50% / 48% 52% 48% 52%; transform:rotate(0deg) }
+    50%{ border-radius:45% 55% 60% 40% / 58% 42% 58% 42%; transform:rotate(9deg) }
+  }
+  .sec-top .kicker{ font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-soft); }
+  h2{
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:clamp(1.7rem, 2.2vw + .95rem, 3rem);
+    line-height:1.06;
+    letter-spacing:-.028em;
+    margin:0 0 clamp(14px,1.6vw,20px);
+    text-wrap:balance;
+  }
+  h3{
+    font-family:var(--serif); font-weight:600; font-size:1.12rem;
+    line-height:1.3; letter-spacing:-.012em; margin:1.6em 0 .35em;
+  }
+  p{ margin:0 0 1.05em; }
+  .panel{
+    border-radius:34px;
+    background:var(--panel);
+    box-shadow:var(--shadow);
+    padding:clamp(20px,3vw,40px);
+  }
+  .soft-list{ list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+  .soft-list li{
+    border-radius:999px; padding:13px 20px;
+    background:rgba(255,255,255,.8);
+    box-shadow:inset 0 0 0 1px var(--line);
+    line-height:1.45;
+  }
+  .soft-list li b{ font-weight:600; }
+  .soft-list li span{ color:var(--ink-soft); font-size:.92rem; }
+
+  /* capability buttons — hovering one swells its blob */
+  .caps{ list-style:none; margin:0; padding:0; display:grid; gap:9px; }
+  .caps button{
+    width:100%; text-align:left; cursor:pointer;
+    font:inherit; color:inherit;
+    border:0; border-radius:24px;
+    padding:14px 20px;
+    background:rgba(255,255,255,.84);
+    box-shadow:inset 0 0 0 1px var(--line);
+    display:flex; align-items:baseline; gap:12px;
+    transition:background-color 420ms var(--ease), transform 420ms var(--ease), box-shadow 420ms var(--ease);
+  }
+  .caps button .n{ font-size:11px; letter-spacing:.18em; color:var(--ink-soft); flex:0 0 auto; }
+  .caps button .t{ font-weight:600; display:block; }
+  .caps button .d{ display:block; font-weight:400; font-size:.9rem; color:var(--ink-soft); }
+  .caps button:hover{ background:#fff; transform:translateX(6px); }
+  .caps button[aria-pressed="true"]{
+    background:linear-gradient(120deg, rgba(255,122,107,.22), rgba(53,179,164,.20));
+    transform:translateX(10px);
+    box-shadow:inset 0 0 0 1px rgba(53,179,164,.45), 0 18px 34px -22px rgba(120,88,68,.5);
+  }
+
+  /* thin rule that is really a soft blur, not a line */
+  .soft-rule{
+    height:2px; border:0; margin:clamp(26px,4vw,56px) 0;
+    background:linear-gradient(90deg, rgba(255,122,107,.45), rgba(53,179,164,.4), rgba(255,122,107,0));
+    filter:blur(1.6px);
+  }
+
+  .facts{ display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); margin-top:8px; }
+  .fact{ border-radius:26px; padding:18px 20px; background:rgba(255,255,255,.46); box-shadow:inset 0 0 0 1px var(--line); }
+  .fact b{ display:block; font-family:var(--serif); font-size:1.7rem; font-weight:400; letter-spacing:-.02em; line-height:1.1; }
+  .fact span{ font-size:.86rem; color:var(--ink-soft); }
+
+  footer.bottom{
+    padding:clamp(26px,4vw,54px) 0 clamp(40px,7vw,80px);
+    color:var(--ink-soft); font-size:.88rem;
+  }
+  footer.bottom .frow{ display:flex; gap:14px 30px; flex-wrap:wrap; justify-content:space-between; align-items:center; }
+  footer.bottom a{ text-decoration:none; border-bottom:1px solid var(--line); padding-bottom:1px; transition:border-color 380ms var(--ease); }
+  footer.bottom a:hover{ border-color:var(--ink); }
+
+  @media (max-width:900px){
+    .hero{ min-height:auto; padding-top:6vh; }
+    main section.bio > *,
+    main section.bio:nth-of-type(even) > *{ max-width:none; margin-left:0; }
+    h1{ max-width:100%; }
+    #labels{ display:none; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation:none !important; transition:none !important; }
+    #field{ opacity:.92; }
+  }
+</style>
+</head>
+<body>
+<a class="backlink" href="../index.html">back to the gallery</a>
+
+<svg id="field" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="mesh" gradientUnits="userSpaceOnUse" x1="240" y1="120" x2="1240" y2="820">
+      <stop offset="0" stop-color="#ff9d77"></stop>
+      <stop offset="0.38" stop-color="#ff7f6b"></stop>
+      <stop offset="0.68" stop-color="#f2907e"></stop>
+      <stop offset="1" stop-color="#2fb0a4"></stop>
+    </linearGradient>
+    <linearGradient id="meshCursor" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="900" y2="900">
+      <stop offset="0" stop-color="#ff6f8e"></stop>
+      <stop offset="1" stop-color="#ff9d5c"></stop>
+    </linearGradient>
+    <radialGradient id="floor" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#a4705a" stop-opacity="0.30"></stop>
+      <stop offset="1" stop-color="#a4705a" stop-opacity="0"></stop>
+    </radialGradient>
+    <filter id="goo" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="17" result="blurred"></feGaussianBlur>
+      <feColorMatrix in="blurred" type="matrix"
+        values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10" result="gooed"></feColorMatrix>
+    </filter>
+    <filter id="soft" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="26"></feGaussianBlur>
+    </filter>
+  </defs>
+  <g id="layerShade"></g>
+  <g id="layerBlobs" filter="url(#goo)">
+    <ellipse cx="905" cy="430" rx="236" ry="198" fill="url(#mesh)"></ellipse>
+    <ellipse cx="1085" cy="474" rx="152" ry="142" fill="url(#mesh)"></ellipse>
+  </g>
+  <g id="layerLight" opacity="0.30" filter="url(#soft)">
+    <ellipse cx="880" cy="392" rx="168" ry="148" fill="#ffffff"></ellipse>
+  </g>
+  <g id="labels"></g>
+</svg>
+
+<div class="page">
+
+  <header class="top wrap">
+    <a class="wordmark" href="#top"><span class="cell" aria-hidden="true"></span>Agent&nbsp;01</a>
+    <nav aria-label="Sections">
+      <a href="#what">What it eats</a>
+      <a href="#caps">Capabilities</a>
+      <a href="#holds">Membrane</a>
+      <a href="#touch">Touch it</a>
+    </nav>
+  </header>
+
+  <main id="top">
+
+    <section class="hero wrap" aria-labelledby="hero-h">
+      <p class="eyebrow">A living agent for codebases</p>
+      <h1 id="hero-h">It grows into the shape of your <em>problem</em>.</h1>
+      <p class="lede">Agent&nbsp;01 is a small organism that lives inside your repository. Give it a task and it puts out a limb, tests it against your code, and either thickens the limb or pulls it back. Nothing about the shape is fixed in advance.</p>
+      <div class="hero-actions">
+        <a class="pill primary" href="#touch">Feed it a task</a>
+        <button class="pill ghost" id="divide" type="button" aria-pressed="false" aria-describedby="divide-hint">Split it open</button>
+        <p class="hint" id="divide-hint">or just move your cursor into it</p>
+      </div>
+    </section>
+
+    <section class="bio wrap" id="what" aria-labelledby="h-what">
+      <div class="sec-top">
+        <span class="sec-dot" aria-hidden="true">01</span>
+        <span class="kicker">What it eats</span>
+      </div>
+      <h2 id="h-what">Context is food, and it is picky about freshness.</h2>
+      <p>The organism takes in four kinds of tissue and refuses everything else. It will not swallow a file it has not opened, and it will not swallow a file that changed since it last read it — a stale limb is worse than no limb.</p>
+      <ul class="soft-list">
+        <li><b>Source.</b> <span>Whole files, imports resolved, revision hashed on entry.</span></li>
+        <li><b>Tests.</b> <span>Read before the code under test, so the limb knows what &ldquo;working&rdquo; means.</span></li>
+        <li><b>Issues &amp; notes.</b> <span>Your own words, given the same weight as the code.</span></li>
+        <li><b>Run history.</b> <span>What it tried last week and why that failed, kept locally.</span></li>
+      </ul>
+      <hr class="soft-rule">
+      <p>Digestion is local. No tissue leaves the machine. The only thing that ever leaves is the diff you approved, and only when you push it somewhere yourself.</p>
+    </section>
+    <section class="bio wrap" id="caps" aria-labelledby="h-caps">
+      <div class="sec-top">
+        <span class="sec-dot" aria-hidden="true">02</span>
+        <span class="kicker">Capabilities</span>
+      </div>
+      <h2 id="h-caps">Six limbs. One body. It decides which to grow.</h2>
+      <p class="lede">The organism starts whole. When a task demands it, it buds into limbs, each doing one job, then pulls them back into the body. Hover or focus a limb below and watch it swell in the field beside you.</p>
+      <ul class="caps">
+        <li><button type="button" data-blob="0" aria-pressed="false">
+          <span class="n">01</span><span><span class="t">Whole-tree reading</span><span class="d">Resolves imports to the files that actually matter, then reads them end to end.</span></span></button></li>
+        <li><button type="button" data-blob="1" aria-pressed="false">
+          <span class="n">02</span><span><span class="t">Limb-and-retract planning</span><span class="d">Tries the shortest route to a fix. If it fails a test, it withdraws and tries a longer one.</span></span></button></li>
+        <li><button type="button" data-blob="2" aria-pressed="false">
+          <span class="n">03</span><span><span class="t">Test-first repair</span><span class="d">Reads the failing assertion before the code beneath it.</span></span></button></li>
+        <li><button type="button" data-blob="3" aria-pressed="false">
+          <span class="n">04</span><span><span class="t">Interface migration</span><span class="d">Rewrites call sites and reports the ones it could not resolve instead of inventing arguments.</span></span></button></li>
+        <li><button type="button" data-blob="4" aria-pressed="false">
+          <span class="n">05</span><span><span class="t">Explained diffs</span><span class="d">Every hunk carries a reason short enough to reject on its own.</span></span></button></li>
+        <li><button type="button" data-blob="5" aria-pressed="false">
+          <span class="n">06</span><span><span class="t">Local memory</span><span class="d">Remembers what it tried last week and why that failed. Stays on your disk.</span></span></button></li>
+      </ul>
+    </section>
+
+    <section class="bio wrap" id="holds" aria-labelledby="h-holds">
+      <div class="sec-top">
+        <span class="sec-dot" aria-hidden="true">03</span>
+        <span class="kicker">Membrane</span>
+      </div>
+      <h2 id="h-holds">A membrane keeps it in one directory, for one run.</h2>
+      <p>The organism cannot leak. It runs inside a membrane made of three walls: your working directory, a token budget you set, and a transaction that either lands whole or rolls back. Poke a hole in any wall and it stops moving.</p>
+      <div class="facts">
+        <div class="fact"><b>1</b><span>directory, mounted read-write, nothing above it</span></div>
+        <div class="fact"><b>400k</b><span>tokens of context, then it stops and reports</span></div>
+        <div class="fact"><b>1</b><span>command to undo a run: <code>agent01 revert</code></span></div>
+      </div>
+      <hr class="soft-rule">
+      <p>Nothing is written until you approve a limb, and an aborted run leaves no scar tissue behind. If a test fails after an approved edit, the agent reports the failure in the same breath as the success — the log has no hiding place.</p>
+    </section>
+
+    <section class="bio wrap" id="touch" aria-labelledby="h-touch">
+      <div class="sec-top">
+        <span class="sec-dot" aria-hidden="true">04</span>
+        <span class="kicker">Touch it</span>
+      </div>
+      <h2 id="h-touch">Feed it something small first.</h2>
+      <p>Give it a failing test, or a function nobody understands any more. It grows a limb, shows you the diff, and waits. Nothing touches your tree until you say yes.</p>
+      <p><a class="pill primary" href="#top">Start with a failing test</a></p>
+      <p class="hint" style="margin-top:10px">Free while it is in beta. Runs on macOS, Linux and Windows. No account.</p>
+    </section>
+
+  </main>
+
+  <footer class="bottom wrap">
+    <div class="frow">
+      <p style="margin:0">Agent&nbsp;01 — a small organism for large codebases. Set in Fraunces and Karla.</p>
+      <p style="margin:0"><a href="#top">Back to the top</a> &middot; <a href="../index.html">All twenty designs</a></p>
+    </div>
+  </footer>
+
+</div>
+<script>
+(function () {
+  "use strict";
+
+  var svg = document.getElementById("field");
+  var layerShade = document.getElementById("layerShade");
+  var layerBlobs = document.getElementById("layerBlobs");
+  var layerLight = document.getElementById("layerLight");
+  var labelLayer = document.getElementById("labels");
+  var capsSection = document.getElementById("caps");
+  var divideBtn = document.getElementById("divide");
+  var hint = document.getElementById("divide-hint");
+  if (!svg || !layerShade || !layerBlobs || !layerLight || !labelLayer) { return; }
+
+  var NS = "http://www.w3.org/2000/svg";
+  var mqReduce = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+  var mqFine = window.matchMedia ? window.matchMedia("(pointer: fine)") : null;
+  var reduce = !!(mqReduce && mqReduce.matches);
+  var fine = mqFine ? mqFine.matches : true;
+
+  var CORE = [
+    { fx: 0,      fy: 0,      rx: 0.174, ry: 0.158, ph: 0.0, sp: 0.33, dir: 1 },
+    { fx: 0.072,  fy: 0.030,  rx: 0.128, ry: 0.144, ph: 2.2, sp: 0.26, dir: -1 },
+    { fx: -0.062, fy: -0.048, rx: 0.108, ry: 0.102, ph: 4.1, sp: 0.41, dir: 1 }
+  ];
+  var CAPS = [
+    { label: "READ",     ang: -1.95, rx: 0.070, ph: 0.2, dir: 1 },
+    { label: "PLAN",     ang: -1.14, rx: 0.062, ph: 1.1, dir: -1 },
+    { label: "REPAIR",   ang: -0.36, rx: 0.056, ph: 2.4, dir: 1 },
+    { label: "MIGRATE",  ang: 0.44,  rx: 0.064, ph: 3.2, dir: -1 },
+    { label: "EXPLAIN",  ang: 1.24,  rx: 0.054, ph: 4.6, dir: 1 },
+    { label: "REMEMBER", ang: 2.06,  rx: 0.060, ph: 5.4, dir: -1 }
+  ];
+  var PRESETS = [
+    { x: 0.72, y: 0.50 },
+    { x: 0.84, y: 0.38 },
+    { x: 0.86, y: 0.52 },
+    { x: 0.80, y: 0.44 },
+    { x: 0.72, y: 0.54 }
+  ];
+
+  var sections = Array.prototype.slice.call(document.querySelectorAll("main section"));
+  var wide = true;
+  var W = 1440, H = 900, U = 900;
+  var anchorX = 1000, anchorY = 400, tX = 1000, tY = 400;
+  var spread = 0, targetSpread = 0, auto = true;
+  var hovered = -1, pinned = -1;
+  var time = 0, last = 0, raf = 0, running = false, ticking = false;
+  var pointer = { x: 0, y: 0, tx: 0, ty: 0, active: false };
+  var blobs = [];
+
+  function make(attrs, tag) {
+    var n = document.createElementNS(NS, tag || "ellipse");
+    for (var k in attrs) {
+      if (Object.prototype.hasOwnProperty.call(attrs, k)) { n.setAttribute(k, attrs[k]); }
+    }
+    return n;
+  }
+
+  function place(node, cx, cy, rx, ry) {
+    node.setAttribute("cx", cx.toFixed(1));
+    node.setAttribute("cy", cy.toFixed(1));
+    node.setAttribute("rx", Math.max(6, rx).toFixed(1));
+    node.setAttribute("ry", Math.max(6, ry).toFixed(1));
+  }
+  function buildBlobs() {
+    while (layerBlobs.firstChild) { layerBlobs.removeChild(layerBlobs.firstChild); }
+    while (layerLight.firstChild) { layerLight.removeChild(layerLight.firstChild); }
+    while (layerShade.firstChild) { layerShade.removeChild(layerShade.firstChild); }
+    while (labelLayer.firstChild) { labelLayer.removeChild(labelLayer.firstChild); }
+    layerShade.setAttribute("filter", "url(#soft)");
+    layerShade.setAttribute("opacity", "0.17");
+    blobs = [];
+
+    function add(kind, cfg, fill, idx) {
+      var o = {
+        kind: kind,
+        idx: typeof idx === "number" ? idx : -1,
+        s: make({ fill: "#a4705a" }),
+        b: make({ fill: fill }),
+        l: make({ fill: "#ffffff" }),
+        boost: 0,
+        fx: cfg.fx || 0,
+        fy: cfg.fy || 0,
+        rx: cfg.rx,
+        ry: cfg.ry || cfg.rx,
+        ang: cfg.ang || 0,
+        ph: cfg.ph || 0,
+        sp: typeof cfg.sp === "number" ? cfg.sp : 0.3,
+        dir: cfg.dir || 1,
+        x: anchorX,
+        y: anchorY,
+        text: null
+      };
+      layerShade.appendChild(o.s);
+      layerBlobs.appendChild(o.b);
+      layerLight.appendChild(o.l);
+      if (kind === "cap") {
+        var txt = make({ "text-anchor": "middle", opacity: "0" }, "text");
+        txt.textContent = cfg.label;
+        labelLayer.appendChild(txt);
+        o.text = txt;
+      }
+      blobs.push(o);
+    }
+
+    var c;
+    for (c = 0; c < CORE.length; c++) { add("core", CORE[c], "url(#mesh)", -1); }
+    for (c = 0; c < CAPS.length; c++) { add("cap", CAPS[c], "url(#mesh)", c); }
+    if (fine && !reduce) { add("cursor", { rx: 0.046, ry: 0.044 }, "url(#meshCursor)", -1); }
+  }
+
+  function syncSize() {
+    var r = svg.getBoundingClientRect();
+    W = Math.max(320, Math.round(r.width) || window.innerWidth || 1440);
+    H = Math.max(320, Math.round(r.height) || window.innerHeight || 900);
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    U = Math.min(W, H);
+    wide = W > 940;
+    var mesh = document.getElementById("mesh");
+    if (mesh) {
+      mesh.setAttribute("x1", "0");
+      mesh.setAttribute("y1", "0");
+      mesh.setAttribute("x2", String(Math.round(W * 0.92)));
+      mesh.setAttribute("y2", String(Math.round(H * 0.96)));
+    }
+    var mc = document.getElementById("meshCursor");
+    if (mc) {
+      mc.setAttribute("x2", String(Math.round(W * 0.4)));
+      mc.setAttribute("y2", String(Math.round(H * 0.5)));
+    }
+  }
+  function step(dt) {
+    time += dt;
+    var kSpread = 1 - Math.exp(-dt * 2.4);
+    var kAnchor = 1 - Math.exp(-dt * 1.15);
+    var kBoost = 1 - Math.exp(-dt * 5);
+    var kPointer = 1 - Math.exp(-dt * 7);
+
+    spread += (targetSpread - spread) * kSpread;
+    anchorX += (tX - anchorX) * kAnchor;
+    anchorY += (tY - anchorY) * kAnchor;
+
+    if (!pointer.active) {
+      pointer.x = pointer.tx = anchorX;
+      pointer.y = pointer.ty = anchorY;
+    }
+    pointer.x += (pointer.tx - pointer.x) * kPointer;
+    pointer.y += (pointer.ty - pointer.y) * kPointer;
+
+    var breath = reduce ? 1 : 1 + 0.042 * Math.sin(time * 0.92);
+
+    for (var i = 0; i < blobs.length; i++) {
+      var o = blobs[i];
+      var want = (o.idx >= 0 && (o.idx === hovered || o.idx === pinned)) ? 1 : 0;
+      o.boost += (want - o.boost) * kBoost;
+
+      var x, y, rx, ry;
+
+      if (o.kind === "cursor") {
+        rx = o.rx * U * (1 + 0.22 * o.boost);
+        ry = rx * 0.94;
+        x = pointer.x;
+        y = pointer.y;
+      } else if (o.kind === "core") {
+        var wob = reduce ? 0 : Math.sin(time * o.sp * 2 + o.ph) * 0.012;
+        x = anchorX + (o.fx + wob) * U * 1.18;
+        y = anchorY + (o.fy + wob * 0.7) * U + (reduce ? 0 : Math.sin(time * 0.7 + o.ph) * 7);
+        rx = o.rx * U * breath * (1 + 0.14 * o.boost);
+        ry = o.ry * U * breath * (1 + 0.14 * o.boost);
+      } else {
+        var orbit = U * (0.05 + spread * 0.235);
+        var a = o.ang + (reduce ? 0 : time * 0.05 * o.dir);
+        var drift = reduce ? 0 : Math.sin(time * 0.85 + o.ph) * 0.016 * U;
+        x = anchorX + Math.cos(a) * (orbit + drift) * 1.18;
+        y = anchorY + Math.sin(a) * (orbit + drift);
+        rx = o.rx * U * (1 + 0.46 * o.boost) * (0.95 + 0.05 * spread);
+        ry = rx * 0.98;
+      }
+
+      o.x = x;
+      o.y = y;
+      place(o.s, x + 12, y + 30, rx * 0.92, ry * 0.86);
+      place(o.b, x, y, rx, ry);
+      place(o.l, x - rx * 0.18, y - ry * 0.22, rx * 0.66, ry * 0.58);
+
+      if (o.text) {
+        o.text.setAttribute("opacity", (spread * 0.9 + o.boost * 0.1).toFixed(3));
+        o.text.setAttribute("x", x.toFixed(1));
+        o.text.setAttribute("y", (y + ry + 21).toFixed(1));
+      }
+    }
+  }
+  function loop(now) {
+    if (!running) { return; }
+    if (!last) { last = now; }
+    var dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    step(dt);
+    raf = window.requestAnimationFrame(loop);
+  }
+
+  function start() {
+    if (running || reduce) { return; }
+    running = true;
+    last = 0;
+    raf = window.requestAnimationFrame(loop);
+  }
+
+  function stop() {
+    running = false;
+    if (raf) { window.cancelAnimationFrame(raf); }
+    raf = 0;
+  }
+
+  function applyInstant() {
+    for (var i = 0; i < blobs.length; i++) {
+      var o = blobs[i];
+      if (o.idx < 0) { continue; }
+      o.boost = (o.idx === hovered || o.idx === pinned) ? 1 : 0;
+    }
+    spread = targetSpread;
+    anchorX = tX;
+    anchorY = tY;
+    step(0);
+  }
+
+  function updateTargets() {
+    var vh = window.innerHeight || 800;
+    var vc = vh * 0.45;
+    var idx = 0;
+    var best = Infinity;
+    for (var i = 0; i < sections.length; i++) {
+      var r = sections[i].getBoundingClientRect();
+      if (r.bottom < 0 || r.top > vh) { continue; }
+      var d = Math.abs((r.top + r.height * 0.5) - vc);
+      if (d < best) { best = d; idx = i; }
+    }
+    var p = PRESETS[Math.min(idx, PRESETS.length - 1)];
+    tX = (wide ? p.x : 0.5) * W;
+    tY = (wide ? p.y : 0.105) * H;
+
+    if (auto && capsSection) {
+      var cr = capsSection.getBoundingClientRect();
+      setSpread((cr.top < vh * 0.62 && cr.bottom > vh * 0.26) ? 1 : 0, false);
+    }
+
+    var heroTop = sections.length ? sections[0].getBoundingClientRect().height : vh;
+    var past = window.pageYOffset > heroTop * 0.85;
+    var base = wide ? 1 : 0.72;
+    svg.style.opacity = (past ? base * 0.46 : base).toFixed(2);
+  }
+
+  function onScroll() {
+    if (ticking) { return; }
+    ticking = true;
+    window.requestAnimationFrame(function () {
+      ticking = false;
+      updateTargets();
+      if (reduce) { applyInstant(); }
+    });
+  }
+
+  if (fine && !reduce) {
+    window.addEventListener("pointermove", function (e) {
+      var r = svg.getBoundingClientRect();
+      pointer.tx = e.clientX - r.left;
+      pointer.ty = e.clientY - r.top;
+      if (!pointer.active) {
+        pointer.x = pointer.tx;
+        pointer.y = pointer.ty;
+        pointer.active = true;
+      }
+    }, { passive: true });
+  }
+
+  var buttons = Array.prototype.slice.call(document.querySelectorAll(".caps button[data-blob]"));
+  var b, i;
+  for (b = 0; b < buttons.length; b++) {
+    (function (btn, index) {
+      btn.addEventListener("mouseenter", function () {
+        hovered = index;
+        if (reduce) { applyInstant(); }
+      });
+      btn.addEventListener("mouseleave", function () {
+        if (hovered === index) { hovered = -1; }
+        if (reduce) { applyInstant(); }
+      });
+      btn.addEventListener("focus", function () {
+        hovered = index;
+        if (reduce) { applyInstant(); }
+      });
+      btn.addEventListener("blur", function () {
+        if (hovered === index) { hovered = -1; }
+        if (reduce) { applyInstant(); }
+      });
+      btn.addEventListener("click", function () {
+        pinned = (pinned === index) ? -1 : index;
+        for (var k = 0; k < buttons.length; k++) {
+          buttons[k].setAttribute("aria-pressed", k === pinned ? "true" : "false");
+        }
+        if (reduce) { applyInstant(); }
+      });
+    })(buttons[b], b);
+  }
+
+  function setSpread(v, user) {
+    if (v === targetSpread) { return; }
+    targetSpread = v;
+    if (divideBtn) {
+      divideBtn.setAttribute("aria-pressed", v > 0.5 ? "true" : "false");
+      divideBtn.textContent = v > 0.5 ? "Pull it together" : "Split it open";
+    }
+    if (user && hint) { hint.hidden = true; }
+    if (reduce) { applyInstant(); }
+  }
+
+  if (divideBtn) {
+    divideBtn.addEventListener("click", function () {
+      auto = false;
+      setSpread(targetSpread > 0.5 ? 0 : 1, true);
+      applyInstant();
+    });
+  }
+
+  window.addEventListener("resize", function () {
+    syncSize();
+    updateTargets();
+    if (reduce) { applyInstant(); }
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { stop(); } else { start(); }
+  });
+
+  syncSize();
+  buildBlobs();
+  updateTargets();
+
+  if (reduce) {
+    spread = targetSpread;
+    anchorX = tX;
+    anchorY = tY;
+    applyInstant();
+  } else {
+    start();
+    window.setTimeout(function () { if (auto) { setSpread(1, false); } }, 1500);
+    window.setTimeout(function () { if (auto) { setSpread(0, false); } }, 5600);
+  }
+
+})();
+</script>
+
+</body>
+</html>

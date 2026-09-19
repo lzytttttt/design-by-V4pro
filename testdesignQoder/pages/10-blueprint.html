@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drawing 441-A — Agent Assembly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bp-0:#08243f; --bp-1:#0b2c4d; --bp-2:#0e3560;
+    --line:#9fd4ff; --line-dim:rgba(159,212,255,.30); --line-faint:rgba(159,212,255,.13);
+    --paper:#d8ecff; --paper-dim:rgba(216,236,255,.62); --paper-faint:rgba(216,236,255,.38);
+    --red:#ff5c47;
+    --hair:1px;
+    --e:cubic-bezier(.2,.7,.3,1);
+    --t-1:clamp(.6rem,.57rem + .14vw,.68rem);
+    --t0:clamp(.72rem,.68rem + .2vw,.82rem);
+    --t1:clamp(.85rem,.79rem + .28vw,1rem);
+    --t2:clamp(1.1rem,.95rem + .7vw,1.6rem);
+    --t3:clamp(1.6rem,1.1rem + 2.4vw,3.2rem);
+    --t4:clamp(2rem,1.1rem + 4.4vw,5.2rem);
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;color:var(--paper);
+    font-family:"IBM Plex Mono","Space Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:var(--t0);line-height:1.55;font-weight:400;letter-spacing:.01em;
+    background-color:var(--bp-1);
+    background-image:
+      repeating-linear-gradient(0deg,rgba(159,212,255,.075) 0 1px,transparent 1px 22px),
+      repeating-linear-gradient(90deg,rgba(159,212,255,.075) 0 1px,transparent 1px 22px),
+      repeating-linear-gradient(0deg,rgba(159,212,255,.15) 0 1px,transparent 1px 110px),
+      repeating-linear-gradient(90deg,rgba(159,212,255,.15) 0 1px,transparent 1px 110px);
+    background-attachment:fixed;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{margin:0;font-weight:500;letter-spacing:-.01em}
+  h1{font-size:var(--t4);line-height:.94;letter-spacing:-.035em;font-weight:600;text-transform:uppercase}
+  h2{font-size:var(--t2);line-height:1.08;letter-spacing:.02em;text-transform:uppercase}
+  h3{font-size:var(--t1);line-height:1.2;letter-spacing:.08em;text-transform:uppercase}
+  p{margin:0}
+  a{color:inherit}
+  ul{margin:0;padding:0;list-style:none}
+  .lbl{font-size:var(--t-1);letter-spacing:.2em;text-transform:uppercase;color:var(--paper-faint)}
+  .note{color:var(--paper-dim);font-size:var(--t0);line-height:1.7;max-width:62ch}
+  .red{color:var(--red)}
+  :focus-visible{outline:2px solid var(--red);outline-offset:3px}
+
+  .back{position:fixed;right:clamp(12px,1.6vw,22px);bottom:clamp(12px,1.6vw,22px);z-index:80;
+    font-size:var(--t-1);letter-spacing:.18em;text-transform:uppercase;text-decoration:none;
+    color:var(--line);opacity:.45;padding:.5em .8em;border:var(--hair) solid var(--line-dim);
+    background:var(--bp-0);transition:opacity .3s var(--e),border-color .3s var(--e),background .3s var(--e)}
+  .back:hover,.back:focus-visible{opacity:1;border-color:var(--line);background:var(--bp-2)}
+
+  /* crosshair cursor rig */
+  .xh{position:fixed;inset:0;pointer-events:none;z-index:70;opacity:0;transition:opacity .3s var(--e)}
+  .xh.on{opacity:1}
+  .xh i{position:absolute;background:rgba(255,92,71,.5)}
+  .xh .hx{left:0;right:0;height:1px}
+  .xh .hy{top:0;bottom:0;width:1px}
+  .xh b{position:absolute;font-size:var(--t-1);color:var(--red);letter-spacing:.1em;white-space:nowrap}
+  .xh .xr{left:0;right:0;height:1px}
+  .xh .yr{top:0;bottom:0;width:1px}
+
+  .sheet{position:relative;max-width:1560px;margin:0 auto;padding:clamp(24px,3.4vw,56px) clamp(16px,3.2vw,54px) clamp(30px,4vw,70px)}
+  .drawing{position:absolute;top:0;left:0;pointer-events:none;overflow:visible}
+  .drawing text{font-family:"IBM Plex Mono","Space Mono",monospace;font-size:10px;fill:var(--line);letter-spacing:.06em}
+  .drawing .dim-line{stroke:var(--line-dim);stroke-width:1;fill:none}
+  .drawing .dim-ext{stroke:var(--line-faint);stroke-width:1;fill:none}
+  .drawing .dim-hot{stroke:var(--red);stroke-width:1.2;fill:none}
+  .drawing text.hot{fill:var(--red)}
+  .drawing .cross{stroke:rgba(159,212,255,.55);stroke-width:1}
+
+  header.plate{border:var(--hair) solid var(--line-dim);padding:clamp(16px,2.2vw,34px);display:grid;
+    grid-template-columns:minmax(0,1fr) auto;gap:clamp(16px,2.4vw,40px);align-items:end;background:rgba(8,36,63,.35)}
+  .plate-meta{display:grid;gap:10px;font-size:var(--t-1);letter-spacing:.14em;text-transform:uppercase;color:var(--paper-faint);text-align:right}
+  .plate-meta b{color:var(--line);font-weight:500;letter-spacing:.06em}
+  @media (max-width:820px){header.plate{grid-template-columns:1fr}.plate-meta{text-align:left}}
+
+  main{display:grid;gap:clamp(22px,3vw,44px);margin-top:clamp(26px,3.6vw,54px)}
+  .block{position:relative;border:var(--hair) solid var(--line-dim);background:rgba(8,36,63,.34);padding:clamp(16px,2vw,30px)}
+  .block > .bhead{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;
+    border-bottom:var(--hair) solid var(--line-faint);padding-bottom:12px;margin-bottom:clamp(14px,1.8vw,24px)}
+
+  /* exploded stack */
+  .stack{display:grid;gap:var(--gap,18px)}
+  .layer{
+    position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:clamp(10px,1.6vw,22px);
+    align-items:center;border:var(--hair) solid var(--line-dim);background:linear-gradient(90deg,rgba(14,53,96,.7),rgba(8,36,63,.45));
+    padding:clamp(11px,1.3vw,16px) clamp(12px,1.5vw,20px);
+    transition:transform .45s var(--e),border-color .35s var(--e),background .35s var(--e);
+    will-change:transform}
+  .layer::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line-dim);transition:background .3s var(--e)}
+  .layer:hover,.layer.hot{border-color:var(--line);background:linear-gradient(90deg,rgba(22,74,128,.85),rgba(10,42,72,.5))}
+  .layer:hover::before,.layer.hot::before{background:var(--red)}
+  .layer:hover,.layer.hot{transform:translateX(calc(var(--ex,0px) + 10px)) translateY(-2px)}
+  .layer-tag{font-size:var(--t-1);letter-spacing:.16em;color:var(--line);border:var(--hair) solid var(--line-dim);
+    padding:.3em .55em;white-space:nowrap}
+  .layer-name{font-size:var(--t1);letter-spacing:.02em}
+  .layer-name small{display:block;font-size:var(--t-1);letter-spacing:.12em;color:var(--paper-faint);text-transform:uppercase}
+  .layer-ports{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .layer-ports i{font-style:normal;font-size:var(--t-1);letter-spacing:.1em;color:var(--paper-dim);
+    border:var(--hair) solid var(--line-faint);padding:.22em .5em;white-space:nowrap}
+  @media (max-width:760px){.layer{grid-template-columns:1fr}.layer-ports{justify-content:flex-start}.layer:hover,.layer.hot{transform:translateX(6px)}}
+  .leader{position:absolute;right:-1px;top:50%;width:0;height:0}
+
+  /* pins */
+  .pin{position:absolute;left:0;top:50%;width:22px;height:22px;border-radius:50%;border:var(--hair) solid var(--line);
+    background:var(--bp-1);display:grid;place-items:center;font-size:9px;letter-spacing:0;color:var(--line);
+    transform:translate(-50%,-50%);z-index:4;transition:background .3s var(--e),color .3s var(--e),transform .3s var(--e)}
+  .pin.on{background:var(--red);border-color:var(--red);color:#fff;transform:translate(-50%,-50%) scale(1.22)}
+
+  /* legend + spec tables */
+  .cols{display:grid;gap:clamp(20px,2.6vw,38px);grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+  @media (max-width:900px){.cols{grid-template-columns:1fr}}
+  .tbl{width:100%;border-collapse:collapse;font-size:var(--t0)}
+  .tbl caption{text-align:left;font-size:var(--t-1);letter-spacing:.2em;text-transform:uppercase;color:var(--paper-faint);padding-bottom:10px}
+  .tbl th,.tbl td{text-align:left;padding:.62em .8em;border-bottom:var(--hair) solid var(--line-faint);vertical-align:top}
+  .tbl th{font-weight:500;font-size:var(--t-1);letter-spacing:.14em;text-transform:uppercase;color:var(--paper-faint);
+    border-bottom-color:var(--line-dim)}
+  .tbl td b{color:var(--line);font-weight:500}
+  .tbl tr:last-child td{border-bottom:0}
+  .tbl tbody tr{transition:background .3s var(--e)}
+  .tbl tbody tr:hover{background:rgba(159,212,255,.07)}
+
+  /* timing / flow diagram */
+  .flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:0;border:var(--hair) solid var(--line-faint)}
+  .flow div{border-right:var(--hair) solid var(--line-faint);padding:clamp(11px,1.3vw,16px)}
+  .flow div:last-child{border-right:0}
+  .flow b{display:block;font-size:var(--t-1);letter-spacing:.16em;text-transform:uppercase;color:var(--paper-faint)}
+  .flow span{display:block;font-size:var(--t2);letter-spacing:-.02em;margin-top:.4em;font-variant-numeric:tabular-nums}
+  .flow em{font-style:normal;display:block;font-size:var(--t-1);color:var(--paper-dim);margin-top:.5em}
+
+  /* controls */
+  .ctrls{display:flex;gap:clamp(12px,1.6vw,22px);flex-wrap:wrap;align-items:center;border:var(--hair) solid var(--line-faint);padding:clamp(10px,1.3vw,16px)}
+  .btn{font:inherit;font-size:var(--t-1);letter-spacing:.16em;text-transform:uppercase;color:var(--line);
+    background:transparent;border:var(--hair) solid var(--line-dim);padding:.6em 1em;cursor:pointer;
+    transition:background .3s var(--e),color .3s var(--e),border-color .3s var(--e),transform .3s var(--e)}
+  .btn:hover{border-color:var(--line);background:rgba(159,212,255,.09)}
+  .btn:active{transform:translateY(1px)}
+  .btn[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:#071a2e}
+  .rng{display:flex;align-items:center;gap:12px;font-size:var(--t-1);letter-spacing:.14em;text-transform:uppercase;color:var(--paper-faint)}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:clamp(120px,18vw,220px);height:20px;background:transparent;cursor:pointer;margin:0}
+  input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--line-dim)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;margin-top:-5px;
+    background:var(--bp-1);border:var(--hair) solid var(--line)}
+  input[type=range]::-moz-range-track{height:2px;background:var(--line-dim)}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:0;background:var(--bp-1);border:var(--hair) solid var(--line)}
+  input[type=range]:focus-visible::-webkit-slider-thumb{outline:2px solid var(--red);outline-offset:2px}
+  input[type=range]:focus-visible::-moz-range-thumb{outline:2px solid var(--red);outline-offset:2px}
+  output{color:var(--line);font-variant-numeric:tabular-nums}
+
+  /* title block */
+  .titleblock{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:var(--hair) solid var(--line);
+    background:var(--bp-0);position:relative}
+  .titleblock > div{border-right:var(--hair) solid var(--line-dim);border-bottom:var(--hair) solid var(--line-dim);padding:clamp(9px,1.1vw,14px)}
+  .titleblock > div:nth-child(6n){border-right:0}
+  .titleblock .wide{grid-column:span 3}
+  .titleblock .k{font-size:var(--t-1);letter-spacing:.18em;text-transform:uppercase;color:var(--paper-faint)}
+  .titleblock .v{font-size:var(--t1);color:var(--line);margin-top:.35em;letter-spacing:.02em;word-break:break-word}
+  @media (max-width:760px){
+    .titleblock{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .titleblock > div:nth-child(6n){border-right:var(--hair) solid var(--line-dim)}
+    .titleblock > div:nth-child(2n){border-right:0}
+    .titleblock .wide{grid-column:span 2}
+  }
+
+  footer.foot{margin-top:clamp(20px,2.6vw,40px);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    font-size:var(--t-1);letter-spacing:.16em;text-transform:uppercase;color:var(--paper-faint);
+    border-top:var(--hair) solid var(--line-faint);padding-top:14px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+  @media (hover:none){.xh{display:none}}
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+  }
+</style>
+</head>
+<body>
+
+<div class="xh" id="xh" aria-hidden="true">
+  <i class="xr" id="xhH"></i><i class="yr" id="xhV"></i>
+  <b id="xhLabel">X 0000 / Y 0000</b>
+</div>
+
+<a class="back" href="../index.html">← Index</a>
+
+<div class="sheet" id="sheet">
+  <svg class="drawing" id="drawing" width="100%" height="100%" aria-hidden="true" focusable="false"><g id="dimGroup"></g></svg>
+
+  <header class="plate" id="blkPlate">
+    <div>
+      <p class="lbl">Halyard Systems / Assembly</p>
+      <h1 style="margin-top:12px">Agent<br>Assembly</h1>
+      <p class="note" style="margin-top:18px">Exploded orthographic of the runtime. Each strata is a separately replaceable module; interfaces are pinned and dimensioned to the rendered drawing.</p>
+    </div>
+    <div class="plate-meta">
+      <div>Sheet <b>1 of 1</b></div>
+      <div>Units <b>css px</b></div>
+      <div>Scale <b id="scaleRead">1 : 1</b></div>
+      <div>Viewport <b id="vpRead">1440 × 900</b></div>
+    </div>
+  </header>
+
+  <main>
+
+    <section class="block" id="blkStack" aria-labelledby="stack-h">
+      <div class="bhead">
+        <h2 id="stack-h">01 · Exploded strata</h2>
+        <p class="lbl">Separation <span class="red" id="gapRead">18</span> px</p>
+      </div>
+
+      <div class="ctrls" style="margin-bottom:clamp(14px,1.8vw,24px)">
+        <button class="btn" id="explodeBtn" type="button" aria-pressed="false">Explode 3×</button>
+        <label class="rng" for="gap">Gap <input type="range" id="gap" min="6" max="64" step="1" value="18"><output id="gapOut" for="gap">18px</output></label>
+      </div>
+
+      <div class="stack" id="stack">
+        <article class="layer" data-pin="1" tabindex="0">
+          <span class="layer-tag">L1</span>
+          <span class="layer-name">Intake<small>Surface &amp; routing</small></span>
+          <span class="layer-ports"><i>http</i><i>ws</i><i>cli</i></span>
+          <span class="pin" data-pinmark="1">1</span>
+        </article>
+        <article class="layer" data-pin="2" tabindex="0">
+          <span class="layer-tag">L2</span>
+          <span class="layer-name">Planner<small>Decomposition &amp; budget</small></span>
+          <span class="layer-ports"><i>plan</i><i>estimate</i><i>replan</i></span>
+          <span class="pin" data-pinmark="2">2</span>
+        </article>
+        <article class="layer" data-pin="3" tabindex="0">
+          <span class="layer-tag">L3</span>
+          <span class="layer-name">Tool bus<small>Typed capability dispatch</small></span>
+          <span class="layer-ports"><i>fs</i><i>shell</i><i>net</i><i>git</i><i>db</i></span>
+          <span class="pin" data-pinmark="3">3</span>
+        </article>
+        <article class="layer" data-pin="4" tabindex="0">
+          <span class="layer-tag">L4</span>
+          <span class="layer-name">Memory<small>Working set &amp; archive</small></span>
+          <span class="layer-ports"><i>episodic</i><i>vector</i><i>ledger</i></span>
+          <span class="pin" data-pinmark="4">4</span>
+        </article>
+        <article class="layer" data-pin="5" tabindex="0">
+          <span class="layer-tag">L5</span>
+          <span class="layer-name">Guardrails<small>Policy &amp; spend ceiling</small></span>
+          <span class="layer-ports"><i>approve</i><i>cap</i><i>audit</i></span>
+          <span class="pin" data-pinmark="5">5</span>
+        </article>
+        <article class="layer" data-pin="6" tabindex="0">
+          <span class="layer-tag">L6</span>
+          <span class="layer-name">Effectors<small>Writes to the outside world</small></span>
+          <span class="layer-ports"><i>pr</i><i>deploy</i><i>ticket</i></span>
+          <span class="pin" data-pinmark="6">6</span>
+        </article>
+      </div>
+    </section>
+
+    <div class="cols">
+      <section class="block" id="blkLegend" aria-labelledby="legend-h">
+        <div class="bhead"><h2 id="legend-h">02 · Legend</h2><p class="lbl">6 items</p></div>
+        <table class="tbl">
+          <caption class="sr-only">Callout legend</caption>
+          <thead><tr><th scope="col">Callout</th><th scope="col">Part</th><th scope="col">Function</th></tr></thead>
+          <tbody>
+            <tr><td><b>1</b></td><td>Intake</td><td>Accepts a task from a human, a scheduler, or another agent.</td></tr>
+            <tr><td><b>2</b></td><td>Planner</td><td>Splits the task and pre-authorises a spend envelope.</td></tr>
+            <tr><td><b>3</b></td><td>Tool bus</td><td>Dispatches typed calls; every call is logged and replayable.</td></tr>
+            <tr><td><b>4</b></td><td>Memory</td><td>Three tiers; archives expensively derived context.</td></tr>
+            <tr><td><b>5</b></td><td>Guardrails</td><td>Rejects any action exceeding policy or the spend ceiling.</td></tr>
+            <tr><td><b>6</b></td><td>Effectors</td><td>The only strata permitted to mutate the outside world.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="block" id="blkSpec" aria-labelledby="spec-h">
+        <div class="bhead"><h2 id="spec-h">03 · Tolerances</h2><p class="lbl red">Rev D</p></div>
+        <div class="flow">
+          <div><b>Cold start</b><span>410<span style="font-size:.6em">ms</span></span><em>p95</em></div>
+          <div><b>Step</b><span>2.1<span style="font-size:.6em">s</span></span><em>median</em></div>
+          <div><b>Replan</b><span>6.4<span style="font-size:.6em">%</span></span><em>of steps</em></div>
+          <div><b>Escalation</b><span>0.9<span style="font-size:.6em">%</span></span><em>to human</em></div>
+        </div>
+        <table class="tbl" style="margin-top:clamp(16px,2vw,26px)">
+          <caption class="sr-only">Interface tolerances</caption>
+          <thead><tr><th scope="col">Interface</th><th scope="col">Nominal</th><th scope="col">Limit</th></tr></thead>
+          <tbody>
+            <tr><td>Context window</td><td>180k</td><td>200k</td></tr>
+            <tr><td>Parallel tools</td><td>6</td><td>12</td></tr>
+            <tr><td>Run duration</td><td>—</td><td>45 min</td></tr>
+            <tr><td>Cost / run</td><td>$0.42</td><td>$12.00</td></tr>
+            <tr><td>Retry depth</td><td>4</td><td>10</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <section class="block" id="blkTb" aria-labelledby="tb-h">
+      <div class="bhead"><h2 id="tb-h">04 · Title block</h2><p class="lbl">Not to be scaled from print</p></div>
+      <div class="titleblock">
+        <div class="wide"><span class="k">Project</span><div class="v">Halyard agent runtime</div></div>
+        <div><span class="k">Drawing no.</span><div class="v">441-A</div></div>
+        <div><span class="k">Revision</span><div class="v" id="revVal">D</div></div>
+        <div><span class="k">Date</span><div class="v" id="dateVal">—</div></div>
+        <div><span class="k">Drawn</span><div class="v">R. Okonjo</div></div>
+        <div><span class="k">Checked</span><div class="v">M. Vela</div></div>
+        <div><span class="k">Sheet</span><div class="v">1 / 1</div></div>
+        <div><span class="k">Scale</span><div class="v" id="scaleVal">1:1</div></div>
+        <div><span class="k">Units</span><div class="v">CSS px</div></div>
+        <div class="wide"><span class="k">Note</span><div class="v">Dimension lines are measured from the live DOM at draw time. Resize the sheet to re-measure.</div></div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="foot">
+    <span>Drawn from live layout — no fixed figures</span>
+    <span id="stamp">—</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var NS = "http://www.w3.org/2000/svg";
+
+  var sheet = $("sheet"), svg = $("drawing"), g = $("dimGroup");
+  var stack = $("stack"), gap = $("gap"), gapOut = $("gapOut"), gapRead = $("gapRead");
+  var explodeBtn = $("explodeBtn"), vpRead = $("vpRead"), stamp = $("stamp");
+
+  /* ---------- date / stamp ---------- */
+  var now = new Date();
+  var iso = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2);
+  $("dateVal").textContent = iso;
+  stamp.textContent = "Sheet issued " + iso;
+
+  /* ---------- svg helpers ---------- */
+  function el(name, attrs) {
+    var n = document.createElementNS(NS, name);
+    for (var k in attrs) { if (Object.prototype.hasOwnProperty.call(attrs, k)) n.setAttribute(k, attrs[k]); }
+    return n;
+  }
+  function clear() { while (g.firstChild) g.removeChild(g.firstChild); }
+
+  /* ---------- measurement pass ---------- */
+  var H_OFF = 22, V_OFF = 24, EXT = 7;
+
+  function measure(target) {
+    var sr = sheet.getBoundingClientRect();
+    var r = target.getBoundingClientRect();
+    return {
+      x: r.left - sr.left, y: r.top - sr.top,
+      w: r.width, h: r.height,
+      right: r.right - sr.left, bottom: r.bottom - sr.top
+    };
+  }
+
+  function arrow(x, y, dir) {
+    // dir: 'l' | 'r' | 'u' | 'd'
+    var s = 4.4, d = "M" + x + " " + y;
+    if (dir === "l") d += "l" + s + " " + s + "M" + x + " " + y + "l" + s + " -" + s;
+    if (dir === "r") d += "l-" + s + " " + s + "M" + x + " " + y + "l-" + s + " -" + s;
+    if (dir === "u") d += "l" + s + " " + s + "M" + x + " " + y + "l-" + s + " " + s;
+    if (dir === "d") d += "l" + s + " -" + s + "M" + x + " " + y + "l-" + s + " -" + s;
+    return el("path", { d: d, class: "dim-line" });
+  }
+
+  function label(text, x, y, anchor, hot) {
+    var t = el("text", { x: x, y: y, "text-anchor": anchor, class: hot ? "hot" : "" });
+    t.textContent = text;
+    return t;
+  }
+
+  function crosshair(m) {
+    g.appendChild(el("line", { x1: m.x, y1: m.y, x2: m.x + 9, y2: m.y, class: "cross" }));
+    g.appendChild(el("line", { x1: m.x, y1: m.y, x2: m.x, y2: m.y + 9, class: "cross" }));
+    g.appendChild(el("line", { x1: m.right, y1: m.bottom, x2: m.right - 9, y2: m.bottom, class: "cross" }));
+    g.appendChild(el("line", { x1: m.right, y1: m.bottom, x2: m.right, y2: m.bottom - 9, class: "cross" }));
+  }
+
+  /* horizontal dimension beneath a block */
+  function dimH(m, sign, hot, tag) {
+    var y = m.bottom + H_OFF;
+    if (sign === "in") y = m.y - H_OFF;
+    // extension lines from the block down to the dimension line
+    g.appendChild(el("line", { x1: m.x, y1: m.bottom, x2: m.x, y2: y + (sign === "in" ? -EXT : EXT), class: "dim-ext" }));
+    g.appendChild(el("line", { x1: m.right, y1: m.bottom, x2: m.right, y2: y + (sign === "in" ? -EXT : EXT), class: "dim-ext" }));
+    var line = el("line", { x1: m.x, y1: y, x2: m.right, y2: y, class: hot ? "dim-hot" : "dim-line" });
+    g.appendChild(line);
+    g.appendChild(arrow(m.x, y, "l"));
+    g.appendChild(arrow(m.right, y, "r"));
+    // vertical witness ticks
+    g.appendChild(el("line", { x1: m.x, y1: y - 5, x2: m.x, y2: y + 5, class: "dim-line" }));
+    g.appendChild(el("line", { x1: m.right, y1: y - 5, x2: m.right, y2: y + 5, class: "dim-line" }));
+    var txt = tag + " " + Math.round(m.w) + "px";
+    var pad = 6;
+    var approx = txt.length * 6.1 + pad * 2;
+    var cx = m.x + m.w / 2;
+    var bx = cx - approx / 2;
+    // mask the dimension line behind the label
+    g.appendChild(el("rect", {
+      x: bx, y: y - 8, width: approx, height: 16,
+      fill: "#0b2c4d"
+    }));
+    g.appendChild(label(txt, cx, y + 3.5, "middle", hot));
+  }
+
+  /* vertical dimension to the right of a block */
+  function dimV(m, sign, hot, tag) {
+    var x = m.right + V_OFF;
+    if (sign === "in") x = m.x - V_OFF;
+    g.appendChild(el("line", { x1: m.right, y1: m.y, x2: x + (sign === "in" ? -EXT : EXT), y2: m.y, class: "dim-ext" }));
+    g.appendChild(el("line", { x1: m.right, y1: m.bottom, x2: x + (sign === "in" ? -EXT : EXT), y2: m.bottom, class: "dim-ext" }));
+    g.appendChild(el("line", { x1: x, y1: m.y, x2: x, y2: m.bottom, class: hot ? "dim-hot" : "dim-line" }));
+    g.appendChild(arrow(x, m.y, "u"));
+    g.appendChild(arrow(x, m.bottom, "d"));
+    g.appendChild(el("line", { x1: x - 5, y1: m.y, x2: x + 5, y2: m.y, class: "dim-line" }));
+    g.appendChild(el("line", { x1: x - 5, y1: m.bottom, x2: x + 5, y2: m.bottom, class: "dim-line" }));
+    var txt = tag + " " + Math.round(m.h) + "px";
+    var cy = m.y + m.h / 2;
+    var approx = txt.length * 6.1 + 10;
+    g.appendChild(el("rect", { x: x - 8, y: cy - approx / 2, width: 16, height: approx, fill: "#0b2c4d" }));
+    var t = el("text", { x: x + 3.5, y: cy, "text-anchor": "middle", class: hot ? "hot" : "" });
+    t.setAttribute("transform", "rotate(-90 " + (x + 3.5) + " " + cy + ")");
+    t.textContent = txt;
+    g.appendChild(t);
+  }
+
+  var HOTS = ["blkStack", "blkLegend", "blkSpec", "blkTb"];
+
+  /* dimension the spacing between two stacked layers */
+  function dimSpacing(a, b) {
+    var span = b.y - a.bottom;
+    if (span < 13) return;
+    var y = a.bottom + span / 2;
+    var x1 = a.x + 30, x2 = b.right - 30;
+    g.appendChild(el("line", { x1: x1, y1: a.bottom, x2: x1, y2: b.y, class: "dim-ext" }));
+    g.appendChild(el("line", { x1: x2, y1: a.bottom, x2: x2, y2: b.y, class: "dim-ext" }));
+    g.appendChild(el("line", { x1: x1, y1: y, x2: x2, y2: y, class: "dim-line" }));
+    g.appendChild(arrow(x1, y, "l"));
+    g.appendChild(arrow(x2, y, "r"));
+    var txt = "\u2195 " + Math.round(span) + "px clear";
+    var approx = txt.length * 6.1 + 12;
+    g.appendChild(el("rect", { x: x1 + (x2 - x1) / 2 - approx / 2, y: y - 8, width: approx, height: 16, fill: "#0b2c4d" }));
+    g.appendChild(label(txt, x1 + (x2 - x1) / 2, y + 3.5, "middle", false));
+  }
+
+  function draw() {
+    var shots = [];
+    var targets = [sheet.querySelector(".plate"), $("blkStack"), $("blkLegend"), $("blkSpec"), $("blkTb")];
+    targets.forEach(function (t) { if (t) shots.push({ node: t, m: measure(t) }); });
+    if (!shots.length) return;
+
+    var h = Math.max.apply(null, shots.map(function (s) { return s.m.bottom; })) + 14;
+    var w = Math.max.apply(null, shots.map(function (s) { return s.m.right; })) + 14;
+    svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+    svg.setAttribute("width", w);
+    svg.setAttribute("height", h);
+    svg.style.width = w + "px";
+    svg.style.height = h + "px";
+    clear();
+
+    shots.forEach(function (s, i) {
+      var hot = HOTS.indexOf(s.node.id) > -1;
+      crosshair(s.m);
+      if (i === 0) dimH(s.m, "in", hot, "\u2194");
+      else if (i % 2 === 0) dimV(s.m, "out", hot, "\u2195");
+      else dimH(s.m, "out", hot, "\u2194");
+    });
+
+    // the plate gets an inner vertical measure on its left edge
+    dimV(shots[0].m, "in", false, "\u2195");
+
+    // spacing between consecutive strata — re-measured, changes when exploded
+    var layers = Array.prototype.slice.call(stack.querySelectorAll(".layer"));
+    var boxes = layers.map(measure);
+    for (var i = 1; i < boxes.length; i++) dimSpacing(boxes[i - 1], boxes[i]);
+  }
+
+  /* ---------- crosshair cursor ---------- */
+  var xh = $("xh"), xhH = $("xhH"), xhV = $("xhV"), xhLabel = $("xhLabel");
+  var fine = window.matchMedia("(hover:hover) and (pointer:fine)");
+  if (fine.matches) {
+    window.addEventListener("pointermove", function (e) {
+      xh.classList.add("on");
+      xhH.style.top = e.clientY + "px";
+      xhV.style.left = e.clientX + "px";
+      var sr = sheet.getBoundingClientRect();
+      var lx = Math.round(e.clientX - sr.left), ly = Math.round(e.clientY - sr.top);
+      xhLabel.textContent = "X " + lx + " / Y " + ly;
+      xhLabel.style.transform = "translate(" + (e.clientX > window.innerWidth - 190 ? -170 : 14) + "px," + (e.clientY > window.innerHeight - 40 ? -26 : 14) + "px)";
+    }, { passive: true });
+    window.addEventListener("pointerleave", function () { xh.classList.remove("on"); });
+    document.addEventListener("pointerleave", function () { xh.classList.remove("on"); });
+  }
+
+  /* ---------- explode controls ---------- */
+  function setGap(v) {
+    stack.style.setProperty("--gap", v + "px");
+    gapOut.textContent = v + "px";
+    gapRead.textContent = v;
+    layers_set(v);
+  }
+  function layers_set(v) {
+    var layers = stack.querySelectorAll(".layer");
+    Array.prototype.forEach.call(layers, function (l, i) {
+      l.style.setProperty("--ex", (i * (v - 18) / 2).toFixed(1) + "px");
+    });
+  }
+  var exploded = false;
+  explodeBtn.addEventListener("click", function () {
+    exploded = !exploded;
+    explodeBtn.setAttribute("aria-pressed", exploded ? "true" : "false");
+    explodeBtn.textContent = exploded ? "Assemble 1×" : "Explode 3×";
+    gap.value = exploded ? 54 : 18;
+    setGap(Number(gap.value));
+    scheduleDraw();
+  });
+  gap.addEventListener("input", function () { setGap(Number(gap.value)); scheduleDraw(); });
+
+  /* ---------- callout pins ---------- */
+  var pins = Array.prototype.slice.call(document.querySelectorAll(".pin"));
+  var rows = Array.prototype.slice.call(document.querySelectorAll("#blkLegend tbody tr"));
+
+  function syncPin(n) {
+    pins.forEach(function (p) { p.classList.toggle("on", p.dataset.pinmark === n); });
+    rows.forEach(function (r) {
+      var first = r.querySelector("td b");
+      r.style.background = first && first.textContent.trim() === n ? "rgba(255,92,71,.14)" : "";
+    });
+  }
+  function clearPins() { syncPin(null); }
+
+  pins.forEach(function (p) {
+    p.addEventListener("pointerenter", function () { syncPin(p.dataset.pinmark); });
+    p.addEventListener("pointerleave", clearPins);
+    p.addEventListener("focusin", function () { syncPin(p.dataset.pinmark); });
+    p.addEventListener("focusout", clearPins);
+  });
+  rows.forEach(function (r) {
+    var first = r.querySelector("td b");
+    if (!first) return;
+    var n = first.textContent.trim();
+    r.setAttribute("tabindex", "0");
+    r.addEventListener("pointerenter", function () { syncPin(n); });
+    r.addEventListener("pointerleave", clearPins);
+    r.addEventListener("focusin", function () { syncPin(n); });
+    r.addEventListener("focusout", clearPins);
+  });
+
+  /* ---------- viewport readout ---------- */
+  function readVp() {
+    var r = svg.getBoundingClientRect();
+    vpRead.textContent = Math.round(window.innerWidth) + " × " + Math.round(window.innerHeight);
+    return r;
+  }
+
+  /* ---------- draw scheduling ---------- */
+  var pending = false;
+  function scheduleDraw() {
+    if (pending) return;
+    pending = true;
+    window.requestAnimationFrame(function () {
+      pending = false;
+      if (document.hidden) return;
+      var s = sheet.getBoundingClientRect();
+      var first = sheet.querySelector(".plate");
+      if (first) {
+        var scale = Math.max(0.6, Math.min(1.6, s.width / 1320));
+        $("scaleRead").textContent = "1 : " + scale.toFixed(2);
+        $("scaleVal").textContent = "1:" + scale.toFixed(2);
+      }
+      readVp();
+      draw();
+    });
+  }
+
+  var rt = null;
+  window.addEventListener("resize", function () {
+    if (rt) window.clearTimeout(rt);
+    rt = window.setTimeout(scheduleDraw, 130);
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) scheduleDraw();
+  });
+  window.addEventListener("load", scheduleDraw);
+
+  /* fonts changing metrics => re-measure */
+  if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === "function") {
+    document.fonts.ready.then(function () { scheduleDraw(); }).catch(function () {});
+  }
+
+  setGap(18);
+  draw();
+  readVp();
+  window.setTimeout(scheduleDraw, 60);
+})();
+</script>
+</body>
+</html>

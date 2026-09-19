@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI-Native Agent · 20 种主页设计范式</title>
+<meta name="description" content="20 个独立的 AI Agent 主页设计探索，每一套采用不同的设计范式。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0b;
+    --panel:#101114;
+    --line:rgba(255,255,255,.085);
+    --line-strong:rgba(255,255,255,.18);
+    --ink:#e8e8e5;
+    --dim:#85858c;
+    --faint:#55555c;
+    --accent:#d7ff3e;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --gut:clamp(16px,3.2vw,44px);
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:var(--sans);font-size:15px;line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);
+    background-size:64px 64px;
+    background-position:-1px -1px;
+  }
+  a{color:inherit;text-decoration:none}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+
+  /* ---------- masthead ---------- */
+  .masthead{
+    padding:clamp(28px,5vw,64px) var(--gut) clamp(20px,3vw,32px);
+    border-bottom:1px solid var(--line);
+    position:relative;
+  }
+  .kicker{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--faint);display:flex;align-items:center;gap:10px;margin-bottom:22px;
+  }
+  .kicker::after{content:"";flex:1;height:1px;background:var(--line);}
+  h1{
+    margin:0;font-weight:400;letter-spacing:-.035em;line-height:.95;
+    font-size:clamp(34px,7.4vw,86px);
+  }
+  h1 .sub{
+    display:block;color:var(--dim);font-weight:300;
+    font-size:clamp(15px,2.6vw,30px);letter-spacing:-.01em;margin-top:.42em;
+  }
+  .lede{
+    max-width:62ch;margin:26px 0 0;color:var(--dim);font-weight:300;
+    font-size:clamp(13.5px,1.5vw,16px);line-height:1.68;
+  }
+  .lede b{color:var(--ink);font-weight:500}
+
+  .controls{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    margin-top:clamp(22px,3vw,34px);
+  }
+  .chip{
+    font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    padding:7px 13px;border:1px solid var(--line-strong);border-radius:100px;
+    background:transparent;color:var(--dim);cursor:pointer;
+    transition:color .18s,background .18s,border-color .18s;
+  }
+  .chip:hover{color:var(--ink);border-color:rgba(255,255,255,.4)}
+  .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#0a0a0b}
+  .count{
+    font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.08em;
+    margin-left:auto;
+  }
+
+  /* ---------- board ---------- */
+  .board{
+    display:grid;grid-template-columns:minmax(0,1fr);
+    gap:var(--gut);
+    padding:var(--gut);
+    align-items:start;
+  }
+  @media (min-width:1080px){
+    .board{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);}
+  }
+
+  /* ---------- index list ---------- */
+  .index{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+  .row{border-bottom:1px solid var(--line)}
+  .row.is-hidden{display:none}
+  .row-link{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr) auto;
+    gap:clamp(12px,2vw,24px);
+    align-items:baseline;
+    padding:clamp(14px,1.9vw,20px) clamp(6px,1vw,14px);
+    position:relative;
+    transition:background .2s ease;
+  }
+  .row-link::before{
+    content:"";position:absolute;left:0;top:-1px;bottom:-1px;width:0;
+    background:var(--accent);opacity:.9;
+    transition:width .22s cubic-bezier(.2,.8,.2,1);
+  }
+  .row-link:hover,.row-link:focus-visible{background:rgba(255,255,255,.035)}
+  .row-link:hover::before,.row-link:focus-visible::before{width:2px}
+  .row.is-active .row-link::before{width:2px}
+
+  .num{
+    font-family:var(--mono);font-size:clamp(19px,2.4vw,30px);font-weight:300;
+    color:var(--faint);letter-spacing:-.04em;line-height:1;
+    font-variant-numeric:tabular-nums;
+    transition:color .2s;
+  }
+  .row-link:hover .num,.row.is-active .num{color:var(--accent)}
+
+  .body{min-width:0}
+  .name{
+    display:block;font-size:clamp(15px,1.7vw,19px);font-weight:500;
+    letter-spacing:-.015em;
+  }
+  .zh{
+    display:block;color:var(--dim);font-weight:300;font-size:clamp(12px,1.25vw,13.5px);
+    margin-top:5px;line-height:1.45;
+  }
+  .meta{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+  .tags{
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--faint);white-space:nowrap;
+  }
+  .swatches{display:flex;gap:0;border-radius:100px;overflow:hidden;border:1px solid var(--line-strong)}
+  .sw{width:15px;height:15px;display:block}
+  .go{
+    font-family:var(--mono);font-size:13px;color:var(--faint);
+    transition:color .2s,transform .2s;
+  }
+  .row-link:hover .go,.row.is-active .go{color:var(--accent);transform:translate(2px,-2px)}
+  @media (max-width:720px){
+    .row-link{grid-template-columns:auto minmax(0,1fr);row-gap:10px}
+    .meta{grid-column:1/-1;justify-content:flex-start}
+  }
+
+  /* ---------- stage ---------- */
+  .stage{
+    display:none;
+    position:sticky;top:var(--gut);
+    border:1px solid var(--line-strong);
+    background:var(--panel);
+    border-radius:6px;overflow:hidden;
+  }
+  @media (min-width:1080px){.stage{display:block}}
+  .stage-bar{
+    display:flex;align-items:center;gap:12px;
+    padding:9px 12px;border-bottom:1px solid var(--line);
+    background:rgba(255,255,255,.022);
+  }
+  .dots{display:flex;gap:5px;flex:none}
+  .dots i{width:8px;height:8px;border-radius:50%;background:var(--line-strong);display:block}
+  .stage-name{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .stage-mode{
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--faint);border:1px solid var(--line);padding:2px 7px;border-radius:100px;flex:none;
+  }
+  .stage-open{
+    margin-left:auto;flex:none;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--dim);padding:4px 8px;border-radius:4px;
+    transition:color .18s,background .18s;
+  }
+  .stage-open:hover{color:#0a0a0b;background:var(--accent)}
+  .viewport{
+    position:relative;aspect-ratio:16/10;overflow:hidden;background:#08090a;
+  }
+  .viewport iframe{
+    position:absolute;top:0;left:0;
+    width:1440px;height:900px;border:0;
+    transform-origin:0 0;
+    background:#0a0a0b;
+    opacity:0;transition:opacity .3s ease;
+  }
+  .viewport iframe.ready{opacity:1}
+  .shimmer{
+    position:absolute;inset:0;display:grid;place-items:center;
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--faint);
+    background:linear-gradient(100deg,#0e0f11 30%,#15171a 50%,#0e0f11 70%);
+    background-size:220% 100%;animation:pan 1.5s linear infinite;
+  }
+  .shimmer.gone{display:none}
+  @keyframes pan{from{background-position:120% 0}to{background-position:-120% 0}}
+  .stage-foot{
+    padding:9px 12px;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--faint);
+    display:flex;gap:14px;flex-wrap:wrap;
+  }
+  .stage-foot span{white-space:nowrap}
+
+  footer{
+    padding:clamp(24px,4vw,48px) var(--gut) clamp(40px,6vw,80px);
+    border-top:1px solid var(--line);margin-top:var(--gut);
+    display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between;
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--faint);
+  }
+  footer a{color:var(--dim)}
+  footer a:hover{color:var(--accent)}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="kicker">Design Exploration / 20 Paradigms</div>
+  <h1>
+    AI-Native Agent
+    <span class="sub">主页设计的 20 种范式</span>
+  </h1>
+  <p class="lede">
+    同一款 Agent 产品，<b>20 套完全不同的设计定义</b>。差异不在配色皮肤，而在更根本的层面——
+    页面「是什么」、内容如何被组织、用户通过什么方式与之交互。终端、印刷跨页、节点图、粒子场、
+    对话流、工程蓝图、显像管、等轴微缩……每一套都彻底押注一种范式。
+  </p>
+  <div class="controls">
+    <button class="chip" data-filter="all" aria-pressed="true">全部 20</button>
+    <button class="chip" data-filter="dark" aria-pressed="false">暗色</button>
+    <button class="chip" data-filter="light" aria-pressed="false">亮色</button>
+    <span class="count" id="count">20 / 20</span>
+  </div>
+</header>
+
+<main class="board">
+  <ol class="index" id="index"></ol>
+
+  <aside class="stage" aria-label="预览">
+    <div class="stage-bar">
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="stage-name" id="stageName">Terminal Shell</span>
+      <span class="stage-mode" id="stageMode">dark</span>
+      <a class="stage-open" id="stageOpen" href="pages/01-terminal-shell.html" target="_blank" rel="noopener">打开 ↗</a>
+    </div>
+    <div class="viewport" id="viewport">
+      <div class="shimmer" id="shimmer">loading</div>
+    </div>
+    <div class="stage-foot">
+      <span>悬停/聚焦左侧条目即可预览</span>
+      <span>点击条目在新标签打开完整页面</span>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  <span>20 paradigms · static html · no build</span>
+  <span><a href="pages/01-terminal-shell.html" target="_blank" rel="noopener">从 01 开始 →</a></span>
+</footer>
+
+<script>
+const DESIGNS = [
+  ["Terminal Shell","终端 · 一个真实可输入的 REPL","dark","REPL / CLI",["#0a0a0b","#33ff88","#6b7280"]],
+  ["Editorial Spread","杂志跨页 · 基线网格与脚注","light","PRINT / GRID",["#faf7f0","#14110e","#c2410c"]],
+  ["Spatial Node Graph","思维节点图 · 可平移缩放","dark","SPATIAL / GRAPH",["#0b1220","#38bdf8","#7c3aed"]],
+  ["Flow Field","粒子流场 · 光标即力场","dark","GENERATIVE",["#050608","#2dd4bf","#a78bfa"]],
+  ["Chat Thread","对话流 · 没有 Hero 的页面","light","CONVERSATION",["#fbfbfa","#111827","#2563eb"]],
+  ["Morphing Bento","模块矩阵 · 会重排的网格","light","BENTO / FLIP",["#ffffff","#eef0f3","#4f46e5"]],
+  ["Swiss Poster","瑞士海报 · 可见的网格系统","light","SWISS / POSTER",["#f4f1ea","#111111","#e63329"]],
+  ["Spatial Glass","空间玻璃 · 有景深的半透明层","dark","SPATIAL UI",["#0a0a1a","#c7d2fe","#fbbf24"]],
+  ["Soft Tactile","柔性实体 · 可按压的控件面板","light","NEUMORPH",["#e8ecf2","#d1d9e6","#6d7a91"]],
+  ["Blueprint","工程蓝图 · 实测布局的尺寸标注","dark","SCHEMATIC",["#0b2a4a","#9fd8ff","#ff5a4d"]],
+  ["Kinetic Type","动态字体 · 文字本身即媒介","light","MOTION TYPE",["#f7f6f2","#0a0a0a","#ff3d00"]],
+  ["Observability","可观测性 · 被监控的系统运行时","dark","DASHBOARD",["#0d1117","#22c55e","#f59e0b"]],
+  ["Raw Brutalist","原始粗野 · 故意「未设计」的文档","light","ANTI-DESIGN",["#ffffff","#0000ee","#eaff00"]],
+  ["Biomorphic","有机体 · 会呼吸、会分裂的形态","light","ORGANIC",["#fff8f0","#ff7a59","#2ec4b6"]],
+  ["Constructivist","构成主义 · 1920s 宣传海报","light","POSTER / DIY",["#f2ece1","#d81e05","#141414"]],
+  ["Pixel CRT","像素显像管 · 一台老机器及其启动","dark","RETRO / 8BIT",["#0d0b1a","#7cf03d","#ff5fa2"]],
+  ["Voice Orb","声之球 · 用声音交互的发光体","dark","AUDIO-NATIVE",["#05060a","#22d3ee","#f0abfc"]],
+  ["Literate Notebook","文学式笔记 · 可执行的文档","light","NOTEBOOK",["#fffdf7","#b45309","#1f2937"]],
+  ["Isometric Diorama","等轴微缩 · 可旋转的小世界","light","ISOMETRIC",["#eef4ff","#7aa2f7","#f6c177"]],
+  ["IDE Workspace","编辑器 · 一个正在工作的 IDE","dark","DEV TOOL",["#1e1e2e","#89b4fa","#a6e3a1"]],
+];
+
+/* Filenames are fixed on disk and do not always match the display name,
+   so they are listed explicitly rather than derived from `name`. */
+const SLUGS = [
+  "01-terminal-shell","02-editorial-spread","03-node-graph","04-flow-field",
+  "05-chat-thread","06-morph-bento","07-swiss-poster","08-spatial-glass",
+  "09-soft-tactile","10-blueprint","11-kinetic-type","12-observability",
+  "13-raw-brutalist","14-biomorphic","15-constructivist","16-pixel-crt",
+  "17-voice-orb","18-literate-notebook","19-isometric-diorama","20-ide-workspace"
+];
+const slug = n => SLUGS[n-1];
+
+const indexEl = document.getElementById("index");
+indexEl.innerHTML = DESIGNS.map(([name,zh,mode,tags,sw],i)=>{
+  const n = i+1;
+  return `<li class="row" data-mode="${mode}" data-i="${n}">
+    <a class="row-link" href="pages/${slug(n)}.html" target="_blank" rel="noopener" data-i="${n}">
+      <span class="num">${String(n).padStart(2,"0")}</span>
+      <span class="body">
+        <span class="name">${name}</span>
+        <span class="zh">${zh}</span>
+      </span>
+      <span class="meta">
+        <span class="tags">${tags}</span>
+        <span class="swatches" aria-hidden="true">${sw.map(c=>`<i class="sw" style="background:${c}"></i>`).join("")}</span>
+        <span class="go" aria-hidden="true">↗</span>
+      </span>
+    </a>
+  </li>`;
+}).join("");
+
+/* ---- preview stage: pool of 3 iframes, LRU eviction ---- */
+const viewport = document.getElementById("viewport");
+const shimmer  = document.getElementById("shimmer");
+const stageName= document.getElementById("stageName");
+const stageMode= document.getElementById("stageMode");
+const stageOpen= document.getElementById("stageOpen");
+const POOL = 3, pool = new Map();
+
+function show(n){
+  const [name,,mode] = DESIGNS[n-1];
+  const src = "pages/" + slug(n) + ".html";
+  stageName.textContent = name;
+  stageMode.textContent = mode;
+  stageOpen.href = src;
+
+  document.querySelectorAll(".row").forEach(r=>r.classList.toggle("is-active", +r.dataset.i === n));
+
+  let frame = pool.get(src);
+  if (frame){
+    pool.delete(src); pool.set(src, frame);
+  } else {
+    frame = document.createElement("iframe");
+    frame.title = name + " 预览";
+    frame.setAttribute("loading","lazy");
+    frame.setAttribute("tabindex","-1");
+    frame.src = src;
+    frame.addEventListener("load", ()=>{ frame.classList.add("ready"); shimmer.classList.add("gone"); }, {once:true});
+    // pages without a load event (e.g. blocked) should not leave the shimmer up forever
+    setTimeout(()=>{ if(frame.parentNode) { frame.classList.add("ready"); shimmer.classList.add("gone"); } }, 2500);
+    pool.set(src, frame);
+    viewport.appendChild(frame);
+    while (pool.size > POOL){
+      const [oldSrc, oldFrame] = pool.entries().next().value;
+      pool.delete(oldSrc);
+      oldFrame.remove();
+    }
+  }
+
+  shimmer.classList.toggle("gone", frame.classList.contains("ready"));
+  [...viewport.querySelectorAll("iframe")].forEach(f=>{ f.style.display = f===frame ? "block" : "none"; });
+  frame.style.display = "block";
+  scaleStage();
+}
+
+function scaleStage(){
+  const vw = viewport.clientWidth, vh = viewport.clientHeight;
+  if (!vw || !vh) return;
+  const s = Math.min(vw/1440, vh/900);
+  const left = (vw - 1440*s)/2, top = (vh - 900*s)/2;
+  viewport.querySelectorAll("iframe").forEach(f=>{
+    f.style.transform = `translate(${left}px, ${top}px) scale(${s})`;
+  });
+}
+
+let pending = null;
+function queue(n){
+  clearTimeout(pending);
+  pending = setTimeout(()=>show(n), 90);
+}
+
+indexEl.addEventListener("mouseover", e=>{
+  const link = e.target.closest(".row-link");
+  if (link) queue(+link.dataset.i);
+});
+indexEl.addEventListener("focusin", e=>{
+  const link = e.target.closest(".row-link");
+  if (link) show(+link.dataset.i);
+});
+
+/* ---- filter ---- */
+const countEl = document.getElementById("count");
+document.querySelectorAll(".chip").forEach(chip=>{
+  chip.addEventListener("click", ()=>{
+    const f = chip.dataset.filter;
+    document.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed", String(c===chip)));
+    let shown = 0;
+    document.querySelectorAll(".row").forEach(r=>{
+      const ok = f==="all" || r.dataset.mode===f;
+      r.classList.toggle("is-hidden", !ok);
+      if (ok) shown++;
+    });
+    countEl.textContent = shown + " / 20";
+  });
+});
+
+window.addEventListener("resize", scaleStage);
+if (window.ResizeObserver) new ResizeObserver(scaleStage).observe(viewport);
+
+show(1);
+</script>
+</body>
+</html>

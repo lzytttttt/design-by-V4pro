@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Halyard — Soft Control Surface</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --base:#e8ecf2; --base-lo:#dfe4ec; --base-hi:#f2f5fa;
+    --ink:#2b3345; --ink-2:#495469; --ink-3:#6b7688;
+    --accent:#c9603f;
+    --lt:rgba(255,255,255,.92); --lt-soft:rgba(255,255,255,.62);
+    --dk:rgba(150,163,185,.62); --dk-soft:rgba(150,163,185,.40);
+    --r-lg:28px; --r-md:18px;
+    --raise:-8px -8px 18px var(--lt), 8px 8px 20px var(--dk);
+    --raise-sm:-4px -4px 10px var(--lt), 4px 4px 10px var(--dk);
+    --raise-xs:-2px -2px 5px var(--lt-soft), 2px 2px 6px var(--dk-soft);
+    --press:inset -4px -4px 9px var(--lt-soft), inset 4px 4px 10px var(--dk);
+    --press-deep:inset -6px -6px 14px var(--lt-soft), inset 6px 6px 16px var(--dk);
+    --ease:cubic-bezier(.22,.68,.32,1.02);
+    --ease-soft:cubic-bezier(.4,0,.2,1);
+    --t-1:clamp(.72rem,.68rem + .16vw,.8rem);
+    --t0:clamp(.85rem,.8rem + .2vw,.95rem);
+    --t1:clamp(1rem,.94rem + .28vw,1.14rem);
+    --t2:clamp(1.2rem,1.06rem + .55vw,1.5rem);
+    --t3:clamp(1.7rem,1.35rem + 1.5vw,2.6rem);
+    --t4:clamp(2.1rem,1.5rem + 2.8vw,3.7rem);
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--base);color:var(--ink);
+    font-family:"Nunito","Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    font-size:var(--t0);line-height:1.62;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{margin:0;font-weight:800;letter-spacing:-.022em;line-height:1.06}
+  h1{font-size:var(--t4);letter-spacing:-.035em}
+  h2{font-size:var(--t2);line-height:1.14}
+  h3{font-size:var(--t1);letter-spacing:-.014em;line-height:1.2}
+  p{margin:0}
+  .mono{font-family:"Manrope",system-ui,sans-serif}
+  .lede{color:var(--ink-2);font-size:var(--t1);line-height:1.6;max-width:46ch}
+  a{color:inherit}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+
+  .shell{max-width:1320px;margin:0 auto;padding:clamp(20px,3.4vw,52px) clamp(18px,4vw,54px) 60px}
+  .back{position:fixed;left:clamp(14px,2vw,26px);top:clamp(14px,2vw,26px);z-index:60;
+    display:inline-flex;align-items:center;gap:.5em;
+    font-family:"Manrope",system-ui,sans-serif;font-size:var(--t-1);font-weight:700;
+    letter-spacing:.13em;text-transform:uppercase;text-decoration:none;color:var(--ink-3);opacity:.5;
+    padding:.62em .95em;border-radius:999px;background:var(--base);box-shadow:var(--raise-xs);
+    transition:opacity .3s var(--ease-soft),box-shadow .3s var(--ease-soft),transform .3s var(--ease)}
+  .back:hover,.back:focus-visible{opacity:1;transform:translateY(-1px);box-shadow:var(--raise-sm)}
+  .back i{width:6px;height:6px;border-radius:50%;background:var(--accent);display:block}
+
+  header.masthead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:clamp(18px,3vw,42px);
+    align-items:end;padding:clamp(8px,1.6vw,22px) 0 clamp(24px,3vw,40px);border-bottom:1px solid rgba(150,163,185,.24)}
+  .brand{display:flex;align-items:center;gap:.8em;margin-bottom:clamp(16px,2vw,26px)}
+  .brand-mark{width:38px;height:38px;border-radius:12px;background:var(--base);box-shadow:var(--raise-sm);display:grid;place-items:center;flex:none}
+  .brand-mark span{width:14px;height:14px;border-radius:5px;background:var(--base);box-shadow:var(--press);display:block}
+  .brand-name{font-family:"Manrope",system-ui,sans-serif;font-weight:700;letter-spacing:.16em;text-transform:uppercase;font-size:var(--t-1)}
+  .masthead-meta{display:flex;gap:clamp(16px,2.4vw,34px);flex-wrap:wrap;font-family:"Manrope",system-ui,sans-serif;
+    font-size:var(--t-1);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+  .masthead-meta b{display:block;color:var(--ink);font-weight:700;letter-spacing:.02em;text-transform:none;font-size:var(--t0);margin-top:.25em}
+
+  main{padding-top:clamp(28px,4vw,58px)}
+  .board{display:grid;gap:clamp(16px,2vw,26px);grid-template-columns:repeat(12,minmax(0,1fr))}
+  .panel{background:var(--base);border-radius:var(--r-lg);box-shadow:var(--raise);padding:clamp(20px,2.2vw,32px);position:relative}
+  .span-7{grid-column:span 7}.span-5{grid-column:span 5}
+  @media (max-width:1040px){.span-7,.span-5{grid-column:span 12}}
+  .panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:14px;margin-bottom:clamp(16px,1.8vw,24px)}
+  .panel-head p{color:var(--ink-3);font-size:var(--t-1);font-family:"Manrope",system-ui,sans-serif;letter-spacing:.06em}
+  .hr{border-top:1px solid rgba(150,163,185,.2);margin-top:clamp(20px,2.4vw,30px)}
+
+  .dial-stage{display:grid;grid-template-columns:auto minmax(0,1fr);gap:clamp(22px,3.4vw,52px);align-items:center}
+  @media (max-width:680px){.dial-stage{grid-template-columns:1fr;justify-items:center;text-align:center}}
+  .dial-wrap{position:relative;width:clamp(230px,24vw,300px);aspect-ratio:1;flex:none;border-radius:50%;
+    background:var(--base);box-shadow:var(--raise);display:grid;place-items:center}
+  .dial-wrap::after{content:"";position:absolute;inset:16px;border-radius:50%;box-shadow:var(--press);pointer-events:none}
+  .ticks{position:absolute;inset:0;pointer-events:none}
+  .tick{position:absolute;left:50%;top:50%;width:2px;height:9px;border-radius:2px;background:var(--dk);
+    transform-origin:50% 0;opacity:.5;
+    transition:background .28s var(--ease-soft),opacity .28s var(--ease-soft),height .28s var(--ease-soft)}
+  .tick--major{height:15px;width:2.4px;opacity:.72}
+  .tick.is-lit{background:var(--accent);opacity:1}
+  .tick.is-lit.tick--major{height:18px}
+  .dial{position:relative;width:70%;aspect-ratio:1;border-radius:50%;background:var(--base);box-shadow:var(--raise);
+    cursor:grab;touch-action:none;user-select:none;display:grid;place-items:center;border:0;padding:0;
+    transition:box-shadow .34s var(--ease-soft)}
+  .dial:active{cursor:grabbing}
+  .dial-core{width:82%;aspect-ratio:1;border-radius:50%;box-shadow:var(--press);display:grid;place-items:center;
+    position:relative;transform:rotate(var(--a,-67.5deg))}
+  .dial-wrap.snapping .dial-core{transition:transform .55s cubic-bezier(.34,1.4,.44,1)}
+  .dial-notch{position:absolute;top:6%;left:50%;width:clamp(5px,1.6vw,7px);height:clamp(20px,5.4vw,30px);
+    border-radius:4px;background:var(--base);box-shadow:var(--raise-xs);transform:translateX(-50%)}
+  .dial-notch::after{content:"";position:absolute;inset:auto 0 3px;height:6px;border-radius:4px;background:var(--accent);opacity:.9}
+  .dial-knurl{width:44%;aspect-ratio:1;border-radius:50%;box-shadow:var(--raise-xs);display:grid;place-items:center;background:var(--base)}
+  .dial-readout{font-family:"Manrope",system-ui,sans-serif;font-weight:700;font-size:clamp(.95rem,1.5vw,1.2rem);
+    letter-spacing:.04em;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .dial-info{display:flex;flex-direction:column;gap:clamp(10px,1.2vw,18px);min-width:0}
+  .dial-level{font-size:var(--t3);font-weight:800;letter-spacing:-.03em;line-height:1.05;
+    transition:opacity .22s var(--ease-soft),transform .34s var(--ease)}
+  .dial-level.flip{opacity:0;transform:translateY(-6px)}
+  .dial-desc{color:var(--ink-2);max-width:42ch;line-height:1.6}
+  @media (max-width:680px){.dial-desc{margin-inline:auto}}
+  .detent-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  @media (max-width:680px){.detent-row{justify-content:center}}
+  .detent-row span{font-family:"Manrope",system-ui,sans-serif;font-size:.66rem;font-weight:700;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink-3);padding:.45em .8em;border-radius:999px;background:var(--base);
+    box-shadow:var(--raise-xs);transition:box-shadow .3s var(--ease-soft),color .3s var(--ease-soft)}
+  .detent-row span.on{color:var(--accent);box-shadow:var(--press)}
+
+  .row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:clamp(13px,1.5vw,19px) 0;
+    border-bottom:1px solid rgba(150,163,185,.2)}
+  .row:last-of-type{border-bottom:0}
+  .row-txt{min-width:0}
+  .row-txt strong{display:block;font-weight:700;font-size:var(--t0);letter-spacing:-.008em}
+  .row-txt small{display:block;color:var(--ink-3);font-size:var(--t-1);line-height:1.5;font-family:"Manrope",system-ui,sans-serif}
+  .switch{position:relative;flex:none;width:62px;height:34px;display:block}
+  .switch input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer;z-index:2}
+  .switch .track{position:absolute;inset:0;border-radius:999px;background:var(--base);box-shadow:var(--press);
+    transition:box-shadow .3s var(--ease-soft)}
+  .switch .thumb{position:absolute;top:5px;left:5px;width:24px;height:24px;border-radius:50%;background:var(--base);
+    box-shadow:var(--raise-xs);transition:transform .38s cubic-bezier(.34,1.42,.44,1),box-shadow .3s var(--ease-soft)}
+  .switch .thumb::after{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--accent);opacity:0;transition:opacity .3s var(--ease-soft)}
+  .switch input:checked ~ .track{box-shadow:var(--press-deep)}
+  .switch input:checked ~ .thumb{transform:translateX(28px)}
+  .switch input:checked ~ .thumb::after{opacity:1}
+  .switch input:focus-visible ~ .track{outline:2px solid var(--accent);outline-offset:4px}
+
+  .slider-block{padding:clamp(14px,1.6vw,20px) 0}
+  .slider-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:12px}
+  .slider-top strong{font-weight:700;letter-spacing:-.008em}
+  .slider-top output{font-family:"Manrope",system-ui,sans-serif;font-weight:700;font-variant-numeric:tabular-nums;
+    color:var(--accent);font-size:var(--t0)}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;margin:0;display:block;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:14px;border-radius:999px;background:var(--base);box-shadow:var(--press)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:26px;height:26px;border-radius:50%;
+    background:var(--base);box-shadow:var(--raise-sm);margin-top:-6px;border:0}
+  input[type=range]:active::-webkit-slider-thumb{box-shadow:var(--press)}
+  input[type=range]::-moz-range-track{height:14px;border-radius:999px;background:var(--base);box-shadow:var(--press)}
+  input[type=range]::-moz-range-thumb{width:26px;height:26px;border:0;border-radius:50%;background:var(--base);box-shadow:var(--raise-sm)}
+  input[type=range]:focus-visible::-webkit-slider-thumb{outline:2px solid var(--accent);outline-offset:2px}
+  input[type=range]:focus-visible::-moz-range-thumb{outline:2px solid var(--accent);outline-offset:2px}
+
+  .seg{display:flex;gap:6px;padding:7px;border-radius:var(--r-md);background:var(--base);box-shadow:var(--press)}
+  .seg label{position:relative;flex:1;min-width:0}
+  .seg input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:2}
+  .seg span{display:block;text-align:center;padding:.62em .5em;border-radius:12px;
+    font-family:"Manrope",system-ui,sans-serif;font-weight:700;font-size:var(--t-1);letter-spacing:.08em;
+    text-transform:uppercase;color:var(--ink-3);transition:box-shadow .32s var(--ease-soft),color .32s var(--ease-soft)}
+  .seg input:checked + span{background:var(--base);box-shadow:var(--raise-sm);color:var(--ink)}
+  .seg label:hover span{color:var(--ink-2)}
+  .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:3px}
+
+  .engage-wrap{display:grid;gap:clamp(18px,2.2vw,28px);place-items:center;text-align:center;padding:clamp(6px,1vw,14px) 0 0}
+  .dome{position:relative;width:clamp(190px,22vw,250px);aspect-ratio:1;border-radius:50%;border:0;padding:0;
+    background:var(--base);cursor:pointer;box-shadow:var(--raise);display:grid;place-items:center;
+    transition:box-shadow .38s var(--ease-soft),transform .38s var(--ease)}
+  .dome:hover{transform:translateY(-2px);box-shadow:-11px -11px 24px var(--lt),10px 10px 26px var(--dk)}
+  .dome:active{transform:translateY(0) scale(.985);box-shadow:var(--press-deep)}
+  .dome-face{width:80%;aspect-ratio:1;border-radius:50%;box-shadow:var(--raise-sm);display:grid;place-content:center;
+    gap:.3em;background:radial-gradient(120% 120% at 32% 26%,var(--base-hi),var(--base-lo));position:relative}
+  .dome-face::before{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(201,96,63,0);
+    transition:box-shadow .5s var(--ease-soft)}
+  .dome-label{font-weight:800;font-size:var(--t1);letter-spacing:.16em;text-transform:uppercase}
+  .dome-sub{font-family:"Manrope",system-ui,sans-serif;font-size:var(--t-1);color:var(--ink-3);letter-spacing:.06em}
+  .dome[aria-pressed="true"]{box-shadow:var(--press-deep)}
+  .dome[aria-pressed="true"] .dome-face::before{box-shadow:inset 0 0 0 2px rgba(201,96,63,.75)}
+  .dome[aria-pressed="true"] .dome-sub{color:var(--accent)}
+  .dome-stack{position:relative;display:grid;place-items:center}
+  .halo{position:absolute;width:clamp(190px,22vw,250px);aspect-ratio:1;border-radius:50%;pointer-events:none;
+    box-shadow:0 0 0 1px rgba(201,96,63,.3);opacity:0;transform:scale(.92);transition:opacity .4s var(--ease-soft),transform .4s var(--ease)}
+  .armed .halo{opacity:1;transform:scale(1.06);animation:breathe 3.4s var(--ease-soft) infinite}
+  @keyframes breathe{0%,100%{box-shadow:0 0 0 1px rgba(201,96,63,.3)}50%{box-shadow:0 0 0 11px rgba(201,96,63,0)}}
+  .engage-note{max-width:34ch;color:var(--ink-2);font-size:var(--t0);line-height:1.6}
+
+  .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(12px,1.6vw,20px)}
+  @media (max-width:560px){.stats{grid-template-columns:1fr}}
+  .stat{border-radius:var(--r-md);box-shadow:var(--press);padding:clamp(14px,1.6vw,20px)}
+  .stat b{display:block;font-family:"Manrope",system-ui,sans-serif;font-weight:700;font-size:var(--t2);
+    letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .stat span{display:block;font-size:var(--t-1);letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);
+    font-family:"Manrope",system-ui,sans-serif;font-weight:600;margin-top:.35em}
+
+  .ledger{display:grid}
+  .ledger-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;
+    padding:clamp(10px,1.2vw,14px) clamp(12px,1.4vw,18px);border-radius:14px;box-shadow:var(--raise-xs);margin-bottom:8px}
+  .ledger-row .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+  .ledger-row em{font-family:"Manrope",system-ui,sans-serif;font-style:normal;font-size:var(--t-1);color:var(--ink-3);
+    letter-spacing:.08em;text-transform:uppercase;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ledger-row b{font-weight:700;font-size:var(--t0)}
+
+  footer.end{margin-top:clamp(36px,5vw,72px);padding-top:clamp(20px,2.4vw,32px);
+    border-top:1px solid rgba(150,163,185,.24);display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;
+    color:var(--ink-3);font-family:"Manrope",system-ui,sans-serif;font-size:var(--t-1);letter-spacing:.07em;text-transform:uppercase}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+    .dial-core{transition:none !important}
+  }
+</style>
+</head>
+<body>
+
+<a class="back" href="../index.html"><i aria-hidden="true"></i>Gallery</a>
+
+<div class="shell">
+  <header class="masthead">
+    <div>
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"><span></span></span>
+        <span class="brand-name">Halyard</span>
+      </div>
+      <h1>One surface.<br>Everything pressed or raised.</h1>
+      <p class="lede" style="margin-top:18px">An agent you operate by hand. No text fields, no config files — turn the dial, seat the switches, press the dome.</p>
+    </div>
+    <div class="masthead-meta">
+      <div>Runtime<b>Local · v3.2</b></div>
+      <div>Surface<b>Monochrome</b></div>
+      <div>Light rig<b>TL key · BR fill</b></div>
+    </div>
+  </header>
+
+  <main>
+    <div class="board">
+
+      <section class="panel span-7" aria-labelledby="dial-h">
+        <div class="panel-head">
+          <h2 id="dial-h">Autonomy</h2>
+          <p class="mono">Drag · or arrow keys</p>
+        </div>
+        <div class="dial-stage">
+          <div class="dial-wrap">
+            <div class="ticks" id="ticks" aria-hidden="true"></div>
+            <button class="dial" id="dial" type="button" role="slider" tabindex="0"
+                 aria-labelledby="dial-h" aria-valuemin="0" aria-valuemax="4"
+                 aria-valuenow="2" aria-valuetext="Supervised" aria-describedby="dial-desc">
+              <span class="dial-core" id="dialCore" style="--a:-67.5deg">
+                <span class="dial-notch" aria-hidden="true"></span>
+                <span class="dial-knurl"><span class="dial-readout" id="dialReadout">02</span></span>
+              </span>
+            </button>
+          </div>
+          <div class="dial-info">
+            <div class="dial-level" id="dialLevel">Supervised</div>
+            <p class="dial-desc" id="dial-desc">Proposes a plan, waits for one confirmation, then executes the whole chain unattended.</p>
+            <div class="detent-row" id="detentRow" aria-hidden="true"></div>
+          </div>
+        </div>
+        <div class="hr">
+          <div class="slider-block">
+            <div class="slider-top">
+              <strong id="ceiling-l">Spend ceiling per run</strong>
+              <output id="ceilingOut" for="ceiling">$12.00</output>
+            </div>
+            <input type="range" id="ceiling" min="1" max="80" step="1" value="12" aria-labelledby="ceiling-l">
+          </div>
+          <div class="slider-block" style="padding-bottom:0">
+            <div class="slider-top">
+              <strong id="patience-l">Retry patience</strong>
+              <output id="patienceOut" for="patience">4 attempts</output>
+            </div>
+            <input type="range" id="patience" min="1" max="10" step="1" value="4" aria-labelledby="patience-l">
+          </div>
+        </div>
+      </section>
+
+      <section class="panel span-5" aria-labelledby="engage-h">
+        <div class="panel-head">
+          <h2 id="engage-h">Engage</h2>
+          <p class="mono" id="stateLabel">Idle</p>
+        </div>
+        <div class="engage-wrap" id="engageWrap">
+          <div class="dome-stack">
+            <button class="dome" id="dome" type="button" aria-pressed="false" aria-describedby="engage-note">
+              <span class="dome-face">
+                <span class="dome-label" id="domeLabel">Engage</span>
+                <span class="dome-sub" id="domeSub">Agent stopped</span>
+              </span>
+            </button>
+            <span class="halo" aria-hidden="true"></span>
+          </div>
+          <p class="engage-note" id="engage-note">Pressing the dome arms the runtime. It stays pressed for as long as the agent is live.</p>
+        </div>
+        <div class="stats" style="margin-top:clamp(18px,2vw,26px)">
+          <div class="stat"><b id="statRuns">1,204</b><span>Runs today</span></div>
+          <div class="stat"><b id="statLatency">2.1s</b><span>Median step</span></div>
+          <div class="stat"><b id="statCost">$0.42</b><span>Per task</span></div>
+        </div>
+      </section>
+
+      <section class="panel span-5" aria-labelledby="sw-h">
+        <div class="panel-head"><h2 id="sw-h">Switches</h2><p class="mono">Seated</p></div>
+        <div class="row">
+          <div class="row-txt"><strong>Hold for human review</strong><small>Pause before any irreversible write.</small></div>
+          <label class="switch"><input type="checkbox" id="swReview" checked role="switch">
+            <span class="track"></span><span class="thumb"></span><span class="sr-only">Hold for human review</span></label>
+        </div>
+        <div class="row">
+          <div class="row-txt"><strong>Memory carry-over</strong><small>Persist context between sessions.</small></div>
+          <label class="switch"><input type="checkbox" id="swMemory" role="switch">
+            <span class="track"></span><span class="thumb"></span><span class="sr-only">Memory carry-over</span></label>
+        </div>
+        <div class="row">
+          <div class="row-txt"><strong>Detent clicks</strong><small>Audible tick at each snap point.</small></div>
+          <label class="switch"><input type="checkbox" id="swClick" role="switch" checked>
+            <span class="track"></span><span class="thumb"></span><span class="sr-only">Detent clicks</span></label>
+        </div>
+        <div class="row">
+          <div class="row-txt"><strong>Quiet hours</strong><small>Never dispatch 22:00–07:00.</small></div>
+          <label class="switch"><input type="checkbox" id="swQuiet" role="switch">
+            <span class="track"></span><span class="thumb"></span><span class="sr-only">Quiet hours</span></label>
+        </div>
+      </section>
+
+      <section class="panel span-7" aria-labelledby="md-h">
+        <div class="panel-head"><h2 id="md-h">Mode</h2><p class="mono" id="modeEcho">Build</p></div>
+        <div class="seg" role="radiogroup" aria-labelledby="md-h">
+          <label><input type="radio" name="mode" value="Plan"><span>Plan</span></label>
+          <label><input type="radio" name="mode" value="Build" checked><span>Build</span></label>
+          <label><input type="radio" name="mode" value="Watch"><span>Watch</span></label>
+          <label><input type="radio" name="mode" value="Rest"><span>Rest</span></label>
+        </div>
+        <h3 style="margin-top:clamp(22px,2.6vw,32px)">Session ledger</h3>
+        <div class="ledger" style="margin-top:14px">
+          <div class="ledger-row"><span class="dot" aria-hidden="true"></span><b>Refactored <span class="mono">billing/retry.ts</span></b><em>2m ago</em></div>
+          <div class="ledger-row"><span class="dot" aria-hidden="true"></span><b>Opened draft PR #418</b><em>11m ago</em></div>
+          <div class="ledger-row"><span class="dot" aria-hidden="true"></span><b>Paused for review — schema migration</b><em>26m ago</em></div>
+          <div class="ledger-row"><span class="dot" aria-hidden="true"></span><b>Rebuilt search index</b><em>1h ago</em></div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="end">
+    <span>Halyard Control Surface</span>
+    <span>Composed for one light rig</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  var LEVELS = [
+    { name: "Manual",     desc: "Drafts everything, executes nothing. You carry out each step yourself." },
+    { name: "Assisted",   desc: "Runs read-only work freely and queues every write for your approval." },
+    { name: "Supervised", desc: "Proposes a plan, waits for one confirmation, then executes the whole chain unattended." },
+    { name: "Autonomous", desc: "Plans and executes end to end. Escalates only when a step is irreversible." },
+    { name: "Unbounded",  desc: "Self-directs across services with no confirmation gate. Use behind a hard spend cap." }
+  ];
+
+  var MIN_A = -135, MAX_A = 135, N = LEVELS.length;
+  var SPAN = (MAX_A - MIN_A) / (N - 1);
+  var MINOR = SPAN / 5;
+
+  var dial = $("dial"), core = $("dialCore"), wrap = document.querySelector(".dial-wrap");
+  var levelEl = $("dialLevel"), descEl = $("dial-desc"), readout = $("dialReadout"), ticksEl = $("ticks");
+  var clickSw = $("swClick");
+  var index = 2, angle = MIN_A + index * SPAN, dragging = false, lastLit = -1;
+
+  /* ---------- ticks around the ring (two per minor step) ---------- */
+  var frag = document.createDocumentFragment();
+  var minorCount = Math.round((MAX_A - MIN_A) / MINOR);
+  for (var i = 0; i <= minorCount; i++) {
+    var a = MIN_A + i * MINOR;
+    var isMajor = Math.abs(a % SPAN) < 0.001 || Math.abs(Math.abs(a % SPAN) - SPAN) < 0.001;
+    var t = document.createElement("span");
+    t.className = "tick" + (isMajor ? " tick--major" : "");
+    t.dataset.angle = String(a);
+    frag.appendChild(t);
+  }
+  ticksEl.appendChild(frag);
+  var ticks = Array.prototype.slice.call(ticksEl.children);
+
+  function layoutTicks() {
+    var r = wrap.getBoundingClientRect();
+    var radius = r.width / 2 - 14;
+    ticks.forEach(function (t) {
+      var a = parseFloat(t.dataset.angle) * Math.PI / 180;
+      t.style.transform = "translate(-50%,-50%) translate(" + (Math.sin(a) * radius) + "px," + (-Math.cos(a) * radius) + "px) rotate(" + t.dataset.angle + "deg)";
+    });
+  }
+  layoutTicks();
+
+  /* ---------- audio tick (lazy, gesture-gated) ---------- */
+  var actx = null;
+  function tick() {
+    if (!clickSw.checked) return;
+    try {
+      if (!actx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        actx = new AC();
+      }
+      if (actx.state === "suspended") actx.resume();
+      var o = actx.createOscillator(), g = actx.createGain(), now = actx.currentTime;
+      o.type = "triangle";
+      o.frequency.setValueAtTime(1180, now);
+      o.frequency.exponentialRampToValueAtTime(420, now + 0.045);
+      g.gain.setValueAtTime(0.05, now);
+      g.gain.exponentialRampToValueAtTime(0.0008, now + 0.07);
+      o.connect(g); g.connect(actx.destination);
+      o.start(now); o.stop(now + 0.08);
+    } catch (e) { /* audio unavailable — silent */ }
+  }
+
+  /* ---------- readout ---------- */
+  function paint(animate) {
+    core.style.setProperty("--a", angle.toFixed(2) + "deg");
+    var idx = Math.round((angle - MIN_A) / SPAN);
+    idx = Math.max(0, Math.min(N - 1, idx));
+    readout.textContent = ("0" + (idx + 1)).slice(-2);
+    dial.setAttribute("aria-valuenow", String(idx));
+    dial.setAttribute("aria-valuetext", LEVELS[idx].name);
+    ticks.forEach(function (t) {
+      var d = Math.abs(parseFloat(t.dataset.angle) - angle);
+      t.classList.toggle("is-lit", d < MINOR * 0.85);
+    });
+    if (idx !== lastLit) {
+      lastLit = idx;
+      if (animate) {
+        levelEl.classList.add("flip");
+        window.setTimeout(function () {
+          levelEl.textContent = LEVELS[idx].name;
+          descEl.textContent = LEVELS[idx].desc;
+          levelEl.classList.remove("flip");
+          Array.prototype.forEach.call($("detentRow").children, function (s, i2) {
+            s.classList.toggle("on", i2 === idx);
+          });
+        }, 150);
+      } else {
+        levelEl.textContent = LEVELS[idx].name;
+        descEl.textContent = LEVELS[idx].desc;
+        Array.prototype.forEach.call($("detentRow").children, function (s, i2) {
+          s.classList.toggle("on", i2 === idx);
+        });
+      }
+    }
+  }
+
+  var row = $("detentRow");
+  LEVELS.forEach(function (l) {
+    var s = document.createElement("span");
+    s.textContent = l.name;
+    row.appendChild(s);
+  });
+
+  /* ---------- drag ---------- */
+  function angleFromEvent(ev) {
+    var r = dial.getBoundingClientRect();
+    var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    var deg = Math.atan2(ev.clientX - cx, cy - ev.clientY) * 180 / Math.PI;
+    return Math.max(MIN_A, Math.min(MAX_A, deg));
+  }
+  function onDown(ev) {
+    dragging = true;
+    wrap.classList.remove("snapping");
+    try { dial.setPointerCapture(ev.pointerId); } catch (e) {}
+    angle = angleFromEvent(ev);
+    paint(true);
+    ev.preventDefault();
+  }
+  function onMove(ev) {
+    if (!dragging) return;
+    var next = angleFromEvent(ev);
+    var crossed = Math.floor((next - MIN_A) / SPAN) !== Math.floor((angle - MIN_A) / SPAN);
+    angle = next;
+    paint(true);
+    if (crossed) tick();
+  }
+  function onUp() {
+    if (!dragging) return;
+    dragging = false;
+    var idx = Math.max(0, Math.min(N - 1, Math.round((angle - MIN_A) / SPAN)));
+    wrap.classList.add("snapping");
+    angle = MIN_A + idx * SPAN;
+    paint(true);
+    window.setTimeout(function () { wrap.classList.remove("snapping"); }, 560);
+  }
+  dial.addEventListener("pointerdown", onDown);
+  dial.addEventListener("pointermove", onMove);
+  dial.addEventListener("pointerup", onUp);
+  dial.addEventListener("pointercancel", onUp);
+  dial.addEventListener("keydown", function (ev) {
+    var k = ev.key, moved = true;
+    if (k === "ArrowRight" || k === "ArrowUp") index = Math.min(N - 1, index + 1);
+    else if (k === "ArrowLeft" || k === "ArrowDown") index = Math.max(0, index - 1);
+    else if (k === "Home") index = 0;
+    else if (k === "End") index = N - 1;
+    else moved = false;
+    if (!moved) return;
+    ev.preventDefault();
+    wrap.classList.add("snapping");
+    angle = MIN_A + index * SPAN;
+    paint(true);
+    tick();
+    window.setTimeout(function () { wrap.classList.remove("snapping"); }, 560);
+  });
+
+  /* ---------- sliders ---------- */
+  var ceiling = $("ceiling"), ceilingOut = $("ceilingOut");
+  function syncCeiling() { ceilingOut.textContent = "$" + Number(ceiling.value).toFixed(2); }
+  ceiling.addEventListener("input", syncCeiling); syncCeiling();
+
+  var patience = $("patience"), patienceOut = $("patienceOut");
+  function syncPatience() { patienceOut.textContent = patience.value + (patience.value === "1" ? " attempt" : " attempts"); }
+  patience.addEventListener("input", syncPatience); syncPatience();
+
+  /* ---------- engage dome ---------- */
+  var dome = $("dome"), domeLabel = $("domeLabel"), domeSub = $("domeSub");
+  var stateLabel = $("stateLabel"), engageWrap = $("engageWrap");
+  var runs = 1204, timer = null;
+  dome.addEventListener("click", function () {
+    var on = dome.getAttribute("aria-pressed") !== "true";
+    dome.setAttribute("aria-pressed", on ? "true" : "false");
+    engageWrap.classList.toggle("armed", on);
+    domeLabel.textContent = on ? "Live" : "Engage";
+    domeSub.textContent = on ? "Agent running" : "Agent stopped";
+    stateLabel.textContent = on ? "Live" : "Idle";
+    if (on) {
+      var t0 = Date.now();
+      timer = window.setInterval(function () {
+        runs += 1 + Math.floor(Math.random() * 3);
+        $("statRuns").textContent = runs.toLocaleString("en-US");
+        var s = Date.now() - t0;
+        $("statLatency").textContent = (1.7 + Math.random() * 0.9).toFixed(1) + "s";
+        $("statCost").textContent = "$" + (0.31 + Math.random() * 0.22).toFixed(2);
+        if (s > 60000) { window.clearInterval(timer); timer = null; }
+      }, 1800);
+    } else if (timer) {
+      window.clearInterval(timer); timer = null;
+    }
+  });
+
+  /* ---------- mode segmented ---------- */
+  var modeEcho = $("modeEcho");
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="mode"]'), function (r) {
+    r.addEventListener("change", function () {
+      if (r.checked) modeEcho.textContent = r.value;
+    });
+  });
+
+  /* ---------- resize ---------- */
+  var rt = null;
+  window.addEventListener("resize", function () {
+    if (rt) window.clearTimeout(rt);
+    rt = window.setTimeout(layoutTicks, 120);
+  });
+  window.addEventListener("load", layoutTicks);
+
+  paint(false);
+})();
+</script>
+</body>
+</html>

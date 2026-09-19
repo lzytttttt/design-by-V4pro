@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AGENT&nbsp;01 — Operating Notes (raw document)</title>
+<style>
+  /* ============================================================
+     AGENT/01 — RAW DOCUMENT
+     White paper, black ink, default link blue, one acid-yellow
+     structural block. No radii, no shadows, no decoration.
+     ============================================================ */
+  :root{
+    --ink:#0a0a0a;
+    --paper:#ffffff;
+    --link:#0000ee;
+    --visited:#551a8b;
+    --accent:#e8ff00;
+    --rule:#0a0a0a;
+    --mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
+    --serif: "Times New Roman", Times, "Liberation Serif", Georgia, "Nimbus Roman", serif;
+    --measure: 62ch;
+  }
+
+  *,*::before,*::after{ box-sizing:border-box; border-radius:0 !important; }
+
+  html{ -webkit-text-size-adjust:100%; }
+
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--serif);
+    font-size:clamp(16px, 0.42vw + 14px, 18.5px);
+    line-height:1.42;
+    font-kerning:normal;
+    text-rendering:optimizeLegibility;
+  }
+
+  /* ---------- links: real, blue, underlined ---------- */
+  a{ color:var(--link); text-decoration:underline; text-underline-offset:0.18em; text-decoration-thickness:1px; }
+  a:visited{ color:var(--visited); }
+  a:hover{ background:var(--accent); color:var(--ink); }
+  a:active{ color:#fff; background:var(--ink); }
+
+  :focus-visible{
+    outline:3px solid var(--link);
+    outline-offset:2px;
+  }
+
+  /* ---------- fixed escape hatch ---------- */
+  .backlink{
+    position:fixed; z-index:40; top:0; right:0;
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.04em;
+    text-transform:lowercase;
+    padding:6px 10px;
+    background:var(--paper);
+    color:var(--ink);
+    opacity:.5;
+    border-left:1px solid var(--rule);
+    border-bottom:1px solid var(--rule);
+    text-decoration:none;
+  }
+  .backlink:hover{ opacity:1; background:var(--accent); color:var(--ink); }
+
+  /* ---------- layout skeleton ---------- */
+  .wrap{ padding:0 clamp(16px, 4vw, 56px); }
+  .shell{
+    display:grid;
+    grid-template-columns: minmax(190px, 232px) minmax(0,1fr);
+    gap:0 clamp(24px, 4vw, 64px);
+    align-items:start;
+    max-width:1560px;
+    margin:0 auto;
+    border-top:3px solid var(--rule);
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead{
+    max-width:1560px;
+    margin:0 auto;
+    padding:clamp(20px,3vw,40px) 0 0;
+  }
+  .kicker{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    display:flex; flex-wrap:wrap; gap:10px 22px;
+    margin:0 0 clamp(8px,1.4vw,16px);
+  }
+  .kicker span::after{ content:""; }
+  h1{
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:clamp(2.5rem, 7.4vw, 6.6rem);
+    line-height:0.94;
+    letter-spacing:-0.035em;
+    margin:0 0 clamp(10px,1.6vw,18px);
+    max-width:22ch;
+    text-wrap:balance;
+  }
+  h1 em{ font-style:italic; }
+  .standfirst{
+    font-size:clamp(1.02rem, 1.3vw, 1.32rem);
+    line-height:1.34;
+    max-width:var(--measure);
+    margin:0 0 10px;
+  }
+  .masthead-meta{
+    font-family:var(--mono);
+    font-size:11.5px;
+    line-height:1.7;
+    max-width:var(--measure);
+    margin:0;
+    color:#1b1b1b;
+  }
+
+  /* ---------- you-are-here index ---------- */
+  .toc{
+    position:sticky; top:0;
+    padding:clamp(14px,2vw,26px) 0 clamp(14px,2vw,26px);
+    font-family:var(--mono);
+    font-size:12px;
+    line-height:1.5;
+  }
+  .toc h2{
+    font-family:var(--mono);
+    font-size:11px;
+    font-weight:400;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    margin:0 0 12px;
+  }
+  .toc ol{ list-style:none; margin:0; padding:0; }
+  .toc li{ margin:0 0 2px; }
+  .toc a{
+    display:block;
+    padding:4px 6px 4px 4px;
+    text-decoration:none;
+    color:var(--ink);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    border-left:6px solid transparent;
+    transition:border-color 120ms cubic-bezier(.2,.9,.25,1), background-color 120ms cubic-bezier(.2,.9,.25,1);
+  }
+  .toc a .num{ display:inline-block; min-width:3.1em; color:#5a5a5a; }
+  .toc a .br{ opacity:0; }
+  .toc a:hover{ background:var(--accent); border-left-color:var(--ink); }
+  .toc a:hover .num{ color:var(--ink); }
+  .toc a[aria-current="true"]{
+    background:var(--accent);
+    border-left-color:var(--ink);
+    font-weight:700;
+  }
+  .toc a[aria-current="true"] .br{ opacity:1; }
+  .toc a[aria-current="true"] .num{ color:var(--ink); }
+  .toc-note{
+    margin:14px 0 0;
+    font-size:11px;
+    color:#5a5a5a;
+    border-top:1px solid var(--rule);
+    padding-top:8px;
+  }
+
+  /* ---------- document body ---------- */
+  main{ min-width:0; padding-bottom:clamp(30px,6vw,90px); }
+
+  section.doc{
+    padding:clamp(26px,4.2vw,58px) 0;
+    border-bottom:1px solid var(--rule);
+    scroll-margin-top:12px;
+  }
+  section.doc > *{ max-width:var(--measure); }
+
+  .sec-head{
+    display:flex; align-items:baseline; gap:14px;
+    margin:0 0 6px;
+  }
+  .sec-num{
+    font-family:var(--mono);
+    font-size:12px;
+    font-weight:400;
+    border:1px solid var(--rule);
+    padding:2px 6px;
+    flex:0 0 auto;
+    position:relative; top:-0.5em;
+  }
+  h2{
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:clamp(1.55rem, 3.1vw, 2.7rem);
+    line-height:1.02;
+    letter-spacing:-0.022em;
+    margin:0;
+  }
+  h3{
+    font-family:var(--serif);
+    font-size:clamp(1.06rem, 1.35vw, 1.28rem);
+    font-weight:700;
+    line-height:1.2;
+    letter-spacing:-0.01em;
+    margin:1.5em 0 0.3em;
+  }
+  h3 + p, h3 + ol, h3 + ul{ margin-top:0.35em; }
+  p{ margin:0 0 1em; }
+  .aside{
+    font-family:var(--mono);
+    font-size:11.5px;
+    line-height:1.65;
+    color:#3d3d3d;
+    margin:-2px 0 1.4em;
+  }
+  .aside::before{ content:"/* "; }
+  .aside::after{ content:" */"; }
+
+  ol.steps{ list-style:decimal; margin:0 0 1.2em; padding-left:1.5em; max-width:var(--measure); }
+  ol.steps > li{ margin:0 0 0.9em; padding-left:0.2em; }
+  ol.steps > li > strong{ font-weight:700; }
+  ol.steps .step-note{
+    display:block;
+    font-family:var(--mono);
+    font-size:11px;
+    color:#3d3d3d;
+    margin-top:2px;
+  }
+  ul.plain{ list-style:square; margin:0 0 1.2em; padding-left:1.35em; }
+  ul.plain li{ margin:0 0 0.45em; }
+
+  hr{ border:0; border-top:1px solid var(--rule); margin:clamp(18px,3vw,32px) 0; }
+  hr.heavy{ border-top-width:3px; }
+
+  code, kbd, samp{ font-family:var(--mono); font-size:0.86em; }
+  kbd{
+    border:1px solid var(--rule);
+    padding:0 4px;
+    background:#f4f4f4;
+  }
+  abbr{ text-decoration:underline dotted; cursor:help; }
+
+  /* ---------- THE CLAIM: the only colour on the page ---------- */
+  .claim{
+    border-top:4px solid var(--rule);
+    border-bottom:4px solid var(--rule);
+    background:var(--accent);
+    color:var(--ink);
+    padding:clamp(26px,4.6vw,64px) 0 clamp(22px,3.6vw,48px);
+    margin:0;
+    max-width:none;
+  }
+  .claim .inner{ max-width:1560px; margin:0 auto; padding:0 clamp(16px,4vw,56px); }
+  .claim .tag{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    display:block;
+    margin:0 0 12px;
+  }
+  .claim h2{
+    font-size:clamp(1.5rem, 3.4vw, 2.85rem);
+    line-height:1.04;
+    letter-spacing:-0.033em;
+    font-weight:400;
+    margin:0 0 0.55em;
+    max-width:26ch;
+    text-wrap:balance;
+  }
+  .claim p{
+    font-size:clamp(1rem, 0.5vw + 0.86rem, 1.18rem);
+    line-height:1.4;
+    letter-spacing:0;
+    margin:0 0 1em;
+    max-width:62ch;
+  }
+  .claim .claim-meta{
+    font-family:var(--mono);
+    font-size:11.5px;
+    line-height:1.65;
+    margin:14px 0 0;
+    max-width:62ch;
+    letter-spacing:0;
+  }
+  .claim a{ color:var(--link); }
+  .claim a:hover{ background:var(--ink); color:var(--accent); }
+
+  /* ---------- raw table ---------- */
+  table{
+    width:100%;
+    max-width:var(--measure);
+    border-collapse:collapse;
+    font-family:var(--mono);
+    font-size:12px;
+    margin:0 0 1.2em;
+  }
+  caption{
+    text-align:left;
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    padding-bottom:6px;
+  }
+  th, td{ text-align:left; vertical-align:top; padding:6px 12px 6px 0; border-bottom:1px solid #d8d8d8; }
+  thead th{ border-bottom:1px solid var(--rule); font-weight:700; }
+  tbody tr:hover{ background:#f2f2f2; }
+
+  .brk{ font-family:var(--mono); font-size:11.5px; color:#3d3d3d; }
+  .brk::before{ content:"["; }
+  .brk::after{ content:"]"; }
+
+  /* ---------- footer ---------- */
+  footer.docfoot{
+    border-top:3px solid var(--rule);
+    margin-top:0;
+    padding:clamp(18px,3vw,34px) 0 clamp(40px,7vw,90px);
+    font-family:var(--mono);
+    font-size:11.5px;
+    line-height:1.75;
+  }
+  footer.docfoot .row{
+    display:flex; flex-wrap:wrap; gap:6px 30px;
+    justify-content:space-between;
+    max-width:1560px; margin:0 auto;
+  }
+  footer.docfoot ul{ list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:6px 22px; }
+
+  /* ---------- mobile ---------- */
+  @media (max-width: 860px){
+    .shell{ grid-template-columns:minmax(0,1fr); }
+    .toc{
+      position:sticky; top:0;
+      min-width:0;
+      background:var(--paper);
+      border-bottom:1px solid var(--rule);
+      z-index:30;
+      padding:8px 0 10px;
+    }
+    .toc h2{ margin-bottom:8px; }
+    .toc ol{ display:flex; gap:0; overflow-x:auto; scrollbar-width:thin; }
+    .toc li{ flex:0 0 auto; }
+    .toc a{ padding:4px 8px; }
+    .toc-note{ display:none; }
+    .backlink{ font-size:10px; }
+    .masthead{ padding-top:40px; }
+    main{ min-width:0; padding-top:14px; }
+    table{ table-layout:fixed; }
+    th,td{ overflow-wrap:anywhere; }
+    .masthead-meta, .aside, ul.plain li, ol.steps li{ overflow-wrap:anywhere; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; animation:none !important; scroll-behavior:auto !important; }
+  }
+  html{ scroll-behavior:smooth; }
+</style>
+</head>
+<body>
+
+<a class="backlink" href="../index.html">[&larr; index of 20 designs]</a>
+
+<header class="wrap masthead">
+  <p class="kicker">
+    <span>agent/01</span>
+    <span>operating notes</span>
+    <span>rev 0.4.2</span>
+    <span>revised 14 mar 2026</span>
+  </p>
+  <h1>An agent that reads the repository <em>before</em> it writes a single line.</h1>
+  <p class="standfirst">This document describes what Agent&nbsp;01 does, what it refuses to do, and how to run it on your own machine. It is short on purpose. Nothing here is a metaphor.</p>
+  <p class="masthead-meta">
+    Maintainer: R. Okonjo &middot; Contact: <a href="#s06">see §06</a> &middot; Licence: MIT<br>
+    Reading time: 4 minutes &middot; Print-friendly &middot; No cookies, no analytics, no banner.
+  </p>
+</header>
+
+<div class="shell wrap">
+
+  <nav class="toc" aria-label="Document index">
+    <h2>Index / you are here</h2>
+    <ol id="toc-list">
+      <li><a href="#s01" data-sec="s01"><span class="br">[</span><span class="num">01</span>Scope<span class="br">]</span></a></li>
+      <li><a href="#s02" data-sec="s02"><span class="br">[</span><span class="num">02</span>Method<span class="br">]</span></a></li>
+      <li><a href="#s03" data-sec="s03"><span class="br">[</span><span class="num">03</span>The claim<span class="br">]</span></a></li>
+      <li><a href="#s04" data-sec="s04"><span class="br">[</span><span class="num">04</span>Capabilities<span class="br">]</span></a></li>
+      <li><a href="#s05" data-sec="s05"><span class="br">[</span><span class="num">05</span>Measured<span class="br">]</span></a></li>
+      <li><a href="#s06" data-sec="s06"><span class="br">[</span><span class="num">06</span>Limits &amp; access<span class="br">]</span></a></li>
+    </ol>
+    <p class="toc-note">Six sections. The current one is boxed and filled. Section 03 is the only coloured block on this page, and it is coloured because it is the only sentence we would defend in an argument.</p>
+  </nav>
+
+  <main>
+
+    <section class="doc" id="s01" aria-labelledby="h-s01">
+      <div class="sec-head">
+        <span class="sec-num" aria-hidden="true">01</span>
+        <h2 id="h-s01">Scope</h2>
+      </div>
+      <p class="aside">defines the boundary of the system; anything outside this line is somebody else's problem</p>
+      <p>Agent&nbsp;01 is a program that runs on your machine, in a terminal or an editor, and works on a directory of source code that you hand it. It reads files. It forms a plan. It proposes edits as diffs. It stops.</p>
+      <p>It is not a chat window with a text field bolted to a codebase. There is no cloud workspace, no hosted index of your private code, and no background process that keeps running after you close the window.</p>
+      <h3>What it is not</h3>
+      <ul class="plain">
+        <li>A search engine. It uses one (<a href="#s04">§04</a>) but answers with edits, not links.</li>
+        <li>An autocomplete. Suggestions arrive as reviewable patches, never as keystrokes inserted under your fingers.</li>
+        <li>Autonomous. Every write is gated on an explicit approval, per file, per hunk.</li>
+      </ul>
+    </section>
+
+    <section class="doc" id="s02" aria-labelledby="h-s02">
+      <div class="sec-head">
+        <span class="sec-num" aria-hidden="true">02</span>
+        <h2 id="h-s02">Method</h2>
+      </div>
+      <p class="aside">four steps, strictly ordered; the agent cannot enter a later step without evidence from the earlier one</p>
+      <ol class="steps">
+        <li><strong>Read.</strong> The agent walks the tree, resolves imports, and reads every file it intends to touch, in full — not a window around the target line.
+          <span class="step-note">evidence required: complete file contents, recorded in the run log</span></li>
+        <li><strong>Plan.</strong> It writes a numbered plan of edits in plain language, each tied to a file and a reason.
+          <span class="step-note">evidence required: at least one plan item, or the run fails as &ldquo;no change proposed&rdquo;</span></li>
+        <li><strong>Edit.</strong> It produces unified diffs, one per file. Nothing is written to disk before you approve.
+          <span class="step-note">evidence required: a diff that applies cleanly to the revision it read</span></li>
+        <li><strong>Verify.</strong> It runs the project's own tests and type checks, then reports pass, fail, or inconclusive.
+          <span class="step-note">evidence required: exit codes, kept in the log whether they flatter the agent or not</span></li>
+      </ol>
+      <p>The run log is a file you own: <code>./agent01/runs/&lt;timestamp&gt;.jsonl</code>. Every read, plan item, diff and test result is a line in it. Delete it whenever you like; nothing else depends on it.</p>
+      <p class="brk">aside — steps 1 and 4 account for roughly 80% of wall-clock time, and all of the trust</p>
+    </section>
+
+    <section class="claim" id="s03" aria-labelledby="h-s03">
+      <div class="inner">
+        <span class="tag">§03 &nbsp;·&nbsp; the one claim worth colouring</span>
+        <h2 id="h-s03">It will not write to a file it has not read in full.</h2>
+        <p>Every other capability on this page is a convenience. This one is the product. An agent that edits code it has not read is guessing with your repository, and a guess that compiles is still a guess.</p>
+        <p class="claim-meta">Enforced in the writer, not in the prompt: the edit call takes a content hash of the file as read. If the hash does not match the bytes on disk at write time, the write is refused. See <a href="#s05">§05</a> for the refusal rate, which is 0.00% on unchanged trees and 100% on hand-edited ones.</p>
+      </div>
+    </section>
+
+    <section class="doc" id="s04" aria-labelledby="h-s04">
+      <div class="sec-head">
+        <span class="sec-num" aria-hidden="true">04</span>
+        <h2 id="h-s04">Capabilities</h2>
+      </div>
+      <p class="aside">what the agent can do today, with the command that proves it</p>
+      <ul class="plain">
+        <li><strong>Whole-tree reading.</strong> Follows imports and re-exports to the files that actually matter. <code>agent01 read</code></li>
+        <li><strong>Planned refactors.</strong> Renames a symbol across a module in one reviewed pass, ordering the edits so the tree is never left inconsistent between hunks. <code>agent01 plan --rename</code></li>
+        <li><strong>Test-aware fixes.</strong> Reads the failing test first, then the code under it. <code>agent01 fix --test</code></li>
+        <li><strong>Migration drafting.</strong> Rewrites call sites against a new interface and reports the ones it could not resolve instead of inventing arguments. <code>agent01 migrate</code></li>
+        <li><strong>Explained diffs.</strong> Every hunk carries a one-line reason you can reject on its own. <code>agent01 diff --explain</code></li>
+      </ul>
+      <h3>Interfaces</h3>
+      <p>Terminal, <abbr title="Visual Studio Code">VS&nbsp;Code</abbr> extension, and a small HTTP API on <code>127.0.0.1</code> that the other two are built on. Press <kbd>⌘</kbd><kbd>K</kbd> in the editor build to open the plan list; <kbd>Esc</kbd> always aborts a run, and an abort leaves the tree exactly as it found it.</p>
+    </section>
+
+    <section class="doc" id="s05" aria-labelledby="h-s05">
+      <div class="sec-head">
+        <span class="sec-num" aria-hidden="true">05</span>
+        <h2 id="h-s05">Measured</h2>
+      </div>
+      <p class="aside">numbers from 1,412 runs on nine public repositories; median, not best case</p>
+      <table>
+        <caption>Table 1 — run statistics, revision 0.4.2</caption>
+        <thead>
+          <tr><th scope="col">Measure</th><th scope="col">Median</th><th scope="col">Worst run</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Files read before first edit</th><td>23</td><td>410</td></tr>
+          <tr><th scope="row">Time to first plan</th><td>4.1&nbsp;s</td><td>52&nbsp;s</td></tr>
+          <tr><th scope="row">Diffs accepted without change</th><td>71%</td><td>—</td></tr>
+          <tr><th scope="row">Approved edits that broke a test</th><td>1.6%</td><td>9%</td></tr>
+          <tr><th scope="row">Refused writes, stale hash</th><td>0</td><td>0</td></tr>
+        </tbody>
+      </table>
+      <p class="brk">the 1.6% is the honest figure — claiming zero would make the rest of this page unreadable</p>
+    </section>
+
+    <section class="doc" id="s06" aria-labelledby="h-s06">
+      <div class="sec-head">
+        <span class="sec-num" aria-hidden="true">06</span>
+        <h2 id="h-s06">Limits &amp; access</h2>
+      </div>
+      <p class="aside">known failures, stated plainly, because a feature list without them is advertising</p>
+      <ul class="plain">
+        <li>Repositories above roughly 2&nbsp;GB of text will exhaust the default context budget. Raise it with <code>--budget</code>, and expect a slower plan.</li>
+        <li>Generated code is read but not planned against. Exclude it with <code>.agent01ignore</code>.</li>
+        <li>The agent does not run migrations against a live database. It writes the migration; running it is yours.</li>
+        <li>Monorepos with more than one package manager are supported badly. We know. It is the next release.</li>
+      </ul>
+      <hr>
+      <p><strong>Install:</strong> <code>curl -fsSL agent01.dev/install | sh</code>, or read the <a href="#s01">source</a> first, which we would prefer. Binaries for macOS, Linux and Windows. No account, no telemetry endpoint.</p>
+      <p>Questions and bug reports go to <a href="#s06">mail@agent01.dev</a> or the issue tracker. We answer within two working days, and we publish the fix in the log before we announce it.</p>
+      <hr class="heavy">
+      <p class="brk">end of sections — nothing hidden below the fold except the footer</p>
+    </section>
+
+
+
+  </main>
+</div>
+
+<footer class="docfoot wrap">
+  <div class="row">
+    <p style="margin:0">
+      AGENT&nbsp;01 — operating notes, rev&nbsp;0.4.2 &middot; set in Times and the system monospace
+      &middot; one accent colour, used exactly once &middot; <a href="#s01">top of document</a> &middot;
+      <a href="../index.html">gallery</a>
+    </p>
+    <ul>
+      <li><a href="#s01">01 scope</a></li>
+      <li><a href="#s02">02 method</a></li>
+      <li><a href="#s03">03 claim</a></li>
+      <li><a href="#s04">04 capabilities</a></li>
+      <li><a href="#s05">05 measured</a></li>
+      <li><a href="#s06">06 limits</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var sections = Array.prototype.slice.call(document.querySelectorAll("main section[id]"));
+  var list = document.getElementById("toc-list");
+  var links = list ? Array.prototype.slice.call(list.querySelectorAll("a[data-sec]")) : [];
+  if (!sections.length || !links.length) { return; }
+
+  var activeId = null;
+  var ticking = false;
+
+  function linkFor(id) {
+    for (var i = 0; i < links.length; i++) {
+      if (links[i].getAttribute("data-sec") === id) { return links[i]; }
+    }
+    return null;
+  }
+
+  function setActive(id) {
+    if (id === activeId) { return; }
+    activeId = id;
+    for (var i = 0; i < links.length; i++) {
+      if (links[i].getAttribute("data-sec") === id) {
+        links[i].setAttribute("aria-current", "true");
+      } else {
+        links[i].removeAttribute("aria-current");
+      }
+    }
+    if (list && list.scrollWidth > list.clientWidth + 4) {
+      var l = linkFor(id);
+      if (l) { list.scrollLeft = Math.max(0, l.offsetLeft - 12); }
+    }
+  }
+
+  function update() {
+    ticking = false;
+    var probe = window.innerHeight * 0.24;
+    var current = sections[0].id;
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].getBoundingClientRect().top - probe <= 0) { current = sections[i].id; }
+    }
+    setActive(current);
+  }
+
+  function onScroll() {
+    if (!ticking) { ticking = true; window.requestAnimationFrame(update); }
+  }
+
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll);
+
+  for (var i = 0; i < links.length; i++) {
+    links[i].addEventListener("click", function () {
+      setActive(this.getAttribute("data-sec"));
+    });
+  }
+
+  update();
+})();
+</script>
+</body>
+</html>
